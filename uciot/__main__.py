@@ -1,13 +1,6 @@
-"""
-TODO
-
-Multicast receiver and transmission threads (classes?)
-
-"""
 import threading
 import time
 import socket
-import os
 import config
 
 
@@ -32,6 +25,7 @@ class SendingThread(threading.Thread):
 
 
 if __name__ == '__main__':
+    print("Sending messages from {}".format(config.UDP_IP))
     listening = ListeningThread()
     sending = SendingThread()
     listening.start()
