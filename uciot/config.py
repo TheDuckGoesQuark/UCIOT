@@ -1,8 +1,8 @@
 import ipaddress
 
-LINK_LOCAL_MULTICAST = "FF01"
+LINK_LOCAL_MULTICAST = "FF02"
 HEX_USER_ID = "4EA3"
-UDP_IP = LINK_LOCAL_MULTICAST + "::1".decode('utf-8')
+UDP_IP = LINK_LOCAL_MULTICAST + "::" + HEX_USER_ID + ":1".decode('utf-8')
 
 UDP_PORT = 8080
 MESSAGE = "Hello World!"
