@@ -1,6 +1,5 @@
 import struct
 import threading
-import time
 import socket
 import config
 import json
@@ -13,6 +12,13 @@ packetQueue = Queue()
 
 
 class Packet:
+    """
+    The payload of the UDP datagram used to imitate ILNP packets. 
+    The src and dest addresses should have the format Locator:Identifer, 
+    such that the locator identifies the sub-network the node belongs to,
+    and the identifier is unique to that node.
+    """
+
     def __init__(self, src_address, dest_address, payload, hop_limit):
         self.src_address = src_address
         self.dest_address = dest_address
@@ -89,7 +95,6 @@ class RoutingThread(threading.thread):
     def send(self, packet):
         # TODO dest address should use locator value merged with last bits in IPv6 multicast address
         self.sock.sendto(json.dumps(packet.__dict__), (config.UDP_IP, config.UDP_PORT))
-
 
 if __name__ == '__main__':
     listening = ListeningThread()
