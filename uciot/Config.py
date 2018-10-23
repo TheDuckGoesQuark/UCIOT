@@ -61,4 +61,3 @@ def get_default_id():
     """Provides a unique identifier for the network by producing the hex value of the given users uid"""
     uid = os.getuid()
     return format(uid, 'x')
-

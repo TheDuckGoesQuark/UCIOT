@@ -1,14 +1,18 @@
 import struct
 import threading
 import socket
-import config
 import json
 from Queue import Queue
+from Config import Config
 
 """
 Stores packets waiting to be parsed, validated, and routed.
 """
 packetQueue = Queue()
+
+"""
+Stores mapping of locator to interface 
+"""
 
 
 class Packet:
@@ -28,6 +32,12 @@ class Packet:
     def decrement_hop_limit(self):
         self.hop_limit -= 1
 
+    def print_packet(self):
+        print("ILNP Source: {}".format(self.src_address))
+        print("ILNP Dest  : {}".format(self.dest_address))
+        print("Payload    : {}".format(self.payload))
+        print("Hop limit  : {}".format(self.payload))
+
     @classmethod
     def parse_packet(cls, packet):
         """Parses object from packet json"""
@@ -41,7 +51,7 @@ class ListeningThread(threading.Thread):
     to be handled.
     """
 
-    def __init__(self):
+    def __init__(self, config):
         super(ListeningThread, self).__init__()
 
         # Initialise socket for IPv6 datagrams
@@ -51,7 +61,7 @@ class ListeningThread(threading.Thread):
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
         # Binds to any interface on the given port
-        self.sock.bind(('', config.UDP_PORT))
+        self.sock.bind(('', config.port))
 
         # Allow messages from this socket to loop back for development
         # TODO make env configurable
@@ -59,7 +69,7 @@ class ListeningThread(threading.Thread):
 
         # Construct message for joining multicast group
         # TODO add support for multiple multicast groups (i.e networks) by joining multiple groups in config
-        mreq = struct.pack("16s15s", socket.inet_pton(socket.AF_INET6, config.UDP_IP), chr(0) * 16)
+        mreq = struct.pack("16s15s", socket.inet_pton(socket.AF_INET6, config.ipv6_multicast_addresses[0]), chr(0) * 16)
         self.sock.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_JOIN_GROUP, mreq)
 
     def run(self):
@@ -71,18 +81,19 @@ class ListeningThread(threading.Thread):
             packetQueue.put(packet)
 
 
-class RoutingThread(threading.thread):
+class RoutingThread(threading.Thread):
     """
     Routing thread manages all entries to the packet queue, determine the course of action 
      for each packet.
     """
 
-    def __init__(self):
+    def __init__(self, config):
         super(RoutingThread, self).__init__()
 
         # Configure socket for sending IPv6 Datagrams
         self.sock = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM)
         self.sock.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_MULTICAST_LOOP, True)
+        self.config = config
 
     def run(self):
         print "Beginning Routing Thread"
@@ -94,10 +105,12 @@ class RoutingThread(threading.thread):
 
     def send(self, packet):
         # TODO dest address should use locator value merged with last bits in IPv6 multicast address
-        self.sock.sendto(json.dumps(packet.__dict__), (config.UDP_IP, config.UDP_PORT))
+        self.sock.sendto(json.dumps(packet.__dict__), (self.config.ipv6_multicast_addresses[0], self.config.port))
+
 
 if __name__ == '__main__':
-    listening = ListeningThread()
-    routing = RoutingThread()
+    config = Config()
+    listening = ListeningThread(config)
+    routing = RoutingThread(config)
     listening.start()
     routing.start()
