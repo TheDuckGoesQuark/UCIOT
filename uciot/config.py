@@ -18,7 +18,7 @@ class Config:
                             help="Hex value between 0 and FFFF. This is used for the last 16 bits of the IPv6 "
                                  "multicast address, which is used in the overlay to isolate subnetworks, so "
                                  "an ILNP locator will map to this group id. Defaults to 0000 if not given. Multiple "
-                                 "values can be given such that this node will bridge multiple networks.",
+                                 "values can be given so that this node will bridge multiple networks.",
                             default='0000')
 
         parser.add_argument('-p', '--port',
@@ -36,7 +36,8 @@ class Config:
 
         parser.add_argument('-s', '--sleep',
                             help="Time to sleep in seconds between this node sending packets to hosts. A value of -1 "
-                                 "will disable these packets.")
+                                 "will disable these packets.",
+                            default=3)
 
         args = parser.parse_args()
         print "Node running with the following configuration:"
