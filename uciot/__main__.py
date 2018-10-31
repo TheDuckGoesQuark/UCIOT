@@ -64,7 +64,6 @@ class ListeningThread(threading.Thread):
         self.sock.bind(('', config.port))
 
         # Allow messages from this socket to loop back for development
-        # TODO make env configurable
         self.sock.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_MULTICAST_LOOP, True)
 
         # Construct message for joining multicast group

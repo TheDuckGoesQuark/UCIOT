@@ -42,12 +42,12 @@ class Config:
         print "Node running with the following configuration:"
         print(args)
 
-        self.uid = args.uid
-        self.group_ids = args.g
-        self.port = args.p
-        self.hop_count = args.hc
-        self.message = args.m
-        self.sleep = args.s
+        self.uid = args.unique_identifier
+        self.group_ids = args.group_id
+        self.port = args.port
+        self.hop_count = args.hop_count
+        self.message = args.message
+        self.sleep = args.sleep
         self.ipv6_multicast_addresses = [buildIPv6MulticastAddress(self.uid, group_id) for group_id in self.group_ids]
 
 
