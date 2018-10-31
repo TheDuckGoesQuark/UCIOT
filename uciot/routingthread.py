@@ -27,7 +27,7 @@ class RoutingThread(threading.Thread):
     def run(self):
         print "Beginning Routing Thread"
 
-        packet = "1"
+        packet = "00023412034013402134000213400Aasdasdf21400".encode()
         while True:
             self.send(packet)
 

@@ -3,12 +3,12 @@ class Packet:
     The payload of the UDP datagram used to imitate ILNP packets. 
     """
 
-    def __init__(self, bytes):
-        self.version = bytes
-        self.src_address = bytes
-        self.dest_address = bytes
-        self.payload = bytes
-        self.hop_limit = bytes
+    def __init__(self, message_buffer, number_of_bytes):
+        self.version = message_buffer
+        self.src_address = message_buffer
+        self.dest_address = message_buffer
+        self.payload = message_buffer
+        self.hop_limit = message_buffer
 
     def decrement_hop_limit(self):
         self.hop_limit -= 1

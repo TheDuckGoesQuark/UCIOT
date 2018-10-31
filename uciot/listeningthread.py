@@ -45,13 +45,14 @@ class ListeningThread(threading.Thread):
         print("Beginning listening")
         while True:
             # Create a buffer of size 1024 to receive messages
-            message_bytes, ipv6_address = self.sock.recvfrom(1024)
+            toRead = 1024
+            message, ipv6_address = self.sock.recv(toRead)
             print("received message '{}' from node with ipv6 address {} "
-                  .format(message_bytes.decode('utf-8'), ipv6_address))
+                  .format(message, ipv6_address))
 
             # Parse packet and add to queue
             try:
-                packet = Packet(message_bytes)
+                packet = Packet(message_buffer, number_of_bytes)
                 message_queue.put(packet)
             except ValueError:
                 print("Invalid packet received, discarded")
