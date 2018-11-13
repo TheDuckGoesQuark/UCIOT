@@ -59,4 +59,5 @@ class ListeningThread(threading.Thread):
                 print("Invalid packet received, discarded")
 
     def get_payload_from_buffer(self, payload_length, buffer):
+        pass # TODO
 
