@@ -3,7 +3,7 @@ import struct
 import threading
 
 from messagequeue import message_queue
-from packet import Packet
+from packet import Packet, PacketHeader
 
 
 def create_listening_socket(port, multicast_group):
@@ -45,14 +45,18 @@ class ListeningThread(threading.Thread):
         print("Beginning listening")
         while True:
             # Create a buffer of size 1024 to receive messages
-            toRead = 1024
-            message, ipv6_address = self.sock.recv(toRead)
-            print("received message '{}' from node with ipv6 address {} "
-                  .format(message, ipv6_address))
+            to_read = 1024
+            buf, ipv6_address = self.sock.recv(to_read)
+            print("received message from node with ipv6 address {} "
+                  .format(ipv6_address))
 
             # Parse packet and add to queue
             try:
-                packet = Packet(message_buffer, number_of_bytes)
+                header = PacketHeader(buf)
+                packet = Packet(header, self.get_payload_from_buffer(header.payload_length, buf))
                 message_queue.put(packet)
             except ValueError:
                 print("Invalid packet received, discarded")
+
+    def get_payload_from_buffer(self, payload_length, buffer):
+

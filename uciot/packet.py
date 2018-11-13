@@ -1,27 +1,39 @@
 class Packet:
-    """
-    The payload of the UDP datagram used to imitate ILNP packets. 
-    """
-
-    def __init__(self, message_buffer, number_of_bytes):
-        self.version = message_buffer
-        self.src_address = message_buffer
-        self.dest_address = message_buffer
-        self.payload = message_buffer
-        self.hop_limit = message_buffer
+    def __init__(self, header, payload):
+        self.header = header
+        self.payload = payload
 
     def decrement_hop_limit(self):
-        self.hop_limit -= 1
+        self.header.hop_limit -= 1
 
     def print_packet(self):
-        print("ILNP Source: {}".format(self.src_address))
-        print("ILNP Dest  : {}".format(self.dest_address))
+        print("Header     : {}".format(self.header))
         print("Payload    : {}".format(self.payload))
+
+
+class PacketHeader:
+    """
+    The header of the ILNP packet.
+    """
+
+    def __init__(self, message_buffer):
+        self.version = message_buffer
+        self.traffic_class = message_buffer
+        self.flow_label = message_buffer
+        self.payload_length = message_buffer
+        self.next_header = message_buffer
+        self.hop_limit = message_buffer
+        self.src_locator = message_buffer
+        self.src_identifier = message_buffer
+        self.dest_locator = message_buffer
+        self.dest_identifier = message_buffer
+
+    def print_packet(self):
+        print("ILNP Source: {}-{}".format(self.src_locator, self.src_identifier))
+        print("ILNP Dest  : {}-{}".format(self.dest_locator, self.dest_identifier))
         print("Hop limit  : {}".format(self.hop_limit))
 
     @classmethod
-    def parse_packet(cls, packet):
-        """Parses object from packet json"""
-        # packet = json.loads(packet)
-        # return Packet(str(packet.src_address), str(packet.dest_address), str(packet.payload), str(packet.hop_limit))
+    def parse_header(cls, buff):
+
         return packet
