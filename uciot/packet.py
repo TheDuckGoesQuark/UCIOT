@@ -16,6 +16,17 @@ class PacketHeader:
     The header of the ILNP packet.
     """
 
+    """ 
+    Sizes of each header field in bits
+    """
+    version_size = 4
+    traffic_class_size = 4
+    flow_label_size = 20
+    payload_length_size = 16
+    next_header_size = 8
+    hop_limit_size = 8
+    address_field_size = 64
+
     def __init__(self, message_buffer):
         self.version = message_buffer
         self.traffic_class = message_buffer
@@ -36,4 +47,4 @@ class PacketHeader:
     @classmethod
     def parse_header(cls, buff):
 
-        return packet
+
