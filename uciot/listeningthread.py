@@ -51,17 +51,20 @@ class ListeningThread(threading.Thread):
             print("received message from node with ipv6 address {} "
                   .format(ipv6_address))
 
-            # Parse packet and add to queue
+            # parse packet and add to queue
             try:
                 byte_array = bytearray(buf)
                 header = PacketHeader(byte_array)
                 packet = Packet(header, get_payload_from_buffer(len(header), header.payload_length, byte_array))
                 message_queue.put(packet)
+
             except ValueError:
-                print("Invalid packet received, discarded")
+                print("invalid packet received, discarded")
 
 
 def get_payload_from_buffer(offset, payload_length, byte_array):
     first_byte_index = ceil(offset / 8)
     last_byte_index = first_byte_index + ceil(payload_length / 8)
     return byte_array[first_byte_index:last_byte_index]
+
+# M17.2 look into multiprocessing

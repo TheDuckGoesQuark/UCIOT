@@ -36,3 +36,6 @@ if __name__ == '__main__':
     initialize_listening_threads(config.ipv6_multicast_addresses, config.port)
     initialize_routing_thread(config.port, config.ipv6_multicast_addresses[0])
     simulateTraffic(config.sleep, config.message)
+
+
+#
