@@ -21,8 +21,8 @@ def create_listening_socket(port, multicast_group):
     sock.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_MULTICAST_LOOP, True)
 
     # Construct message for joining multicast group
-    mreq = struct.pack("16s15s", socket.inet_pton(socket.AF_INET6, multicast_group), chr(0) * 16)
-    sock.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_JOIN_GROUP, mreq)
+    multicast_request = struct.pack("16s15s".encode('utf-8'), socket.inet_pton(socket.AF_INET6, multicast_group), (chr(0) * 16).encode('utf-8'))
+    sock.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_JOIN_GROUP, multicast_request)
 
     return sock
 
