@@ -1,10 +1,8 @@
-import socket
-import struct
 import threading
 from math import ceil
 
 from uciot.messagequeue import message_queue
-from uciot.packet import PacketHeader, Packet
+from uciot.underlay.packet import PacketHeader, Packet
 
 
 class ListeningThread(threading.Thread):

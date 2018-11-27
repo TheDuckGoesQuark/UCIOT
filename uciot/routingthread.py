@@ -2,15 +2,6 @@ import socket
 import threading
 
 
-def create_sending_socket():
-    """
-    Configures a socket for sending IPv6 UDP datagrams.
-    Disallows packets being sent back to this socket
-    :return: configured socket object
-    """
-    sock = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM)
-    sock.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_MULTICAST_LOOP, False)
-    return sock
 
 
 class RoutingThread(threading.Thread):
