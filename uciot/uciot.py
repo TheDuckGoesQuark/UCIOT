@@ -1,7 +1,7 @@
 from time import sleep
 
 from uciot.config import Config
-from uciot.listeningthread import ListeningThread
+from uciot.underlay.listeningthread import ListeningThread
 from uciot.messagequeue import message_queue
 from uciot.routingthread import RoutingThread
 

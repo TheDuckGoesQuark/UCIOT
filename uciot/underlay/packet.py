@@ -34,7 +34,6 @@ class PacketHeader:
     address_field_size = 64
 
     def __init__(self, byte_array):
-        # Set fields
         current_bit = 0
         self.version = get_int_from_bytes(current_bit, self.version_size, byte_array)
         current_bit += self.version_size
