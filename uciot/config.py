@@ -1,59 +1,26 @@
 import argparse as ap
 import os
+from configparser import ConfigParser
 
 LINK_LOCAL_MULTICAST = "FF02"
 
 
-class Config:
-    def __init__(self):
-        parser = ap.ArgumentParser()
+def parse_uid(opt_string_uid):
+    if opt_string_uid:
+        return int(opt_string_uid)
+    else:
+        return get_default_id()
 
-        parser.add_argument('-uid',
-                            '--unique_identifier',
-                            help="A unique 4 char hex identifier that can be used to avoid collisions with "
-                                 "other multicast groups. The current users uid will be used if not supplied.",
-                            default=get_default_id())
 
-        parser.add_argument('-g', '--group_id', action='append',
-                            help="Hex value between 0 and FFFF. This is used for the last 16 bits of the IPv6 "
-                                 "multicast address, which is used in the overlay to isolate subnetworks, so "
-                                 "an ILNP locator will map to this group id. Defaults to 0000 if not given. Multiple "
-                                 "values can be given so that this node will bridge multiple networks.",
-                            default='0000')
-
-        parser.add_argument('-p', '--port',
-                            help="Port number to be used for UDP socket binding. Defaults to 8080.",
-                            default=8080)
-
-        parser.add_argument('-hc', '--hop_count',
-                            help="Number of hops to allow for each packet before being discarded. Defaults to 3",
-                            default=3)
-
-        parser.add_argument('-m', '--message',
-                            help="Plaintext message to be sent as payload of ILNP packets. Defaults to 'Hello "
-                                 "World!', of course.",
-                            default="Hello World!")
-
-        parser.add_argument('-s', '--sleep',
-                            help="Time to sleep in seconds between this node sending packets to hosts. A value of -1 "
-                                 "will disable these packets.",
-                            default=3)
-
-        args = parser.parse_args()
-        print("Node running with the following configuration:")
-        print(args)
-
-        self.uid = args.unique_identifier
-        self.group_ids = args.group_id
-        self.port = args.port
-        self.hop_count = args.hop_count
-        self.message = args.message
-        self.sleep = args.sleep
-        self.ipv6_multicast_addresses = [build_ipv6_multicast_address(self.uid, group_id) for group_id in self.group_ids]
+def parse_group_ids(opt_list_uids):
+    if opt_list_uids:
+        return set(opt_list_uids.split(','))
+    else:
+        return {hex(0)}
 
 
 def build_ipv6_multicast_address(uid, group_id):
-    """Takes the unique identifer and multicast group id (locator) and produces the ipv6 multicast address for this 
+    """Takes the unique identifer and multicast group id (locator) and produces the ipv6 multicast address for this
     sub network """
     return (LINK_LOCAL_MULTICAST + "::" + uid + ":" + group_id).decode('utf-8')
 
@@ -62,3 +29,42 @@ def get_default_id():
     """Provides a unique identifier for the network by producing the hex value of the given users uid"""
     uid = os.getuid()
     return format(uid, 'x')
+
+
+class Config:
+    def __init__(self):
+        self.locators_to_ipv6 = None
+        parser = ap.ArgumentParser()
+
+        parser.add_argument('f',
+                            'config_file',
+                            help="The path to a python configuration file to be used for providing arguments.",
+                            default=None)
+
+        parser.add_argument('-s',
+                            '--section',
+                            help="Which section of initialisation file to use.",
+                            default="DEFAULT")
+
+        args = parser.parse_args()
+        print("Node running with the following configuration:")
+        print(args)
+
+        config_file = args.config_file
+        section = args.section
+
+        if config_file is not None:
+            cp = ConfigParser()
+            cp.read(config_file)
+            fields = cp[section]
+            self.uid = parse_uid(fields['unique_identifier'])
+            self.group_ids = parse_group_ids(fields['locator_to_ipv6'])
+            self.port = fields.getint('port', 8080)
+            self.hop_count = fields.getint('hop_count', 32)
+            self.message = fields.get('message', "hello world")
+            self.sleep = fields.getint('sleep', 3)
+            self.locators_to_ipv6 = {group_id: build_ipv6_multicast_address(self.uid, group_id) for group_id in
+                                     self.group_ids}
+            print(fields(self))
+        else:
+            raise FileNotFoundError("No config file could be found at {}".format(config_file))

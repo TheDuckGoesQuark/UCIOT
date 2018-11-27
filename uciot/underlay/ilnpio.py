@@ -22,12 +22,12 @@ class ILNPIO:
         :param locators_to_ipv6: a map of locators and the corresponding ipv6 multicast address to be used
         :param port_number: port number to be used for UDP sockets
         """
-        self.sender = SendingSocket()
-        self.locators_to_ipv6 = locators_to_ipv6
+        self.__sender = SendingSocket()
+        self.__locators_to_ipv6 = locators_to_ipv6
         receivers = create_receivers(locators_to_ipv6, port_number)
-        self.message_queue = Queue()
-        self.listening_thread = ListeningThread(receivers, self.message_queue)
-        self.listening_thread.run()
+        self.__message_queue = Queue()
+        self.__listening_thread = ListeningThread(receivers, self.__message_queue)
+        self.__listening_thread.run()
 
     def send(self, packet_bytes, next_hop_locator):
         """
@@ -37,20 +37,20 @@ class ILNPIO:
         :raises ValueError: if the next_hop_locator value is not a known locator to this node
         :return: number of bytes sent. Should match the size of the packet
         """
-        if next_hop_locator not in self.locators_to_ipv6:
+        if next_hop_locator not in self.__locators_to_ipv6:
             raise ValueError("Next hop locator value is not known: {}".format(next_hop_locator))
 
-        return self.sender.sendTo(packet_bytes, self.locators_to_ipv6[next_hop_locator])
+        return self.__sender.sendTo(packet_bytes, self.__locators_to_ipv6[next_hop_locator])
 
     def receive(self, timeout=None):
         """Polls for packet. A timeout can be supplied"""
-        return self.message_queue.get(block=True, timeout=timeout)
+        return self.__message_queue.get(block=True, timeout=timeout)
 
     def __enter__(self):
         return self
 
     def __exit__(self):
         """Closes sockets and joins thread upon exit"""
-        self.listening_thread.stop()
-        self.listening_thread.join()
-        self.sender.close()
+        self.__listening_thread.stop()
+        self.__listening_thread.join()
+        self.__sender.close()
