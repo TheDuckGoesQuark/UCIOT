@@ -40,9 +40,13 @@ class PacketHeader:
     next_header_size = 8
     hop_limit_size = 8
     address_field_size = 64
+    min_length = version_size + traffic_class_size + flow_label_size + payload_length_size + next_header_size + hop_limit_size + address_field_size
 
     def __init__(self, byte_array):
         # TODO add extension headers
+        if len(byte_array) < (self.min_length / 8):
+            raise ValueError
+
         current_bit = 0
         self.version = get_int_from_bytes(current_bit, self.version_size, byte_array)
         current_bit += self.version_size

@@ -23,13 +23,10 @@ class ListeningThread(threading.Thread):
 
     def read_sock(self, listening_socket, buffer_size=1280):
         data, addr = listening_socket.recvfrom(buffer_size)
-        self.__message_queue.put(Packet(listening_socket.locator, data))
+        try:
+            self.__message_queue.put(Packet(listening_socket.locator, data))
+        except ValueError:
+            print("Bad packet received.")
 
     def stop(self):
         self.__stopped = True
-
-
-def get_payload_from_buffer(offset, payload_length, byte_array):
-    first_byte_index = ceil(offset / 8)
-    last_byte_index = first_byte_index + ceil(payload_length / 8)
-    return byte_array[first_byte_index:last_byte_index]
