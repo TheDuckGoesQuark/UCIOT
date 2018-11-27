@@ -2,8 +2,9 @@ import socket
 
 
 class SendingSocket:
-    def __init__(self):
-        self.sock = create_sending_socket()
+    def __init__(self, port_number):
+        self.__port = port_number
+        self.__sock = create_sending_socket()
 
     def sendTo(self, packet_bytes, dest):
         """
@@ -12,10 +13,10 @@ class SendingSocket:
         :param dest: destination to send packet bytes
         :return: number of bytes sent
         """
-        return self.sock.sendto(packet_bytes, dest)
+        return self.__sock.sendto(packet_bytes, (dest, self.__port))
 
     def close(self):
-        self.sock.close()
+        self.__sock.close()
 
 
 def create_sending_socket():

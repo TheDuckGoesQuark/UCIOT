@@ -1,7 +1,6 @@
 import datetime
 import threading
 import select
-from math import ceil
 
 from uciot.underlay.packet import Packet
 
