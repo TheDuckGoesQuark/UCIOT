@@ -1,4 +1,3 @@
-import argparse as ap
 import os
 from configparser import ConfigParser
 
@@ -22,7 +21,7 @@ def parse_group_ids(opt_list_uids):
 def build_ipv6_multicast_address(uid, group_id):
     """Takes the unique identifer and multicast group id (locator) and produces the ipv6 multicast address for this
     sub network """
-    return (LINK_LOCAL_MULTICAST + "::" + uid + ":" + group_id).decode('utf-8')
+    return LINK_LOCAL_MULTICAST + "::" + uid + ":" + group_id
 
 
 def get_default_id():
@@ -32,39 +31,25 @@ def get_default_id():
 
 
 class Config:
-    def __init__(self):
-        self.locators_to_ipv6 = None
-        parser = ap.ArgumentParser()
-
-        parser.add_argument('f',
-                            'config_file',
-                            help="The path to a python configuration file to be used for providing arguments.",
-                            default=None)
-
-        parser.add_argument('-s',
-                            '--section',
-                            help="Which section of initialisation file to use.",
-                            default="DEFAULT")
-
-        args = parser.parse_args()
-        print("Node running with the following configuration:")
-        print(args)
-
-        config_file = args.config_file
-        section = args.section
-
+    def __init__(self, config_file, section="DEFAULT"):
         if config_file is not None:
             cp = ConfigParser()
             cp.read(config_file)
             fields = cp[section]
             self.uid = parse_uid(fields['unique_identifier'])
-            self.group_ids = parse_group_ids(fields['locator_to_ipv6'])
+            self.group_ids = parse_group_ids(fields['group_ids'])
             self.port = fields.getint('port', 8080)
             self.hop_count = fields.getint('hop_count', 32)
             self.message = fields.get('message', "hello world")
             self.sleep = fields.getint('sleep', 3)
             self.locators_to_ipv6 = {group_id: build_ipv6_multicast_address(self.uid, group_id) for group_id in
                                      self.group_ids}
-            print(fields(self))
+            print("The following configuration was detected:")
+            print("uid: {}".format(self.uid))
+            print("port: {}".format(self.port))
+            print("hop count: {}".format(self.hop_count))
+            print("message: {}".format(self.message))
+            print("sleep: {}".format(self.sleep))
+            print("locators:ipv6: {}".format(self.locators_to_ipv6))
         else:
             raise FileNotFoundError("No config file could be found at {}".format(config_file))

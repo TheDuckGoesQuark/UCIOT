@@ -17,7 +17,7 @@ class ListeningThread(threading.Thread):
         """Continuously checks for incoming packets on each listening socket and
         adds new packets to the message queue"""
         while not self.__stopped:
-            ready_socks, _, _ = select.select(self.__listening_sockets, [], [], timeout=timeout)
+            ready_socks, _, _ = select.select(self.__listening_sockets, [], [], timeout)
             for sock in ready_socks:
                 self.read_sock(sock)
 
