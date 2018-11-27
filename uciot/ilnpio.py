@@ -27,7 +27,8 @@ class ILNPIO:
         receivers = create_receivers(locators_to_ipv6, port_number)
         self.__message_queue = Queue()
         self.__listening_thread = ListeningThread(receivers, self.__message_queue)
-        self.__listening_thread.run()
+        self.__listening_thread.start()
+        print("ILNP IO Initialised")
 
     def send(self, packet_bytes, next_hop_locator):
         """
@@ -44,7 +45,14 @@ class ILNPIO:
 
     def receive(self, timeout=None):
         """Polls for packet. A timeout can be supplied"""
-        return self.__message_queue.get(block=True, timeout=timeout)
+        packet = self.__message_queue.get(block=True, timeout=timeout)
+        if packet is None:
+            print("adsf")
+            return
+
+        print("435")
+        self.__message_queue.task_done()
+        return packet
 
     def __enter__(self):
         return self

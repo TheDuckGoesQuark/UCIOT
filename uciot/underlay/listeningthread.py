@@ -1,3 +1,4 @@
+import datetime
 import threading
 import select
 from math import ceil
@@ -13,6 +14,10 @@ class ListeningThread(threading.Thread):
         self.__message_queue = message_queue
         self.__stopped = False
 
+        # Stats for debugging
+        self.__packets_dropped = 0
+        self.__packets_accepted = 0
+
     def run(self, timeout=None):
         """Continuously checks for incoming packets on each listening socket and
         adds new packets to the message queue"""
@@ -23,10 +28,14 @@ class ListeningThread(threading.Thread):
 
     def read_sock(self, listening_socket, buffer_size=1280):
         data, addr = listening_socket.recvfrom(buffer_size)
+        self.__packets_accepted += 1
         try:
             self.__message_queue.put(Packet(listening_socket.locator, data))
+            print("Good packet received from {} at {}".format(addr, datetime.datetime.now()))
         except ValueError:
+            self.__packets_dropped += 1
             print("Bad packet received.")
+            print("Percentage dropped: {}".format((self.__packets_dropped / self.__packets_accepted) * 100))
 
     def stop(self):
         self.__stopped = True
