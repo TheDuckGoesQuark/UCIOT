@@ -14,6 +14,9 @@ class SendingSocket:
         """
         return self.sock.sendto(packet_bytes, dest)
 
+    def close(self):
+        self.sock.close()
+
 
 def create_sending_socket():
     """

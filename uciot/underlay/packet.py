@@ -1,10 +1,18 @@
 from math import floor, ceil
 
 
+def parse_payload(offset_bits, payload_length, data):
+    # Assume padding
+    first_byte_index = ceil(offset_bits / 8)
+    last_byte_index = first_byte_index + payload_length
+    return data[first_byte_index:last_byte_index]
+
+
 class Packet:
-    def __init__(self, header, payload):
-        self.header = header
-        self.payload = payload
+    def __init__(self, arriving_interface, data):
+        self.arriving_interface = arriving_interface
+        self.header = PacketHeader(bytearray(data))
+        self.payload = parse_payload(len(self.header), self.header.payload_length, data)
 
     def decrement_hop_limit(self):
         self.header.hop_limit -= 1
@@ -34,6 +42,7 @@ class PacketHeader:
     address_field_size = 64
 
     def __init__(self, byte_array):
+        # TODO add extension headers
         current_bit = 0
         self.version = get_int_from_bytes(current_bit, self.version_size, byte_array)
         current_bit += self.version_size
@@ -80,6 +89,7 @@ def get_int_from_bytes(offset_bits, number_of_bits, message_bytes):
     start_byte_index = floor(offset_bits / 8)
     last_byte_index = ceil(number_of_bits / 8) + start_byte_index
     relevant_bytes = message_bytes[start_byte_index:last_byte_index]
+
     if not starts_on_byte_boundary(offset_bits):
         mask = 2 ** 8 - 1
         bits_to_trim = offset_bits % 8
@@ -99,4 +109,3 @@ def starts_on_byte_boundary(offset_bits):
 
 def ends_on_byte_boundary(offset_bits, number_of_bits):
     return (number_of_bits + offset_bits) % 8 == 0
-

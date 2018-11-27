@@ -13,14 +13,17 @@ class ListeningSocket:
         :param port: port number this socket should accept traffic from
         :param locator: ILNP locator value this socket is the interface for
         """
-        self.multicast_address = multicast_address
-        self.port = port
+        self.__multicast_address = multicast_address
+        self.__port = port
+        self.__sock = create_listening_socket(port, multicast_address)
         self.locator = locator
-        self.socket = create_listening_socket(port, multicast_address)
 
     def fileno(self):
         """Provides direct access to socket file handle for select module"""
-        return self.socket.fileno()
+        return self.__sock.fileno()
+
+    def recvfrom(self, buffersize):
+        return self.__sock.recvfrom(buffersize)
 
 
 def create_listening_socket(port, multicast_address):
