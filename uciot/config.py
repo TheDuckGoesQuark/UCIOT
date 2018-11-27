@@ -40,7 +40,7 @@ class Config:
                             default=3)
 
         args = parser.parse_args()
-        print "Node running with the following configuration:"
+        print("Node running with the following configuration:")
         print(args)
 
         self.uid = args.unique_identifier
@@ -49,10 +49,10 @@ class Config:
         self.hop_count = args.hop_count
         self.message = args.message
         self.sleep = args.sleep
-        self.ipv6_multicast_addresses = [buildIPv6MulticastAddress(self.uid, group_id) for group_id in self.group_ids]
+        self.ipv6_multicast_addresses = [build_ipv6_multicast_address(self.uid, group_id) for group_id in self.group_ids]
 
 
-def buildIPv6MulticastAddress(uid, group_id):
+def build_ipv6_multicast_address(uid, group_id):
     """Takes the unique identifer and multicast group id (locator) and produces the ipv6 multicast address for this 
     sub network """
     return (LINK_LOCAL_MULTICAST + "::" + uid + ":" + group_id).decode('utf-8')

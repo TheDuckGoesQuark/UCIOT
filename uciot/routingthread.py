@@ -1,6 +1,7 @@
 import socket
 import threading
 
+
 def create_sending_socket():
     """
     Configures a socket for sending IPv6 UDP datagrams.
@@ -25,7 +26,7 @@ class RoutingThread(threading.Thread):
         self.sendTo = sendTo
 
     def run(self):
-        print "Beginning Routing Thread"
+        print("Beginning Routing Thread")
 
         packet = "00023412034013402134000213400Aasdasdf21400".encode()
         while True:

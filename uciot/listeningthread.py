@@ -7,26 +7,6 @@ from uciot.messagequeue import message_queue
 from uciot.packet import PacketHeader, Packet
 
 
-def create_listening_socket(port, multicast_group):
-    # Initialise socket for IPv6 datagrams
-    sock = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
-
-    # Allows address to be reused
-    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-
-    # Binds to all interfaces on the given port
-    sock.bind(('', port))
-
-    # Allow messages from this socket to loop back for development
-    sock.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_MULTICAST_LOOP, True)
-
-    # Construct message for joining multicast group
-    multicast_request = struct.pack("16s15s".encode('utf-8'), socket.inet_pton(socket.AF_INET6, multicast_group), (chr(0) * 16).encode('utf-8'))
-    sock.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_JOIN_GROUP, multicast_request)
-
-    return sock
-
-
 class ListeningThread(threading.Thread):
     """
     Listening thread awaits packets arriving through the socket, and adds them to the queue
