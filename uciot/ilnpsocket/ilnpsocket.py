@@ -1,5 +1,6 @@
 from queue import Queue
 
+from uciot import Config
 from uciot.ilnpsocket.underlay.listeningsocket import ListeningSocket
 from uciot.ilnpsocket.underlay.listeningthread import ListeningThread
 from uciot.ilnpsocket.underlay.sendingsocket import SendingSocket
@@ -15,15 +16,19 @@ def create_receivers(locators_to_ipv6, port_number):
 class ILNPSocket:
     """Abstracts UDP layer to leave only ILNP overlay"""
 
-    def __init__(self, locators_to_ipv6, port_number):
+    def __init__(self, config_file):
         """
         Creates an io instance able to send and receive ILNP packets. A thread will be created for listening
         for incoming packets which will then populate the message queue, which can be polled using the receive method.
-        :param locators_to_ipv6: a map of locators and the corresponding ipv6 multicast address to be used
-        :param port_number: port number to be used for UDP sockets
         """
-        self.__sender = SendingSocket(port_number)
+        # Parse config file
+        conf = Config(config_file)
+        port_number = conf.port
+        locators_to_ipv6 = conf.locators_to_ipv6
+
+        # Create sending socket
         self.__locators_to_ipv6 = locators_to_ipv6
+        self.__sender = SendingSocket(port_number)
 
         # Configures listening thread
         receivers = create_receivers(locators_to_ipv6, port_number)
