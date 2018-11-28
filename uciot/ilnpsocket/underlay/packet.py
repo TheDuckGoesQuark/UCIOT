@@ -21,7 +21,7 @@ class Packet:
         return len(self.header) + (len(self.payload) * 8)
 
     def print_packet(self):
-        print("Header     : {}".format(self.header))
+        self.header.print_header()
         print("Payload    : {}".format(self.payload))
 
 
@@ -75,7 +75,7 @@ class PacketHeader:
     def __len__(self):
         return self.length
 
-    def print_packet(self):
+    def print_header(self):
         print("ILNP Source: {}-{}".format(self.src_locator, self.src_identifier))
         print("ILNP Dest  : {}-{}".format(self.dest_locator, self.dest_identifier))
         print("Hop limit  : {}".format(self.hop_limit))

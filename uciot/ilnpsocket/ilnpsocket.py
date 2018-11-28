@@ -1,8 +1,8 @@
 from queue import Queue
 
-from uciot.underlay.listeningsocket import ListeningSocket
-from uciot.underlay.listeningthread import ListeningThread
-from uciot.underlay.sendingsocket import SendingSocket
+from uciot.ilnpsocket.underlay.listeningsocket import ListeningSocket
+from uciot.ilnpsocket.underlay.listeningthread import ListeningThread
+from uciot.ilnpsocket.underlay.sendingsocket import SendingSocket
 
 
 def create_receivers(locators_to_ipv6, port_number):
@@ -12,7 +12,7 @@ def create_receivers(locators_to_ipv6, port_number):
             in locators_to_ipv6.items()]
 
 
-class ILNPIO:
+class ILNPSocket:
     """Abstracts UDP layer to leave only ILNP overlay"""
 
     def __init__(self, locators_to_ipv6, port_number):
@@ -24,11 +24,14 @@ class ILNPIO:
         """
         self.__sender = SendingSocket(port_number)
         self.__locators_to_ipv6 = locators_to_ipv6
+
+        # Configures listening thread
         receivers = create_receivers(locators_to_ipv6, port_number)
         self.__message_queue = Queue()
         self.__listening_thread = ListeningThread(receivers, self.__message_queue)
+        # Child threads die with parent
+        self.__listening_thread.daemon = True
         self.__listening_thread.start()
-        print(self.__locators_to_ipv6)
         print("ILNP IO Initialised")
 
     def send(self, packet_bytes, next_hop_locator):
@@ -46,7 +49,11 @@ class ILNPIO:
 
     def receive(self, timeout=None):
         """Polls for packet. A timeout can be supplied"""
-        packet = self.__message_queue.get(block=True, timeout=timeout)
+        try:
+            packet = self.__message_queue.get(block=True, timeout=timeout)
+        except KeyboardInterrupt:
+            return
+
         if packet is None:
             return
 
