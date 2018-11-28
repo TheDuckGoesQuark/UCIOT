@@ -8,6 +8,9 @@ def parse_payload(offset_bits, payload_length, data):
     return data[first_byte_index:last_byte_index]
 
 
+# TODO https://docs.python.org/2/library/struct.html use struct (un)packing rather than manual byte parsing
+# Format should be able to specify sizes etc.
+
 class Packet:
     def __init__(self, arriving_interface, data):
         self.arriving_interface = arriving_interface

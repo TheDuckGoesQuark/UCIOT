@@ -39,7 +39,7 @@ class ILNPSocket:
         self.__listening_thread.start()
         print("ILNP IO Initialised")
 
-    def send(self, packet_bytes, next_hop_locator):
+    def send(self, packet, next_hop_locator):
         """
         Sends the given packet to the specified locator group.
         :param next_hop_locator: locator value packet should be sent to.
