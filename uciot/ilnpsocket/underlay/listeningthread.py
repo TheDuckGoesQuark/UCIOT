@@ -7,10 +7,10 @@ from uciot.ilnpsocket.underlay.packet import Packet
 
 class ListeningThread(threading.Thread):
 
-    def __init__(self, listening_sockets, message_queue, timeout=None):
+    def __init__(self, listening_sockets, router, timeout=None):
         super(ListeningThread, self).__init__()
         self.__listening_sockets = listening_sockets
-        self.__message_queue = message_queue
+        self.__router = router
         self.__stopped = False
         self.__timeout = timeout
 
@@ -27,10 +27,18 @@ class ListeningThread(threading.Thread):
                 self.read_sock(sock)
 
     def read_sock(self, listening_socket, buffer_size=1280):
+        """
+        Reads bytes from the given socket and attempts to parse a packet from it. On success, this packet will be added
+        to the message queue alongside this listening threads' locator value so the arriving interface can be identified
+
+        :param listening_socket: socket that has bytes ready to read
+        :param buffer_size: maximum number of bytes to read from the buffer at once
+        """
         data, addr = listening_socket.recvfrom(buffer_size)
         self.__packets_accepted += 1
+
         try:
-            self.__message_queue.put(Packet(listening_socket.locator, data))
+            self.__router.add_to_route_queue((Packet.parse_packet(data), listening_socket.locator))
             print("INFO - Good packet received from {} at {}".format(addr, datetime.datetime.now()))
         except ValueError:
             self.__packets_dropped += 1

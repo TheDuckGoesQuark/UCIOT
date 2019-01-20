@@ -8,24 +8,33 @@ def parse_payload(offset_bits, payload_length, data):
     return data[first_byte_index:last_byte_index]
 
 
-# TODO https://docs.python.org/2/library/struct.html use struct (un)packing rather than manual byte parsing
-# Format should be able to specify sizes etc.
-
 class Packet:
-    def __init__(self, arriving_interface, data):
-        self.arriving_interface = arriving_interface
+    def __init__(self, data):
         self.header = PacketHeader(bytearray(data))
         self.payload = parse_payload(len(self.header), self.header.payload_length, data)
 
     def decrement_hop_limit(self):
         self.header.hop_limit -= 1
 
-    def __len__(self):
-        return len(self.header) + (len(self.payload) * 8)
-
     def print_packet(self):
         self.header.print_header()
         print("Payload    : {}".format(self.payload))
+
+    @classmethod
+    def parse_packet(cls, packet_bytes):
+        # TODO
+        pass
+
+    @classmethod
+    def build_packet(cls, packet_bytes, destination):
+        # TODO
+        pass
+
+    def to_bytes(self):
+        return None
+
+    def get_payload(self):
+        return self.payload
 
 
 class PacketHeader:
@@ -43,10 +52,15 @@ class PacketHeader:
     next_header_size = 8
     hop_limit_size = 8
     address_field_size = 64
-    min_length = version_size + traffic_class_size + flow_label_size + payload_length_size + next_header_size + hop_limit_size + address_field_size * 4
+    min_length = version_size \
+                 + traffic_class_size \
+                 + flow_label_size \
+                 + payload_length_size \
+                 + next_header_size \
+                 + hop_limit_size \
+                 + address_field_size * 4
 
     def __init__(self, byte_array):
-        # TODO add extension headers
         if len(byte_array) < (self.min_length / 8):
             raise ValueError
 
@@ -116,3 +130,5 @@ def starts_on_byte_boundary(offset_bits):
 
 def ends_on_byte_boundary(offset_bits, number_of_bits):
     return (number_of_bits + offset_bits) % 8 == 0
+
+

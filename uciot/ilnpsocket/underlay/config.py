@@ -36,6 +36,7 @@ class Config:
             cp = ConfigParser()
             cp.read(config_file)
             fields = cp[section]
+
             self.uid = parse_uid(fields['unique_identifier'])
             self.group_ids = parse_group_ids(fields['group_ids'])
             self.port = fields.getint('port', 8080)
@@ -44,6 +45,8 @@ class Config:
             self.sleep = fields.getint('sleep', 3)
             self.locators_to_ipv6 = {group_id: build_ipv6_multicast_address(self.uid, group_id) for group_id in
                                      self.group_ids}
+            self.my_id = fields.getint('myId', 1)
+
             print("The following configuration was detected:")
             print("uid: {}".format(self.uid))
             print("port: {}".format(self.port))
