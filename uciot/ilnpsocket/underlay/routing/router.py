@@ -31,7 +31,8 @@ class Router(threading.Thread):
 
         # Assign addresses to this node
         my_id = create_random_id()
-        self.my_addresses = {(locator, my_id) for locator in locators_to_ipv6}
+        self.my_locators = {locator for locator in locators_to_ipv6}
+        self.my_addresses = {(locator, my_id) for locator in self.my_locators}
         self.routing_table = RoutingTable()
 
         # packets awaiting routing
@@ -63,14 +64,14 @@ class Router(threading.Thread):
         self.__to_be_routed_queue.put((packet_to_route, arriving_locator))
 
     def run(self):
-        """Polls for messages. A timeout can be supplied"""
+        """Polls for messages."""
         while True:
             packet, arrived_from = self.__to_be_routed_queue.get(block=True)
 
             if not self.is_from_me(packet):
                 self.routing_table.update(packet.src_locator, arrived_from)
 
-            self.route_packet(packet)
+            self.route_packet(packet, arrived_from)
 
             self.__to_be_routed_queue.task_done()
 
@@ -83,12 +84,16 @@ class Router(threading.Thread):
     def is_for_me(self, packet):
         return self.is_my_address(packet.dest_locator, packet.dest_identifier)
 
-    def route_packet(self, packet):
-        if self.is_for_me(packet):
-            self.__received_packets_queue.put(packet)
+    def route_packet(self, packet, arrived_from_locator):
+        if packet.dest_locator in self.my_locators:
+            if self.is_for_me(packet):
+                self.__received_packets_queue.put(packet)
+            elif packet.dest_locator is not arrived_from_locator:
+                self.forward_packet(packet, packet.dest_locator)
         else:
-            next_hop_locator = self.forward_packet()
-            self.forward_packet(packet, self.routing_table.find_next_hop(packet.dest_identifier, packet.dest_locator))
+            next_hop_locator = self.routing_table.find_next_hop(packet.dest_locator)
+            if next_hop_locator is not None:
+                self.forward_packet(packet, next_hop_locator)
 
     def forward_packet(self, packet, next_hop_locator):
         return self.__sender.sendTo(packet.to_bytes(), self.__locators_to_ipv6[next_hop_locator])
@@ -107,8 +112,8 @@ class RoutingTable():
     def __init__(self):
         pass
 
-    def update(self, packet_origin_locator, packet_):
+    def update(self, packet_origin_locator, packet):
         pass
 
-    def find_next_hop(self, packet_dest_id, packet_dest_locator):
-        pass
+    def find_next_hop(self, packet_dest_locator):
+        return None

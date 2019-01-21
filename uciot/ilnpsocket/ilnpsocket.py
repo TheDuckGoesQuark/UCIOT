@@ -17,8 +17,9 @@ class ILNPSocket:
 
         # packets for this node
         self.__received_packets = Queue()
-        # router for forwarding and sending packets
+        # router thread for forwarding and sending packets
         self.__router = Router(conf, self.__received_packets)
+        self.__router.run()
 
         print("ILNP IO Initialised")
 
