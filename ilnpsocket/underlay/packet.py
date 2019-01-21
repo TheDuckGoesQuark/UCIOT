@@ -62,8 +62,9 @@ class PacketHeader:
         self.length = struct.calcsize(self.HEADER_FORMAT)
 
     def to_bytes(self):
-        first_octet = (self.version | (self.traffic_class << 4) | (self.flow_label << 12))
-        return struct.pack(self.HEADER_FORMAT, first_octet)
+        first_octet = self.flow_label | (self.traffic_class << 20) | (self.version << 28)
+        return struct.pack(self.HEADER_FORMAT, first_octet, self.payload_length, self.next_header, self.hop_limit,
+                           self.src_locator, self.src_identifier, self.dest_locator, self.dest_identifier)
 
     def print_header(self):
         print("ILNP Source: {}-{}".format(self.src_locator, self.src_identifier))
@@ -74,9 +75,9 @@ class PacketHeader:
     def parse_header(cls, packet_bytes):
         vals = struct.unpack(cls.HEADER_FORMAT, packet_bytes[:struct.calcsize(cls.HEADER_FORMAT)])
 
-        flow_label = vals[0] >> 12
-        traffic_class = (vals[0] >> 4 & 255)
-        version = vals[0] & 15
+        flow_label = vals[0] & 1048575
+        traffic_class = (vals[0] >> 20 & 255)
+        version = vals[0] >> 28
 
         return PacketHeader(vals[4], vals[5], vals[6], vals[7], vals[1], vals[2], vals[3],
                             version, traffic_class, flow_label)
