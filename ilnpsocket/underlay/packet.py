@@ -1,3 +1,4 @@
+import math
 from math import floor, ceil
 
 
@@ -9,9 +10,13 @@ def parse_payload(offset_bits, payload_length, data):
 
 
 class Packet:
-    def __init__(self, data):
-        self.header = PacketHeader(bytearray(data))
-        self.payload = parse_payload(len(self.header), self.header.payload_length, data)
+    def __init__(self, payload, src, dest, header=None):
+        if header is None:
+            self.header = PacketHeader(src[0], src[1], dest[0], dest[1], len(payload))
+        else:
+            self.header = header
+
+        self.payload = payload
 
     def decrement_hop_limit(self):
         self.header.hop_limit -= 1
@@ -21,17 +26,15 @@ class Packet:
         print("Payload    : {}".format(self.payload))
 
     @classmethod
-    def parse_packet(cls, packet_bytes):
-        # TODO
-        pass
-
-    @classmethod
-    def build_packet(cls, packet_bytes, destination):
-        # TODO
-        pass
+    def from_bytes(cls, packet_bytes):
+        header = PacketHeader.parse_header(bytearray(packet_bytes))
+        payload = parse_payload(header.length, header.payload_length, packet_bytes)
+        return Packet(payload, None, None, header)
 
     def to_bytes(self):
-        return None
+        packet_bytes = self.header.to_bytes()
+        packet_bytes.append(self.payload)
+        return packet_bytes
 
     def get_payload(self):
         return self.payload
@@ -60,42 +63,61 @@ class PacketHeader:
                  + hop_limit_size \
                  + address_field_size * 4
 
-    def __init__(self, byte_array):
-        if len(byte_array) < (self.min_length / 8):
-            raise ValueError
+    def __init__(self, src_locator, src_identifier, dest_locator, dest_identifier, payload_length, next_header=0,
+                 hop_limit=32, version=1, traffic_class=1, flow_label=1, length=min_length):
+        self.version = version
+        self.traffic_class = traffic_class
+        self.flow_label = flow_label
+        self.payload_length = payload_length
+        self.next_header = next_header
+        self.hop_limit = hop_limit
+        self.src_locator = src_locator
+        self.src_identifier = src_identifier
+        self.dest_locator = dest_locator
+        self.dest_identifier = dest_identifier
+        self.length = length
 
-        current_bit = 0
-        self.version = get_int_from_bytes(current_bit, self.version_size, byte_array)
-        current_bit += self.version_size
-        self.traffic_class = get_int_from_bytes(current_bit, self.traffic_class_size, byte_array)
-        current_bit += self.traffic_class_size
-        self.flow_label = get_int_from_bytes(current_bit, self.flow_label_size, byte_array)
-        current_bit += self.flow_label_size
-        self.payload_length = get_int_from_bytes(current_bit, self.payload_length_size, byte_array)
-        current_bit += self.payload_length_size
-        self.next_header = get_int_from_bytes(current_bit, self.next_header_size, byte_array)
-        current_bit += self.next_header_size
-        self.hop_limit = get_int_from_bytes(current_bit, self.hop_limit_size, byte_array)
-        current_bit += self.hop_limit_size
-        self.src_locator = get_int_from_bytes(current_bit, self.address_field_size, byte_array)
-        current_bit += self.address_field_size
-        self.src_identifier = get_int_from_bytes(current_bit, self.address_field_size, byte_array)
-        current_bit += self.address_field_size
-        self.dest_locator = get_int_from_bytes(current_bit, self.address_field_size, byte_array)
-        current_bit += self.address_field_size
-        self.dest_identifier = get_int_from_bytes(current_bit, self.address_field_size, byte_array)
-        current_bit += self.address_field_size
-
-        # Set total header size
-        self.length = current_bit
-
-    def __len__(self):
-        return self.length
+    def to_bytes(self):
+        nBytes = math.ceil(self.length / 8)
+        arr = bytearray(nBytes)
 
     def print_header(self):
         print("ILNP Source: {}-{}".format(self.src_locator, self.src_identifier))
         print("ILNP Dest  : {}-{}".format(self.dest_locator, self.dest_identifier))
         print("Hop limit  : {}".format(self.hop_limit))
+
+    @classmethod
+    def parse_header(cls, byte_array):
+        if len(byte_array) < (cls.min_length / 8):
+            raise ValueError
+
+        current_bit = 0
+        version = get_int_from_bytes(current_bit, cls.version_size, byte_array)
+        current_bit += cls.version_size
+        traffic_class = get_int_from_bytes(current_bit, cls.traffic_class_size, byte_array)
+        current_bit += cls.traffic_class_size
+        flow_label = get_int_from_bytes(current_bit, cls.flow_label_size, byte_array)
+        current_bit += cls.flow_label_size
+        payload_length = get_int_from_bytes(current_bit, cls.payload_length_size, byte_array)
+        current_bit += cls.payload_length_size
+        next_header = get_int_from_bytes(current_bit, cls.next_header_size, byte_array)
+        current_bit += cls.next_header_size
+        hop_limit = get_int_from_bytes(current_bit, cls.hop_limit_size, byte_array)
+        current_bit += cls.hop_limit_size
+        src_locator = get_int_from_bytes(current_bit, cls.address_field_size, byte_array)
+        current_bit += cls.address_field_size
+        src_identifier = get_int_from_bytes(current_bit, cls.address_field_size, byte_array)
+        current_bit += cls.address_field_size
+        dest_locator = get_int_from_bytes(current_bit, cls.address_field_size, byte_array)
+        current_bit += cls.address_field_size
+        dest_identifier = get_int_from_bytes(current_bit, cls.address_field_size, byte_array)
+        current_bit += cls.address_field_size
+
+        # Set total header size
+        length = current_bit
+
+        return PacketHeader(version, traffic_class, flow_label, payload_length, next_header, hop_limit, src_locator,
+                            src_identifier, dest_locator, dest_identifier, length)
 
 
 def get_int_from_bytes(offset_bits, number_of_bits, message_bytes):
@@ -132,3 +154,12 @@ def ends_on_byte_boundary(offset_bits, number_of_bits):
     return (number_of_bits + offset_bits) % 8 == 0
 
 
+def pack_in_byte(lower, upper):
+    return lower | (upper << 4)
+
+
+def unpack_byte(byte_val, lower=True):
+    if lower:
+        return byte_val & 15
+    else:
+        return (byte_val >> 4) & 15
