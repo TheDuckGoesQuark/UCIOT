@@ -13,7 +13,7 @@ def parse_uid(opt_string_uid):
 
 def parse_group_ids(opt_list_uids):
     if opt_list_uids:
-        return set(opt_list_uids.split(','))
+        return (uid for uid in opt_list_uids.split(','))
     else:
         return {hex(0)}
 

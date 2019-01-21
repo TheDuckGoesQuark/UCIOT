@@ -3,9 +3,9 @@ from os import urandom
 from queue import Queue
 from struct import unpack
 
-from ilnpsocket.underlay.sockets import ListeningSocket
 from ilnpsocket.underlay.listeningthread import ListeningThread
-from ilnpsocket.underlay.sockets import SendingSocket
+from ilnpsocket.underlay.sockets.listeningsocket import ListeningSocket
+from ilnpsocket.underlay.sockets.sendingsocket import SendingSocket
 
 
 def create_receivers(locators_to_ipv6, port_number):
@@ -25,14 +25,25 @@ def create_random_id():
 
 class Router(threading.Thread):
     def __init__(self, conf, received_packets_queue):
+        super(Router, self).__init__()
+
         # Parse config file
         port_number = conf.port
         locators_to_ipv6 = conf.locators_to_ipv6
 
         # Assign addresses to this node
-        my_id = create_random_id()
-        self.my_locators = {locator for locator in locators_to_ipv6}
+        if conf.my_id:
+            my_id = conf.my_id
+        else:
+            my_id = create_random_id()
+
+        self.my_locators = {int(locator) for locator in locators_to_ipv6}
         self.my_addresses = {(locator, my_id) for locator in self.my_locators}
+
+        print("INFO - My addresses are: ")
+        for address in self.my_addresses:
+            print("INFO - {}".format(address))
+
         self.routing_table = RoutingTable()
 
         # packets awaiting routing

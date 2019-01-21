@@ -1,8 +1,8 @@
 from queue import Queue
 
-from uciot import Config
+from ilnpsocket.config import Config
 from ilnpsocket.underlay.packet import Packet
-from ilnpsocket.underlay.routing import Router
+from ilnpsocket.underlay.routing.router import Router
 
 
 class ILNPSocket:
@@ -19,7 +19,8 @@ class ILNPSocket:
         self.__received_packets = Queue()
         # router thread for forwarding and sending packets
         self.__router = Router(conf, self.__received_packets)
-        self.__router.run()
+        self.__router.daemon = True
+        self.__router.start()
 
         print("ILNP IO Initialised")
 
