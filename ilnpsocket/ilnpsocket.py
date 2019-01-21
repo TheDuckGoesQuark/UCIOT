@@ -1,8 +1,8 @@
 from queue import Queue
 
 from uciot import Config
-from uciot.ilnpsocket.underlay.packet import Packet
-from uciot.ilnpsocket.underlay.routing.router import Router
+from ilnpsocket.underlay.packet import Packet
+from ilnpsocket.underlay.routing import Router
 
 
 class ILNPSocket:

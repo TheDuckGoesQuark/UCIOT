@@ -2,7 +2,7 @@ import datetime
 import threading
 import select
 
-from uciot.ilnpsocket.underlay.packet import Packet
+from ilnpsocket.underlay.packet import Packet
 
 
 class ListeningThread(threading.Thread):

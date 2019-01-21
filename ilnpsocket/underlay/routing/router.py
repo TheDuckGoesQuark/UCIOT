@@ -3,9 +3,9 @@ from os import urandom
 from queue import Queue
 from struct import unpack
 
-from uciot.ilnpsocket.underlay.listeningsocket import ListeningSocket
-from uciot.ilnpsocket.underlay.listeningthread import ListeningThread
-from uciot.ilnpsocket.underlay.sendingsocket import SendingSocket
+from ilnpsocket.underlay.sockets import ListeningSocket
+from ilnpsocket.underlay.listeningthread import ListeningThread
+from ilnpsocket.underlay.sockets import SendingSocket
 
 
 def create_receivers(locators_to_ipv6, port_number):
