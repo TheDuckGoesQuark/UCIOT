@@ -5,6 +5,14 @@ from ilnpsocket.underlay.packet import Packet
 from ilnpsocket.underlay.routing.router import Router
 
 
+# TODO
+# support mobility by allowing changes to locators to occur and sending updates when these changes do occur.
+# see https://tools.ietf.org/html/rfc6740#section-2.1 page 30
+# TODO
+# routing table implementation
+# TODO
+# neighbour discovery
+
 class ILNPSocket:
     """Abstracts UDP layer to leave only ILNP overlay"""
 
@@ -28,9 +36,9 @@ class ILNPSocket:
         """
         Sends the given packet to the specified destination.
         :param payload: data to be sent
-        :param destination: ILNP address as ID:L tuple of target
+        :param destination: ILNP address as L:ID tuple of target
         """
-        self.__router.add_to_route_queue(Packet.build_packet(destination, payload))
+        self.__router.add_to_route_queue(Packet(payload, self.__router.my_addresses[0], destination))
 
     def receive(self, timeout=None):
         """Polls for messages. A timeout can be supplied"""

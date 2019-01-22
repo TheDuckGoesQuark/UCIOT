@@ -4,6 +4,7 @@ from queue import Queue
 from struct import unpack
 
 from ilnpsocket.underlay.listeningthread import ListeningThread
+from ilnpsocket.underlay.packet import Packet
 from ilnpsocket.underlay.sockets.listeningsocket import ListeningSocket
 from ilnpsocket.underlay.sockets.sendingsocket import SendingSocket
 
@@ -38,7 +39,7 @@ class Router(threading.Thread):
             my_id = create_random_id()
 
         self.my_locators = {int(locator) for locator in locators_to_ipv6}
-        self.my_addresses = {(locator, my_id) for locator in self.my_locators}
+        self.my_addresses = [(locator, my_id) for locator in self.my_locators]
 
         print("INFO - My addresses are: ")
         for address in self.my_addresses:
@@ -79,6 +80,9 @@ class Router(threading.Thread):
         while True:
             packet, arrived_from = self.__to_be_routed_queue.get(block=True)
 
+            if type(packet) is not Packet:
+                continue
+
             if not self.is_from_me(packet):
                 self.routing_table.update(packet.src_locator, arrived_from)
 
@@ -90,19 +94,19 @@ class Router(threading.Thread):
         return (locator, identifier) in self.my_addresses
 
     def is_from_me(self, packet):
-        return self.is_my_address(packet.src_locator, packet.src_identfier)
+        return self.is_my_address(packet.header.src_locator, packet.header.src_identifier)
 
     def is_for_me(self, packet):
-        return self.is_my_address(packet.dest_locator, packet.dest_identifier)
+        return self.is_my_address(packet.header.dest_locator, packet.header.dest_identifier)
 
     def route_packet(self, packet, arrived_from_locator):
-        if packet.dest_locator in self.my_locators:
+        if packet.header.dest_locator in self.my_locators:
             if self.is_for_me(packet):
                 self.__received_packets_queue.put(packet)
-            elif packet.dest_locator is not arrived_from_locator:
-                self.forward_packet(packet, packet.dest_locator)
+            elif packet.header.dest_locator is not arrived_from_locator:
+                self.forward_packet(packet, packet.header.dest_locator)
         else:
-            next_hop_locator = self.routing_table.find_next_hop(packet.dest_locator)
+            next_hop_locator = self.routing_table.find_next_hop(packet.header.dest_locator)
             if next_hop_locator is not None:
                 self.forward_packet(packet, next_hop_locator)
 
