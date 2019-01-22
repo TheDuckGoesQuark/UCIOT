@@ -71,7 +71,6 @@ class Router(threading.Thread):
         :param packet_to_route: packet instance to be routed
         :param arriving_locator: locator value that packet arrived from
         """
-        packet_to_route.print_packet()
         self.__to_be_routed_queue.put((packet_to_route, arriving_locator))
 
     def run(self):
@@ -113,6 +112,7 @@ class Router(threading.Thread):
                 self.forward_packet(packet, next_hop_locator)
 
     def forward_packet(self, packet, next_hop_locator):
+        packet.decrement_hop_limit()
         ipv6_address = self.__locators_to_ipv6[str(next_hop_locator)]
         packet_bytes = packet.to_bytes()
         return self.__sender.sendTo(packet_bytes, ipv6_address)
