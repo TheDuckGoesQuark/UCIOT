@@ -38,7 +38,7 @@ class ListeningThread(threading.Thread):
         self.__packets_accepted += 1
 
         try:
-            self.__router.add_to_route_queue((Packet.from_bytes(data), listening_socket.locator))
+            self.__router.add_to_route_queue((Packet.parse_packet(data), listening_socket.locator))
             print("INFO - Good packet received from {} at {}".format(addr, datetime.datetime.now()))
         except ValueError:
             self.__packets_dropped += 1

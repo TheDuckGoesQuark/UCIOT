@@ -35,13 +35,24 @@ class ILNPSocket:
     def send(self, payload, destination):
         """
         Sends the given packet to the specified destination.
-        :param payload: data to be sent
+        :param payload: data to be sent as bytes object
         :param destination: ILNP address as L:ID tuple of target
         """
+
+        if payload is None or type(payload) is not bytes:
+            raise TypeError("Payload must be bytes object.")
+
+        if destination is None or type(destination) is not tuple or len(destination) != 2:
+            raise TypeError("Destination must be two element tuple of destination locator and identifier.")
+
         self.__router.add_to_route_queue(Packet(payload, self.__router.my_addresses[0], destination))
 
     def receive(self, timeout=None):
-        """Polls for messages. A timeout can be supplied"""
+        """
+        Polls for new messages as bytes
+        :param timeout: optional timeout for when to stop listening for bytes
+        :return: bytes of message
+        """
         received_packet = self.__received_packets.get(block=True, timeout=timeout)
 
         if received_packet is None:
@@ -49,4 +60,4 @@ class ILNPSocket:
 
         self.__received_packets.task_done()
 
-        return received_packet.get_payload()
+        return received_packet.payload

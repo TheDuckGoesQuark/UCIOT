@@ -30,7 +30,6 @@ class Router(threading.Thread):
 
         # Parse config file
         port_number = conf.port
-        locators_to_ipv6 = conf.locators_to_ipv6
 
         # Assign addresses to this node
         if conf.my_id:
@@ -38,8 +37,8 @@ class Router(threading.Thread):
         else:
             my_id = create_random_id()
 
-        self.my_locators = {int(locator) for locator in locators_to_ipv6}
-        self.my_addresses = [(locator, my_id) for locator in self.my_locators]
+        self.__locators_to_ipv6 = conf.locators_to_ipv6
+        self.my_addresses = [(int(locator), my_id) for locator in self.__locators_to_ipv6]
 
         print("INFO - My addresses are: ")
         for address in self.my_addresses:
@@ -54,11 +53,10 @@ class Router(threading.Thread):
         self.__received_packets_queue = received_packets_queue
 
         # Create sending socket
-        self.__locators_to_ipv6 = locators_to_ipv6
         self.__sender = SendingSocket(port_number)
 
         # Configures listening thread
-        receivers = create_receivers(locators_to_ipv6, port_number)
+        receivers = create_receivers(conf.locators_to_ipv6, port_number)
         self.__listening_thread = ListeningThread(receivers, self)
 
         # Ensures that child threads die with parent
@@ -73,6 +71,7 @@ class Router(threading.Thread):
         :param packet_to_route: packet instance to be routed
         :param arriving_locator: locator value that packet arrived from
         """
+        packet_to_route.print_packet()
         self.__to_be_routed_queue.put((packet_to_route, arriving_locator))
 
     def run(self):
@@ -94,24 +93,29 @@ class Router(threading.Thread):
         return (locator, identifier) in self.my_addresses
 
     def is_from_me(self, packet):
-        return self.is_my_address(packet.header.src_locator, packet.header.src_identifier)
+        return self.is_my_address(packet.src_locator, packet.src_identifier)
 
     def is_for_me(self, packet):
-        return self.is_my_address(packet.header.dest_locator, packet.header.dest_identifier)
+        return self.is_my_address(packet.dest_locator, packet.dest_identifier)
+
+    def is_known_locator(self, locator):
+        return str(locator) in self.__locators_to_ipv6
 
     def route_packet(self, packet, arrived_from_locator):
-        if packet.header.dest_locator in self.my_locators:
+        if self.is_known_locator(packet.dest_locator):
             if self.is_for_me(packet):
                 self.__received_packets_queue.put(packet)
-            elif packet.header.dest_locator is not arrived_from_locator:
-                self.forward_packet(packet, packet.header.dest_locator)
+            elif packet.dest_locator is not arrived_from_locator:
+                self.forward_packet(packet, packet.dest_locator)
         else:
-            next_hop_locator = self.routing_table.find_next_hop(packet.header.dest_locator)
+            next_hop_locator = self.routing_table.find_next_hop(packet.dest_locator)
             if next_hop_locator is not None:
                 self.forward_packet(packet, next_hop_locator)
 
     def forward_packet(self, packet, next_hop_locator):
-        return self.__sender.sendTo(packet.to_bytes(), self.__locators_to_ipv6[next_hop_locator])
+        ipv6_address = self.__locators_to_ipv6[str(next_hop_locator)]
+        packet_bytes = packet.to_bytes()
+        return self.__sender.sendTo(packet_bytes, ipv6_address)
 
     def __enter__(self):
         return self
@@ -123,7 +127,7 @@ class Router(threading.Thread):
         self.__sender.close()
 
 
-class RoutingTable():
+class RoutingTable:
     def __init__(self):
         pass
 

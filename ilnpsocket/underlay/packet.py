@@ -60,12 +60,6 @@ class Packet:
     def decrement_hop_limit(self):
         self.hop_limit -= 1
 
-    def print_packet(self):
-        print("ILNP Source: {}-{}".format(self.src_locator, self.src_identifier))
-        print("ILNP Dest  : {}-{}".format(self.dest_locator, self.dest_identifier))
-        print("Hop limit  : {}".format(self.hop_limit))
-        print("Payload    : {}".format(self.payload))
-
     def to_bytes(self):
         first_octet = self.flow_label | (self.traffic_class << 20) | (self.version << 28)
         header_bytes = struct.pack(self.HEADER_FORMAT,
@@ -76,3 +70,12 @@ class Packet:
                                    self.dest_identifier)
         header_bytes += self.payload
         return header_bytes
+
+    def print_packet(self):
+        print("+---------------Start------------------+")
+        print("ILNP Source: {}-{}".format(self.src_locator, self.src_identifier))
+        print("ILNP Dest  : {}-{}".format(self.dest_locator, self.dest_identifier))
+        print("Hop limit  : {}".format(self.hop_limit))
+        print("Payload    : {}".format(self.payload))
+        print("+---------------End-------------------+")
+
