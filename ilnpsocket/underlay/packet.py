@@ -10,8 +10,8 @@ def parse_payload(offset_bits, payload_length, data):
 
 
 class Packet:
-    HEADER_FORMAT = "!IHBB4Q"
-    MIN_SIZE = struct.calcsize(HEADER_FORMAT)
+    ILNPv6_HEADER_FORMAT = "!IHBB4Q"
+    MIN_SIZE = struct.calcsize(ILNPv6_HEADER_FORMAT)
 
     def __init__(self, payload, src, dest, next_header=0,
                  hop_limit=32, version=1, traffic_class=1, flow_label=1, payload_length=None):
@@ -40,9 +40,13 @@ class Packet:
         # Payload
         self.payload = payload
 
+        # TODO parse extension headers
+        if self.next_header != 0:
+            pass
+
     @classmethod
     def parse_packet(cls, packet_bytes):
-        vals = struct.unpack(cls.HEADER_FORMAT, packet_bytes[:cls.MIN_SIZE])
+        vals = struct.unpack(cls.ILNPv6_HEADER_FORMAT, packet_bytes[:cls.MIN_SIZE])
 
         flow_label = vals[0] & 1048575
         traffic_class = (vals[0] >> 20 & 255)
@@ -62,7 +66,7 @@ class Packet:
 
     def to_bytes(self):
         first_octet = self.flow_label | (self.traffic_class << 20) | (self.version << 28)
-        header_bytes = struct.pack(self.HEADER_FORMAT,
+        header_bytes = struct.pack(self.ILNPv6_HEADER_FORMAT,
                                    first_octet,
                                    self.payload_length, self.next_header, self.hop_limit,
                                    self.src_locator, self.src_identifier,

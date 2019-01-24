@@ -2,18 +2,23 @@ import socket
 
 
 class SendingSocket:
-    def __init__(self, port_number):
+    def __init__(self, port_number, locator_to_ipv6):
         self.__port = port_number
         self.__sock = create_sending_socket()
+        self.__locator_to_ipv6 = locator_to_ipv6
+
+    def translate_locator_to_ipv6(self, locator):
+        return self.__locator_to_ipv6[str(locator)]
 
     def sendTo(self, packet_bytes, dest):
         """
         Sends the bytes to the IPv6 destination address
         :param packet_bytes: byte array to send
-        :param dest: destination to send packet bytes
+        :param dest: locator to send packet bytes
         :return: number of bytes sent
         """
-        return self.__sock.sendto(packet_bytes, (dest, self.__port))
+        ipv6_addr = self.translate_locator_to_ipv6(dest)
+        return self.__sock.sendto(packet_bytes, (ipv6_addr, self.__port))
 
     def close(self):
         self.__sock.close()

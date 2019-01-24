@@ -22,7 +22,6 @@ class ILNPSocket:
         for incoming packets which will then populate the message queue, which can be polled using the receive method.
         """
         conf = Config(config_file)
-
         # packets for this node
         self.__received_packets = Queue()
         # router thread for forwarding and sending packets
@@ -45,7 +44,7 @@ class ILNPSocket:
         if destination is None or type(destination) is not tuple or len(destination) != 2:
             raise TypeError("Destination must be two element tuple of destination locator and identifier.")
 
-        self.__router.add_to_route_queue(Packet(payload, self.__router.my_addresses[0], destination))
+        self.__router.add_to_route_queue(self.__router.construct_host_packet(payload, destination))
 
     def receive(self, timeout=None):
         """

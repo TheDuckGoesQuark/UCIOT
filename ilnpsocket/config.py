@@ -40,19 +40,24 @@ class Config:
             self.uid = parse_uid(fields['unique_identifier'])
             self.group_ids = parse_group_ids(fields['group_ids'])
             self.port = fields.getint('port', 8080)
-            self.hop_count = fields.getint('hop_count', 32)
+            self.hop_limit = fields.getint('hop_limit', 32)
             self.message = fields.get('message', "hello world")
             self.sleep = fields.getint('sleep', 3)
             self.locators_to_ipv6 = {group_id: build_ipv6_multicast_address(self.uid, group_id) for group_id in
                                      self.group_ids}
-            self.my_id = fields.getint('myId', 1)
-
-            print("The following configuration was detected:")
-            print("uid: {}".format(self.uid))
-            print("port: {}".format(self.port))
-            print("hop count: {}".format(self.hop_count))
-            print("message: {}".format(self.message))
-            print("sleep: {}".format(self.sleep))
-            print("locators:ipv6: {}".format(self.locators_to_ipv6))
+            self.my_id = fields.getint('my_id', 1)
+            self.print_config()
         else:
             raise FileNotFoundError("No config file could be found at {}".format(config_file))
+
+    def print_config(self):
+        print("INFO - CONFIGURATION DESCRIPTION START")
+        print("INFO - The following configuration was detected:")
+        print("INFO - uid: {}".format(self.uid))
+        print("INFO - port: {}".format(self.port))
+        print("INFO - hop count: {}".format(self.hop_limit))
+        print("INFO - message: {}".format(self.message))
+        print("INFO - sleep: {}".format(self.sleep))
+        print("INFO - locators:ipv6: {}".format(self.locators_to_ipv6))
+        print("INFO - CONFIGURATION DESCRIPTION END")
+
