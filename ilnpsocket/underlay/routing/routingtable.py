@@ -1,7 +1,14 @@
+import threading
+import time
+
+
 class RoutingTable:
-    def __init__(self, max_hop_limit):
+    def __init__(self, max_hop_limit, refresh_delay_secs):
         self.max_hop_limit = max_hop_limit
         self.entries = {}
+        self.refresh_thread = RefreshTableThread(refresh_delay_secs, self)
+        self.refresh_thread.daemon = True
+        self.refresh_thread.start()
 
     def has_entry_for(self, locator):
         return locator in self.entries
@@ -31,6 +38,25 @@ class RoutingTable:
             return self.retrieve_entry_for(packet_dest_locator)
         else:
             return None
+
+    def clear_table(self):
+        self.entries.clear()
+
+
+class RefreshTableThread(threading.Thread):
+    def __init__(self, refresh_delay, routing_table):
+        super(RefreshTableThread, self).__init__()
+        self.routing_table = routing_table
+        self.refresh_delay = refresh_delay
+        self.running = True
+
+    def run(self):
+        while self.running:
+            self.routing_table.clear_table()
+            time.sleep(self.refresh_delay)
+
+    def stop(self):
+        self.running = False
 
 
 class RoutingEntry:

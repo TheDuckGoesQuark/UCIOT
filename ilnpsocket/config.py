@@ -37,6 +37,7 @@ class Config:
             cp.read(config_file)
             fields = cp[section]
 
+            self.router_refresh_delay_secs = fields.getint('router_refresh_delay_secs', 60)
             self.uid = parse_uid(fields['unique_identifier'])
             self.group_ids = parse_group_ids(fields['group_ids'])
             self.port = fields.getint('port', 8080)

@@ -37,7 +37,6 @@ class Router(threading.Thread):
 
         self.hop_limit = conf.hop_limit
         self.interfaced_locators = {int(l) for l in conf.locators_to_ipv6}
-        self.routing_table = RoutingTable(conf.hop_limit)
 
         # packets awaiting routing
         self.__to_be_routed_queue = Queue()
@@ -55,6 +54,9 @@ class Router(threading.Thread):
         # Ensures that child threads die with parent
         self.__listening_thread.daemon = True
         self.__listening_thread.start()
+
+        # Configures routing table
+        self.routing_table = RoutingTable(conf.hop_limit, conf.router_refresh_delay_secs)
 
     def add_to_route_queue(self, packet_to_route, arriving_locator=None):
         """
@@ -143,7 +145,7 @@ class Router(threading.Thread):
     def forward_packet(self, packet, next_hop_locators):
         """
         Forwards packet to locator with given value if hop limit is still greater than 0.
-        Decrements hop limit before forwarding.
+        Decrements hop limit by one before forwarding.
         :param packet: packet to forward
         :param next_hop_locators: set of locators (interfaces) to forward packet to
         """
@@ -161,3 +163,4 @@ class Router(threading.Thread):
         self.__listening_thread.stop()
         self.__listening_thread.join()
         self.__sender.close()
+
