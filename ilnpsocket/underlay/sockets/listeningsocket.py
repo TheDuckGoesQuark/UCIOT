@@ -4,7 +4,7 @@ import socket
 
 class ListeningSocket:
     """Wrapper for socket instance that listens for traffic from a specific
-    multicast group"""
+    multicast group and provides mapping from locator to ipv6 address"""
 
     def __init__(self, multicast_address, port, locator):
         """
@@ -22,8 +22,8 @@ class ListeningSocket:
         """Provides direct access to socket file handle for select module"""
         return self.__sock.fileno()
 
-    def recvfrom(self, buffersize):
-        return self.__sock.recvfrom(buffersize)
+    def recvfrom_into(self, buffer, buffer_size):
+        return self.__sock.recvfrom_into(buffer, buffer_size)
 
 
 def create_listening_socket(port, multicast_address):

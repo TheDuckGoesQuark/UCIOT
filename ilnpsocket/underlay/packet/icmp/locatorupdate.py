@@ -1,50 +1,18 @@
-from math import ceil
 import struct
 
-EXTENSION_HEADERS = {156: }
+from ilnpsocket.underlay.packet.icmp.icmpheader import ICMPHeader
+from ilnpsocket.underlay.packet.packet import Packet
 
 
-def parse_payload(offset_bits, payload_length, data):
-    # Assume padding
-    first_byte_index = ceil(offset_bits / 8)
-    last_byte_index = first_byte_index + payload_length
-    return data[first_byte_index:last_byte_index]
+class LocatorUpdateHeader(ICMPHeader):
+    HEADER_BODY_FORMAT = "!"
 
-
-class Packet:
-    ILNPv6_HEADER_FORMAT = "!IHBB4Q"
-    MIN_SIZE = struct.calcsize(ILNPv6_HEADER_FORMAT)
-
-    def __init__(self, payload, src, dest, next_header=0,
-                 hop_limit=32, version=1, traffic_class=1, flow_label=1, payload_length=None):
-        # First octet
-        self.version = version
-        self.traffic_class = traffic_class
-        self.flow_label = flow_label
-
-        # Second Octet
-        if payload_length is not None:
-            self.payload_length = len(payload_length)
-        else:
-            self.payload_length = len(payload)
-
-        self.next_header = next_header
-        self.hop_limit = hop_limit
-
-        # Third Octet
-        self.src_locator = src[0]
-        self.src_identifier = src[1]
-
-        # Fourth Octet
-        self.dest_locator = dest[0]
-        self.dest_identifier = dest[1]
-
-        # Payload
-        self.payload = payload
+    def __init__(self, type, code, checksum, num_of_locs, operation, preference_tuples, reserved=0):
+        super().__init__(type, code, checksum)
 
     @classmethod
     def parse_packet(cls, packet_bytes):
-        vals = struct.unpack(cls.ILNPv6_HEADER_FORMAT, packet_bytes[:cls.MIN_SIZE])
+        vals = struct.unpack(cls.HEADER_BODY_FORMAT, packet_bytes[:cls.MIN_SIZE])
 
         flow_label = vals[0] & 1048575
         traffic_class = (vals[0] >> 20 & 255)
@@ -80,4 +48,3 @@ class Packet:
         print("Hop limit  : {}".format(self.hop_limit))
         print("Payload    : {}".format(self.payload))
         print("+---------------End-------------------+")
-

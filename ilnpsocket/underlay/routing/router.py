@@ -4,7 +4,7 @@ from queue import Queue
 from struct import unpack
 
 from ilnpsocket.underlay.listeningthread import ListeningThread
-from ilnpsocket.underlay.headers.packet import Packet
+from ilnpsocket.underlay.packet.packet import Packet
 from ilnpsocket.underlay.routing.routingtable import RoutingTable
 from ilnpsocket.underlay.sockets.listeningsocket import ListeningSocket
 from ilnpsocket.underlay.sockets.sendingsocket import SendingSocket
@@ -49,7 +49,7 @@ class Router(threading.Thread):
 
         # Configures listening thread
         receivers = create_receivers(conf.locators_to_ipv6, conf.port)
-        self.__listening_thread = ListeningThread(receivers, self)
+        self.__listening_thread = ListeningThread(receivers, self, conf.packet_buffer_size_bytes)
 
         # Ensures that child threads die with parent
         self.__listening_thread.daemon = True
@@ -85,7 +85,14 @@ class Router(threading.Thread):
         :param destination: destination as (locator:identifier) tuple
         :return: Packet from this host to the given destination carrying the given payload
         """
-        return Packet(payload, self.get_addresses()[0], destination, hop_limit=self.hop_limit)
+        if len(payload) > Packet.MAX_PAYLOAD_SIZE:
+            raise ValueError("Payload cannot exceed {} bytes. "
+                             "Provided payload size: {} bytes. ".format(Packet.MAX_PAYLOAD_SIZE, len(payload)))
+
+        packet = Packet(self.get_addresses()[0], destination,
+                        payload=payload, payload_length=len(payload), hop_limit=self.hop_limit)
+
+        return packet
 
     def run(self):
         """Polls for messages."""
