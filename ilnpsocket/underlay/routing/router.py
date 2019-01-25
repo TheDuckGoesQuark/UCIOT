@@ -4,7 +4,7 @@ from queue import Queue
 from struct import unpack
 
 from ilnpsocket.underlay.listeningthread import ListeningThread
-from ilnpsocket.underlay.packet import Packet
+from ilnpsocket.underlay.headers.packet import Packet
 from ilnpsocket.underlay.routing.routingtable import RoutingTable
 from ilnpsocket.underlay.sockets.listeningsocket import ListeningSocket
 from ilnpsocket.underlay.sockets.sendingsocket import SendingSocket

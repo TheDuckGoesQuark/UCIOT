@@ -1,6 +1,8 @@
 from math import ceil
 import struct
 
+EXTENSION_HEADERS = {156: }
+
 
 def parse_payload(offset_bits, payload_length, data):
     # Assume padding
@@ -39,10 +41,6 @@ class Packet:
 
         # Payload
         self.payload = payload
-
-        # TODO parse extension headers
-        if self.next_header != 0:
-            pass
 
     @classmethod
     def parse_packet(cls, packet_bytes):

@@ -1,7 +1,6 @@
 from queue import Queue
 
 from ilnpsocket.config import Config
-from ilnpsocket.underlay.packet import Packet
 from ilnpsocket.underlay.routing.router import Router
 
 
