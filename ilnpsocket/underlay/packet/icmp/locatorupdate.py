@@ -12,7 +12,7 @@ class LocatorUpdateHeader(ICMPHeader):
 
     @classmethod
     def parse_packet(cls, packet_bytes):
-        vals = struct.unpack(cls.HEADER_BODY_FORMAT, packet_bytes[:cls.MIN_SIZE])
+        vals = struct.unpack(cls.HEADER_BODY_FORMAT, packet_bytes[:cls.HEADER_SIZE])
 
         flow_label = vals[0] & 1048575
         traffic_class = (vals[0] >> 20 & 255)
@@ -23,7 +23,7 @@ class LocatorUpdateHeader(ICMPHeader):
         src = (vals[4], vals[5])
         dest = (vals[6], vals[7])
 
-        payload = packet_bytes[cls.MIN_SIZE:cls.MIN_SIZE + payload_length]
+        payload = packet_bytes[cls.HEADER_SIZE:cls.HEADER_SIZE + payload_length]
 
         return Packet(payload, src, dest, next_header, hop_limit, version, traffic_class, flow_label)
 
