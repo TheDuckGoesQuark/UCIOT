@@ -6,9 +6,23 @@ from ilnpsocket.underlay.packet.packet import Packet
 
 class LocatorUpdateHeader(ICMPHeader):
     HEADER_BODY_FORMAT = "!"
+    TYPE = 156
 
-    def __init__(self, type, code, checksum, num_of_locs, operation, preference_tuples, reserved=0):
-        super().__init__(type, code, checksum)
+    def __init__(self, code, checksum, num_of_locs, operation, preference_tuples, reserved=0):
+        """
+        Locator Update Header as described in RFC6743 for ILNPv6.
+        :param code:
+        :param checksum:
+        :param num_of_locs:
+        :param operation:
+        :param preference_tuples:
+        :param reserved:
+        """
+        super().__init__(self.type, code, checksum)
+        self.num_of_locs = num_of_locs
+        self.operation = operation
+        self.reserved = reserved
+        self.preference_tuples = preference_tuples
 
     @classmethod
     def parse_packet(cls, packet_bytes):
