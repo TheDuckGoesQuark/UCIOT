@@ -3,8 +3,15 @@
 # Questions for Saleem 
 
 Subnetting (RFC6741) (Prefix 48 bits, subnet selector 16 bits)
-- Should longest prefix routing be used
+- Should longest prefix routing be used (should still work?)
 - What does the locator prefix and subnet selector mean in terms of topology?
+
+Address types
+- ILNP Equivalent of link local scope addresses (all nodes, all routers)?
+
+NDB (RFC4861)
+- Neighbor advertisement being used to announce a link-layer address change, would
+these be replaced with locator update messages?
 
 ## Routing Methods
 

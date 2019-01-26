@@ -8,13 +8,6 @@ NEXT_HEADER_CLASSES = {
 }
 
 
-def parse_payload(offset_bits, payload_length, data):
-    # Assume padding
-    first_byte_index = ceil(offset_bits / 8)
-    last_byte_index = first_byte_index + payload_length
-    return data[first_byte_index:last_byte_index]
-
-
 class Packet:
     MAX_PAYLOAD_SIZE = 65535
     ILNPv6_HEADER_FORMAT = "!IHBB4Q"
@@ -80,4 +73,3 @@ class Packet:
         print("Hop limit  : {}".format(self.hop_limit))
         print("Payload    : {}".format(self.payload))
         print("+---------------End-------------------+")
-
