@@ -20,7 +20,7 @@ class LocatorUpdateHeader:
         self.preference_tuples = preference_tuples
 
     @classmethod
-    def parse_packet(cls, packet_bytes):
+    def parse_message(cls, packet_bytes):
         header_description = struct.unpack(cls.HEADER_DESCRIPTION_FORMAT, packet_bytes[:cls.HEADER_DESCRIPTION_SIZE])
 
         num_of_locs = header_description[0]
@@ -48,10 +48,3 @@ class LocatorUpdateHeader:
 
         return tuple_bytes
 
-    def print_packet(self):
-        print("+---------------Start------------------+")
-        print("ILNP Source: {}-{}".format(self.src_locator, self.src_identifier))
-        print("ILNP Dest  : {}-{}".format(self.dest_locator, self.dest_identifier))
-        print("Hop limit  : {}".format(self.hop_limit))
-        print("Payload    : {}".format(self.payload))
-        print("+---------------End-------------------+")
