@@ -1,59 +1,52 @@
 import struct
 
-from ilnpsocket.underlay.packet.icmp.icmpheader import ICMPHeader
-from ilnpsocket.underlay.packet.packet import Packet
 
-
-class LocatorUpdateHeader(ICMPHeader):
-    HEADER_BODY_FORMAT = "!"
+class LocatorUpdateHeader:
+    HEADER_DESCRIPTION_FORMAT = "!BB2x"
+    HEADER_DESCRIPTION_SIZE = struct.calcsize(HEADER_DESCRIPTION_FORMAT)
+    LOCATOR_TUPLE_FORMAT = "!LHH"
+    LOCATOR_TUPLE_SIZE = struct.calcsize(LOCATOR_TUPLE_FORMAT)
     TYPE = 156
 
-    def __init__(self, code, checksum, num_of_locs, operation, preference_tuples, reserved=0):
+    def __init__(self, num_of_locs, operation, preference_tuples):
         """
         Locator Update Header as described in RFC6743 for ILNPv6.
-        :param code:
-        :param checksum:
-        :param num_of_locs:
-        :param operation:
-        :param preference_tuples:
-        :param reserved:
+        :param num_of_locs: The number of 64 bit locator values that are advertised in this message
+        :param operation: whether or not this is a locator update advertisement or ack
+        :param preference_tuples: the set of (locator, preference, lifetime) tuples
         """
-        super().__init__(self.type, code, checksum)
         self.num_of_locs = num_of_locs
         self.operation = operation
-        self.reserved = reserved
         self.preference_tuples = preference_tuples
 
     @classmethod
     def parse_packet(cls, packet_bytes):
-        vals = struct.unpack(cls.HEADER_BODY_FORMAT, packet_bytes[:cls.HEADER_SIZE])
+        header_description = struct.unpack(cls.HEADER_DESCRIPTION_FORMAT, packet_bytes[:cls.HEADER_DESCRIPTION_SIZE])
 
-        flow_label = vals[0] & 1048575
-        traffic_class = (vals[0] >> 20 & 255)
-        version = vals[0] >> 28
-        payload_length = vals[1]
-        next_header = vals[2]
-        hop_limit = vals[3]
-        src = (vals[4], vals[5])
-        dest = (vals[6], vals[7])
+        num_of_locs = header_description[0]
+        operation = header_description[1]
+        preference_tuples = []
+        start = cls.HEADER_DESCRIPTION_SIZE
+        for i in range(num_of_locs):
+            end = start + cls.LOCATOR_TUPLE_SIZE
+            preference_tuple = struct.unpack(cls.LOCATOR_TUPLE_FORMAT, packet_bytes[start:end])
+            preference_tuples.append(preference_tuple)
+            start = end
 
-        payload = packet_bytes[cls.HEADER_SIZE:cls.HEADER_SIZE + payload_length]
-
-        return Packet(payload, src, dest, next_header, hop_limit, version, traffic_class, flow_label)
-
-    def decrement_hop_limit(self):
-        self.hop_limit -= 1
+        return LocatorUpdateHeader(num_of_locs, operation, preference_tuples)
 
     def to_bytes(self):
-        first_octet = self.flow_label | (self.traffic_class << 20) | (self.version << 28)
-        header_bytes = struct.pack(self.ILNPv6_HEADER_FORMAT,
-                                   first_octet,
-                                   self.payload_length, self.next_header, self.hop_limit,
-                                   self.src_locator, self.src_identifier,
-                                   self.dest_locator,
-                                   self.dest_identifier)
-        header_bytes += self.payload
-        return header_bytes
+        return struct.pack(self.HEADER_DESCRIPTION_FORMAT, self.num_of_locs, self.operation) \
+               + self.preference_tuples_to_bytes()
+
+    def preference_tuples_to_bytes(self):
+        tuple_bytes = bytearray(self.num_of_locs * self.LOCATOR_TUPLE_SIZE)
+        start = 0
+        for i in range(self.num_of_locs):
+            end = start + self.LOCATOR_TUPLE_SIZE
+            tuple_bytes[start:end] = struct.pack(self.LOCATOR_TUPLE_FORMAT, self.preference_tuples[i])
+
+        return tuple_bytes
 
     def print_packet(self):
         print("+---------------Start------------------+")

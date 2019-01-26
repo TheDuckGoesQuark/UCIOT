@@ -1,6 +1,12 @@
 from math import ceil
 import struct
 
+from ilnpsocket.underlay.packet.icmp.icmpheader import ICMPHeader
+
+NEXT_HEADER_CLASSES = {
+    ICMPHeader.NEXT_HEADER_VALUE, ICMPHeader
+}
+
 
 def parse_payload(offset_bits, payload_length, data):
     # Assume padding
