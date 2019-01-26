@@ -1,7 +1,7 @@
 import struct
 
 from ilnpsocket.underlay.packet.icmp.locatorupdate import LocatorUpdateHeader
-from ilnpsocket.underlay.packet.icmp.npd import RouterSolicitation, RouterAdvertisement
+from ilnpsocket.underlay.packet.icmp.ndp import RouterSolicitation, RouterAdvertisement
 
 icmp_type_to_class = {
     RouterSolicitation.TYPE: RouterSolicitation,
