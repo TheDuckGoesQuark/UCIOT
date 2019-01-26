@@ -1,8 +1,13 @@
 import struct
 
 from ilnpsocket.underlay.packet.icmp.locatorupdate import LocatorUpdateHeader
+from ilnpsocket.underlay.packet.icmp.npd import RouterSolicitation, RouterAdvertisement
 
-icmp_type_to_class = {LocatorUpdateHeader.TYPE: LocatorUpdateHeader}
+icmp_type_to_class = {
+    RouterSolicitation.TYPE: RouterSolicitation,
+    RouterAdvertisement.TYPE: RouterAdvertisement,
+    LocatorUpdateHeader.TYPE: LocatorUpdateHeader
+}
 
 
 class ICMPMessage:
