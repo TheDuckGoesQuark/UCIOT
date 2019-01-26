@@ -1,10 +1,10 @@
 from math import ceil
 import struct
 
-from ilnpsocket.underlay.packet.icmp.icmpheader import ICMPHeader
+from ilnpsocket.underlay.packet.icmp.icmpmessage import ICMPMessage
 
 NEXT_HEADER_CLASSES = {
-    ICMPHeader.NEXT_HEADER_VALUE, ICMPHeader
+    ICMPMessage.NEXT_HEADER_VALUE, ICMPMessage
 }
 
 

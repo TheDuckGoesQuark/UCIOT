@@ -5,7 +5,7 @@ from ilnpsocket.underlay.packet.icmp.locatorupdate import LocatorUpdateHeader
 icmp_type_to_class = {LocatorUpdateHeader.TYPE: LocatorUpdateHeader}
 
 
-class ICMPHeader:
+class ICMPMessage:
     NEXT_HEADER_VALUE = 58
     HEADER_DESCRIPTION_FORMAT = "!BBH"
     HEADER_SIZE = struct.calcsize(HEADER_DESCRIPTION_FORMAT)
@@ -28,6 +28,6 @@ class ICMPHeader:
         vals = struct.unpack(cls.HEADER_DESCRIPTION_FORMAT, message_bytes[:cls.HEADER_SIZE])
         message_type = vals[0]
         body = icmp_type_to_class[message_type].parse_message(message_bytes[cls.HEADER_SIZE:])
-        return ICMPHeader(message_type, vals[1], vals[2], body)
+        return ICMPMessage(message_type, vals[1], vals[2], body)
 
 
