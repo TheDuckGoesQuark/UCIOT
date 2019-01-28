@@ -20,12 +20,10 @@ class RouterSolicitation:
 
     @classmethod
     def parse_message(cls, packet_bytes):
-        # TODO parse options?
         header_description = struct.unpack(cls.HEADER_DESCRIPTION_FORMAT, packet_bytes[:cls.HEADER_DESCRIPTION_SIZE])
         return RouterSolicitation(None)
 
     def to_bytes(self):
-        # TODO options to bytes
         return struct.pack(self.HEADER_DESCRIPTION_FORMAT)
 
 
@@ -62,7 +60,6 @@ class RouterAdvertisement:
 
     @classmethod
     def parse_message(cls, packet_bytes):
-        # TODO parse options?
         values = struct.unpack(cls.HEADER_FORMAT, packet_bytes[:cls.HEADER_SIZE])
         m_flag = (values[1] >> 7) & 1
         o_flag = (values[1] >> 6) & 1
@@ -70,7 +67,6 @@ class RouterAdvertisement:
         return RouterAdvertisement(values[0], m_flag, o_flag, values[2], values[3], values[4], None)
 
     def to_bytes(self):
-        # TODO options to bytes
         second_byte = (self.m_flag << 7) | (self.o_flag << 6)
         return struct.pack(self.HEADER_FORMAT, self.current_hop_limit, second_byte, self.router_lifetime,
                            self.reachable_time, self.retrans_time)
@@ -98,12 +94,10 @@ class NeighborSolicitation:
 
     @classmethod
     def parse_message(cls, packet_bytes):
-        # TODO parse options?
         values = struct.unpack(cls.HEADER_FORMAT, packet_bytes[:cls.HEADER_SIZE])
         return NeighborSolicitation(values[0], values[1], None)
 
     def to_bytes(self):
-        # TODO options to bytes
         return struct.pack(self.HEADER_FORMAT, self.target_locator, self.target_identifier)
 
 
@@ -135,7 +129,6 @@ class NeighborAdvertisement:
 
     @classmethod
     def parse_message(cls, packet_bytes):
-        # TODO parse options?
         values = struct.unpack(cls.HEADER_FORMAT, packet_bytes[:cls.HEADER_SIZE])
         r_flag = (values[0] >> 7) & 1
         s_flag = (values[0] >> 6) & 1
@@ -143,7 +136,6 @@ class NeighborAdvertisement:
         return NeighborAdvertisement(r_flag, s_flag, o_flag, values[1], values[2], None)
 
     def to_bytes(self):
-        # TODO options to bytes
         flag_byte = (self.router_flag << 7) | (self.solicited_flag << 6) | (self.override_flag << 5)
         return struct.pack(self.HEADER_FORMAT, flag_byte, self.target_locator, self.target_identifier)
 
@@ -173,45 +165,10 @@ class Redirect:
 
     @classmethod
     def parse_message(cls, packet_bytes):
-        # TODO parse options?
         values = struct.unpack(cls.HEADER_FORMAT, packet_bytes[:cls.HEADER_SIZE])
         return NeighborAdvertisement(values[0], values[1], values[2], values[3], None)
 
     def to_bytes(self):
-        # TODO options to bytes
-        return struct.pack(self.HEADER_FORMAT, self.target_locator, self.target_identifier,
-                           self.dest_locator, self.dest_identifier)
-
-
-class Option:
-    # TODO RFC4861 4.6
-    DESCRIPTION_FORMAT = "!4x4Q"
-    HEADER_SIZE = struct.calcsize(HEADER_FORMAT)
-    TYPE = 137
-    CODE = 0
-
-    def __init__(self, target_locator, target_identifier, dest_locator, dest_identifier, options):
-        """
-        :param target_locator: locator of address that is a better first hop
-        :param target_identifier: identifier of address that is a better first hop
-        :param dest_locator: locator of the destination that is redirected to the target
-        :param dest_identifier: identifier of the destination that is redirected to the target
-        :param options:
-        """
-        self.target_locator = target_locator
-        self.target_identifier = target_identifier
-        self.dest_locator = dest_locator
-        self.dest_identifier = dest_identifier
-        self.options = options
-
-    @classmethod
-    def parse_message(cls, packet_bytes):
-        # TODO parse options?
-        values = struct.unpack(cls.HEADER_FORMAT, packet_bytes[:cls.HEADER_SIZE])
-        return NeighborAdvertisement(values[0], values[1], values[2], values[3], None)
-
-    def to_bytes(self):
-        # TODO options to bytes
         return struct.pack(self.HEADER_FORMAT, self.target_locator, self.target_identifier,
                            self.dest_locator, self.dest_identifier)
 

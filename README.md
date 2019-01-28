@@ -11,9 +11,10 @@ Address types
 
 NDB (RFC4861)
 - Neighbor advertisement being used to announce a link-layer address change, would
-these be replaced with locator update messages?
-- Router solicitation message and others has unspecified length for options field, how is this dealt with?
+these be replaced with locator update messages? 
 
+# Reading
+Understand 'link layer' address in ILNP and IP
 
 ## Routing Methods
 
