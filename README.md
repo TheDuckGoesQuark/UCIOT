@@ -7,6 +7,7 @@ Subnetting (RFC6741) (Prefix 48 bits, subnet selector 16 bits)
 - What does the locator prefix and subnet selector mean in terms of topology (possibly answered by the above)?
 
 Address types
+- Confirm understanding: Identifier -> Link layer address, Locator -> Network layer address 
 - ILNP Equivalent of link local scope addresses (all nodes, all routers), do I need to support these?
 
 NDB (RFC4861)

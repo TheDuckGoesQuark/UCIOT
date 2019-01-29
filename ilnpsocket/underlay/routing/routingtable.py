@@ -1,7 +1,7 @@
 import threading
 import time
 
-from ilnpsocket.underlay.packet.icmp.icmpmessage import ICMPMessage
+from ilnpsocket.underlay.packet.icmp.ndp import RouterSolicitation
 
 
 class RoutingTable:
@@ -23,9 +23,6 @@ class RoutingTable:
 
     def add_entry(self, destination_locator, next_hop_locator, cost):
         self.entries[destination_locator] = RoutingEntry(next_hop_locator, cost)
-
-    def handle_icmp(self, packet):
-        icmp = ICMPMessage.parse_message(packet.payload)
 
     def backwards_learn_from_packet(self, packet, locator_interface):
         """

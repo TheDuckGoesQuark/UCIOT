@@ -8,6 +8,7 @@ from ilnpsocket.underlay.packet.packet import Packet
 from ilnpsocket.underlay.routing.routingtable import RoutingTable
 from ilnpsocket.underlay.sockets.listeningsocket import ListeningSocket
 from ilnpsocket.underlay.sockets.sendingsocket import SendingSocket
+from ilnpsocket.underlay.packet.icmp.icmpmessage import ICMPMessage
 
 
 def create_receivers(locators_to_ipv6, port_number):
@@ -141,7 +142,7 @@ class Router(threading.Thread):
             if self.is_for_me(packet):
                 self.__received_packets_queue.put(packet)
             elif packet.dest_locator is not locator_interface:
-                # Packet needs bridged to destination
+                # Packet needs forwarded to destination
                 self.forward_packet(packet, [packet.dest_locator])
             elif self.is_from_me(packet) and locator_interface is None:
                 # Packet from host needing broadcast to locator
@@ -149,6 +150,9 @@ class Router(threading.Thread):
         else:
             next_hop_locators = self.get_next_hops(packet.dest_locator)
             self.forward_packet(packet, next_hop_locators)
+
+    def handle_icmp(self, packet):
+        ICMPMessage.parse_message(packet.payload).apply_function_to_router(self)
 
     def forward_packet(self, packet, next_hop_locators):
         """

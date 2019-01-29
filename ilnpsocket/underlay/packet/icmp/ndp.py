@@ -4,11 +4,17 @@ as in RFC4861
 """
 import struct
 
+from ilnpsocket.underlay.packet.icmp.icmpmessage import ICMPMessage
+
 
 class RouterSolicitation:
     """
     When an interface becomes enabled, hosts may send out Router solicitations that request routers to generate
     router advertisements immediately, rather than at their next scheduled time.
+
+    Routers are considered nodes that interfaces for multiple locators (i.e. are capable of forwwarding packets)
+
+    Router solicitation will be forwarded by each router to all interfaces it knows about other than the arriving interface.
     """
     HEADER_DESCRIPTION_FORMAT = "!4x"
     HEADER_DESCRIPTION_SIZE = struct.calcsize(HEADER_DESCRIPTION_FORMAT)
@@ -26,11 +32,23 @@ class RouterSolicitation:
     def __bytes__(self):
         return struct.pack(self.HEADER_DESCRIPTION_FORMAT)
 
+    def apply_function_to_router(self, router):
+        """
+        Carries out required routing operations for router solicitation
+        :param router: router requested to advertise
+        :return:
+        """
+        advertisement = RouterAdvertisement(0, False, False, 0, 0, 0, None)
+        # TODO checksum
+        icmp = ICMPMessage(self.TYPE, self.CODE, )
+
 
 class RouterAdvertisement:
     """
     Routers advertise their presence together with various link and internet parameters either periodically or in
     response to a router solicitation message.
+
+    Routers are considered nodes that interfaces for multiple locators (i.e. are capable of forwwarding packets)
     """
     HEADER_FORMAT = "!2BH2I"
     HEADER_SIZE = struct.calcsize(HEADER_FORMAT)
@@ -76,6 +94,8 @@ class NeighborSolicitation:
     """
     Sent by a node to determine the link-layer address of a neighbour, or to verify that a neighbour is
     still reachable via a cached link-layer address. Also used for duplicate address detection
+
+    A neighbor is considered any node within the same locator.
     """
     HEADER_FORMAT = "!4x2Q"
     HEADER_SIZE = struct.calcsize(HEADER_FORMAT)

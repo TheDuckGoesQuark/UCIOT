@@ -1,11 +1,15 @@
 import struct
 
 from ilnpsocket.underlay.packet.icmp.locatorupdate import LocatorUpdateHeader
-from ilnpsocket.underlay.packet.icmp.ndp import RouterSolicitation, RouterAdvertisement
+from ilnpsocket.underlay.packet.icmp.ndp import RouterSolicitation, RouterAdvertisement, NeighborSolicitation, \
+    NeighborAdvertisement, Redirect
 
 icmp_type_to_class = {
     RouterSolicitation.TYPE: RouterSolicitation,
     RouterAdvertisement.TYPE: RouterAdvertisement,
+    NeighborSolicitation.TYPE: NeighborSolicitation,
+    NeighborAdvertisement.TYPE:NeighborAdvertisement,
+    Redirect.TYPE: Redirect,
     LocatorUpdateHeader.TYPE: LocatorUpdateHeader
 }
 
@@ -24,10 +28,13 @@ class ICMPMessage:
     def is_error(self):
         return self.message_type < 127
 
-    def to_bytes(self):
+    def apply_function_to_router(self, router):
+        self.body.apply_function_to_router(router)
+
+    def __bytes__(self):
         header = struct.pack(self.HEADER_DESCRIPTION_FORMAT, self.message_type, self.code, self.checksum)
         if self.body is not None:
-            header += self.body.__bytes__()
+            header += bytes(self.body)
 
         return header
 
@@ -39,7 +46,7 @@ class ICMPMessage:
         if message_type in icmp_type_to_class:
             body = icmp_type_to_class[message_type].parse_message(message_bytes[cls.HEADER_SIZE:])
         else:
-            body = None
+            raise ValueError("Unsupported or unknown icmp type value: {}".format(message_type))
 
         return ICMPMessage(message_type, vals[1], vals[2], body)
 
