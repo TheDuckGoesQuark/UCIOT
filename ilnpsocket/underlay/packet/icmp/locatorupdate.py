@@ -35,7 +35,7 @@ class LocatorUpdateHeader:
 
         return LocatorUpdateHeader(num_of_locs, operation, preference_tuples)
 
-    def to_bytes(self):
+    def __bytes__(self):
         return struct.pack(self.HEADER_DESCRIPTION_FORMAT, self.num_of_locs, self.operation) \
                + self.preference_tuples_to_bytes()
 

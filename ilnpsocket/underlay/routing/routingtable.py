@@ -1,6 +1,8 @@
 import threading
 import time
 
+from ilnpsocket.underlay.packet.icmp.icmpmessage import ICMPMessage
+
 
 class RoutingTable:
     def __init__(self, max_hop_limit, refresh_delay_secs):
@@ -22,7 +24,17 @@ class RoutingTable:
     def add_entry(self, destination_locator, next_hop_locator, cost):
         self.entries[destination_locator] = RoutingEntry(next_hop_locator, cost)
 
-    def update_routing_table(self, packet, locator_interface):
+    def handle_icmp(self, packet):
+        icmp = ICMPMessage.parse_message(packet.payload)
+
+    def backwards_learn_from_packet(self, packet, locator_interface):
+        """
+        Uses the packet source and hop count to estimate number of hops to source address.
+        This information alongside the arriving interface is used to identify the best next-hop
+        for packets for that address
+        :param packet: packet that has arrived
+        :param locator_interface: interface packet arrived on
+        """
         route_cost = self.calc_route_cost(packet)
 
         if self.has_entry_for(packet.dest_locator):

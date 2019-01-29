@@ -23,7 +23,7 @@ class RouterSolicitation:
         header_description = struct.unpack(cls.HEADER_DESCRIPTION_FORMAT, packet_bytes[:cls.HEADER_DESCRIPTION_SIZE])
         return RouterSolicitation(None)
 
-    def to_bytes(self):
+    def __bytes__(self):
         return struct.pack(self.HEADER_DESCRIPTION_FORMAT)
 
 
@@ -66,7 +66,7 @@ class RouterAdvertisement:
 
         return RouterAdvertisement(values[0], m_flag, o_flag, values[2], values[3], values[4], None)
 
-    def to_bytes(self):
+    def __bytes__(self):
         second_byte = (self.m_flag << 7) | (self.o_flag << 6)
         return struct.pack(self.HEADER_FORMAT, self.current_hop_limit, second_byte, self.router_lifetime,
                            self.reachable_time, self.retrans_time)
@@ -97,7 +97,7 @@ class NeighborSolicitation:
         values = struct.unpack(cls.HEADER_FORMAT, packet_bytes[:cls.HEADER_SIZE])
         return NeighborSolicitation(values[0], values[1], None)
 
-    def to_bytes(self):
+    def __bytes__(self):
         return struct.pack(self.HEADER_FORMAT, self.target_locator, self.target_identifier)
 
 
@@ -135,7 +135,7 @@ class NeighborAdvertisement:
         o_flag = (values[0] >> 5) & 1
         return NeighborAdvertisement(r_flag, s_flag, o_flag, values[1], values[2], None)
 
-    def to_bytes(self):
+    def __bytes__(self):
         flag_byte = (self.router_flag << 7) | (self.solicited_flag << 6) | (self.override_flag << 5)
         return struct.pack(self.HEADER_FORMAT, flag_byte, self.target_locator, self.target_identifier)
 
@@ -168,7 +168,7 @@ class Redirect:
         values = struct.unpack(cls.HEADER_FORMAT, packet_bytes[:cls.HEADER_SIZE])
         return NeighborAdvertisement(values[0], values[1], values[2], values[3], None)
 
-    def to_bytes(self):
+    def __bytes__(self):
         return struct.pack(self.HEADER_FORMAT, self.target_locator, self.target_identifier,
                            self.dest_locator, self.dest_identifier)
 

@@ -27,7 +27,7 @@ class ICMPMessage:
     def to_bytes(self):
         header = struct.pack(self.HEADER_DESCRIPTION_FORMAT, self.message_type, self.code, self.checksum)
         if self.body is not None:
-            header += self.body.to_bytes()
+            header += self.body.__bytes__()
 
         return header
 

@@ -74,7 +74,7 @@ class Router(threading.Thread):
         :return: a list of tuples of locator:identifier pairs that can be used as an address for this host.
         """
         if self.interfaced_locators is None or len(self.interfaced_locators) == 0:
-            raise ValueError("An address cannot be obtained if this router has no interfaces.")
+            raise ValueError("An address cannot be obtained as this router has no interfaces.")
         else:
             return [(locator, self.my_id) for locator in self.interfaced_locators]
 
@@ -103,7 +103,8 @@ class Router(threading.Thread):
                 continue
 
             if not self.is_from_me(packet):
-                self.routing_table.update_routing_table(packet, locator_interface)
+                self.routing_table.backwards_learn_from_packet(packet, locator_interface)
+                self.routing_table.handle_icmp(packet)
 
             self.route_packet(packet, locator_interface)
 
@@ -159,7 +160,7 @@ class Router(threading.Thread):
         if packet.hop_limit > 0:
             packet.decrement_hop_limit()
             for locator in next_hop_locators:
-                packet_bytes = packet.to_bytes()
+                packet_bytes = packet.__bytes__()
                 self.__sender.sendTo(packet_bytes, locator)
 
     def __enter__(self):

@@ -1,4 +1,3 @@
-from math import ceil
 import struct
 
 from ilnpsocket.underlay.packet.icmp.icmpmessage import ICMPMessage
@@ -55,7 +54,10 @@ class Packet:
     def decrement_hop_limit(self):
         self.hop_limit -= 1
 
-    def to_bytes(self):
+    def is_icmp_message(self):
+        return self.next_header == ICMPMessage.NEXT_HEADER_VALUE
+
+    def __bytes__(self):
         first_octet = self.flow_label | (self.traffic_class << 20) | (self.version << 28)
         header_bytes = struct.pack(self.ILNPv6_HEADER_FORMAT,
                                    first_octet,
