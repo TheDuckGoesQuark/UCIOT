@@ -12,9 +12,10 @@ class RouterSolicitation:
     When an interface becomes enabled, hosts may send out Router solicitations that request routers to generate
     router advertisements immediately, rather than at their next scheduled time.
 
-    Routers are considered nodes that interfaces for multiple locators (i.e. are capable of forwwarding packets)
+    Routers are considered nodes that interfaces for multiple locators (i.e. are capable of forwarding packets)
 
-    Router solicitation will be forwarded by each router to all interfaces it knows about other than the arriving interface.
+    Router solicitation will be forwarded by each router to all interfaces it knows
+    about other than the arriving interface.
     """
     HEADER_DESCRIPTION_FORMAT = "!4x"
     HEADER_DESCRIPTION_SIZE = struct.calcsize(HEADER_DESCRIPTION_FORMAT)
@@ -39,8 +40,11 @@ class RouterSolicitation:
         :return:
         """
         advertisement = RouterAdvertisement(0, False, False, 0, 0, 0, None)
-        # TODO checksum
         icmp = ICMPMessage(self.TYPE, self.CODE, )
+
+    def calc_checksum(self):
+        # TODO checksum
+        pass
 
 
 class RouterAdvertisement:
@@ -89,6 +93,9 @@ class RouterAdvertisement:
         return struct.pack(self.HEADER_FORMAT, self.current_hop_limit, second_byte, self.router_lifetime,
                            self.reachable_time, self.retrans_time)
 
+    def calc_checksum(self):
+        # TODO checksum
+        pass
 
 class NeighborSolicitation:
     """
@@ -119,6 +126,10 @@ class NeighborSolicitation:
 
     def __bytes__(self):
         return struct.pack(self.HEADER_FORMAT, self.target_locator, self.target_identifier)
+
+    def calc_checksum(self):
+        # TODO checksum
+        pass
 
 
 class NeighborAdvertisement:
@@ -159,6 +170,10 @@ class NeighborAdvertisement:
         flag_byte = (self.router_flag << 7) | (self.solicited_flag << 6) | (self.override_flag << 5)
         return struct.pack(self.HEADER_FORMAT, flag_byte, self.target_locator, self.target_identifier)
 
+    def calc_checksum(self):
+        # TODO checksum
+        pass
+
 
 class Redirect:
     """
@@ -191,4 +206,9 @@ class Redirect:
     def __bytes__(self):
         return struct.pack(self.HEADER_FORMAT, self.target_locator, self.target_identifier,
                            self.dest_locator, self.dest_identifier)
+
+    def calc_checksum(self):
+        # TODO checksum
+        pass
+
 

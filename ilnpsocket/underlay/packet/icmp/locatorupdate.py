@@ -47,3 +47,7 @@ class LocatorUpdateHeader:
             tuple_bytes[start:end] = struct.pack(self.LOCATOR_TUPLE_FORMAT, self.preference_tuples[i])
 
         return tuple_bytes
+
+    def calc_checksum(self):
+        # TODO checksum
+        pass

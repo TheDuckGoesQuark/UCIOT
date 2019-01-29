@@ -8,7 +8,7 @@ icmp_type_to_class = {
     RouterSolicitation.TYPE: RouterSolicitation,
     RouterAdvertisement.TYPE: RouterAdvertisement,
     NeighborSolicitation.TYPE: NeighborSolicitation,
-    NeighborAdvertisement.TYPE:NeighborAdvertisement,
+    NeighborAdvertisement.TYPE: NeighborAdvertisement,
     Redirect.TYPE: Redirect,
     LocatorUpdateHeader.TYPE: LocatorUpdateHeader
 }
@@ -48,5 +48,23 @@ class ICMPMessage:
         else:
             raise ValueError("Unsupported or unknown icmp type value: {}".format(message_type))
 
-        return ICMPMessage(message_type, vals[1], vals[2], body)
+        code = vals[1]
+        checksum = vals[2]
 
+        if calc_checksum(message_type, code, body.calc_checksum()) != checksum:
+            raise ValueError("Calculated checksum doesn't match checksum in header.")
+
+        return ICMPMessage(message_type, code, checksum, body)
+
+
+def calc_checksum(message_type, code, body_checksum):
+    """
+    Checksum field is calculated from the one's complement of the sum of every 2 bytes combined to form one 16-bit
+    number.in the icmp header.
+    Checksum field is omitted from this calculation
+    :param message_type: value of the type field
+    :param code: value of the code field
+    :param body_checksum: checksum of the icmp body
+    :return: checksum of ICMP header
+    """
+    return -(body_checksum + ((message_type << 8) | code)) + 1
