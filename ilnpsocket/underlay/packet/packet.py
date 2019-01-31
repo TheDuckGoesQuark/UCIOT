@@ -1,9 +1,9 @@
 import struct
 
-from ilnpsocket.underlay.packet.icmp.icmpmessage import ICMPMessage
+from ilnpsocket.underlay.packet.icmp.icmpheader import ICMPHeader
 
 NEXT_HEADER_CLASSES = {
-    ICMPMessage.NEXT_HEADER_VALUE, ICMPMessage
+    ICMPHeader.NEXT_HEADER_VALUE, ICMPHeader
 }
 
 
@@ -55,7 +55,7 @@ class Packet:
         self.hop_limit -= 1
 
     def is_icmp_message(self):
-        return self.next_header == ICMPMessage.NEXT_HEADER_VALUE
+        return self.next_header == ICMPHeader.NEXT_HEADER_VALUE
 
     def __bytes__(self):
         first_octet = self.flow_label | (self.traffic_class << 20) | (self.version << 28)
@@ -74,4 +74,4 @@ class Packet:
         print("ILNP Dest  : {}-{}".format(self.dest_locator, self.dest_identifier))
         print("Hop limit  : {}".format(self.hop_limit))
         print("Payload    : {}".format(self.payload))
-        print("+---------------End-------------------+")
+        print("+----------------End-------------------+")

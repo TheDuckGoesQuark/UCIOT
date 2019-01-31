@@ -3,8 +3,7 @@ import time
 
 
 class RoutingTable:
-    def __init__(self, max_hop_limit, refresh_delay_secs):
-        self.max_hop_limit = max_hop_limit
+    def __init__(self, refresh_delay_secs):
         self.entries = {}
         self.refresh_thread = RefreshTableThread(refresh_delay_secs, self)
         self.refresh_thread.daemon = True
@@ -16,29 +15,26 @@ class RoutingTable:
     def retrieve_entry_for(self, locator):
         return self.entries[locator]
 
-    def calc_route_cost(self, packet):
-        return self.max_hop_limit - packet.hop_limit
-
     def add_entry(self, destination_locator, next_hop_locator, cost):
         self.entries[destination_locator] = RoutingEntry(next_hop_locator, cost)
 
-    def backwards_learn_from_packet(self, packet, locator_interface):
+    def record_path(self, dest_locator, arriving_locator, route_cost):
         """
         Uses the packet source and hop count to estimate number of hops to source address.
         This information alongside the arriving interface is used to identify the best next-hop
         for packets for that address
-        :param packet: packet that has arrived
-        :param locator_interface: interface packet arrived on
+        :param route_cost: cost of route
+        :param dest_locator: locator reachable via arriving locator
+        :param arriving_locator: interface packet arrived on
         """
-        route_cost = self.calc_route_cost(packet)
 
-        if self.has_entry_for(packet.dest_locator):
-            entry = self.retrieve_entry_for(packet.dest_locator)
+        if self.has_entry_for(dest_locator):
+            entry = self.retrieve_entry_for(dest_locator)
 
             if entry.should_be_replaced_by(route_cost):
-                entry.change_path(locator_interface, route_cost)
+                entry.change_path(arriving_locator, route_cost)
         else:
-            self.add_entry(packet.dest_locator, locator_interface, route_cost)
+            self.add_entry(dest_locator, arriving_locator, route_cost)
 
     def find_next_hops(self, packet_dest_locator):
         if self.has_entry_for(packet_dest_locator):

@@ -8,7 +8,7 @@ from ilnpsocket.underlay.packet.packet import Packet
 from ilnpsocket.underlay.routing.routingtable import RoutingTable
 from ilnpsocket.underlay.sockets.listeningsocket import ListeningSocket
 from ilnpsocket.underlay.sockets.sendingsocket import SendingSocket
-from ilnpsocket.underlay.packet.icmp.icmpmessage import ICMPMessage
+from ilnpsocket.underlay.packet.icmp.icmpheader import ICMPHeader, icmp_type_to_class
 
 
 def create_receivers(locators_to_ipv6, port_number):
@@ -29,6 +29,8 @@ def create_random_id():
 class Router(threading.Thread):
     def __init__(self, conf, received_packets_queue):
         super(Router, self).__init__()
+
+        self.hop_limit = conf.hop_limit
 
         # Assign addresses to this node
         if conf.my_id:
@@ -57,7 +59,7 @@ class Router(threading.Thread):
         self.__listening_thread.start()
 
         # Configures routing table
-        self.routing_table = RoutingTable(conf.hop_limit, conf.router_refresh_delay_secs)
+        self.routing_table = RoutingTable(conf.router_refresh_delay_secs)
 
     def add_to_route_queue(self, packet_to_route, arriving_locator=None):
         """
@@ -95,6 +97,9 @@ class Router(threading.Thread):
 
         return packet
 
+    def calc_path_cost(self, packet):
+        return self.hop_limit - packet.hop_limit
+
     def run(self):
         """Polls for messages."""
         while True:
@@ -104,9 +109,14 @@ class Router(threading.Thread):
                 continue
 
             if not self.is_from_me(packet):
-                self.routing_table.backwards_learn_from_packet(packet, locator_interface)
+                self.routing_table.record_path(packet.src_locator, locator_interface, packet.hop_limit)
 
-            self.route_packet(packet, locator_interface)
+            if packet.is_icmp_message():
+                # Might contain useful information
+                self.handle_icmp_message(packet, locator_interface)
+            else:
+                # Forward as usual
+                self.route_packet(packet, locator_interface)
 
             self.__to_be_routed_queue.task_done()
 
@@ -150,9 +160,6 @@ class Router(threading.Thread):
             next_hop_locators = self.get_next_hops(packet.dest_locator)
             self.forward_packet(packet, next_hop_locators)
 
-    def handle_icmp(self, packet):
-        ICMPMessage.parse_message(packet.payload).apply_function_to_router(self)
-
     def forward_packet(self, packet, next_hop_locators):
         """
         Forwards packet to locator with given value if hop limit is still greater than 0.
@@ -172,3 +179,11 @@ class Router(threading.Thread):
         self.__listening_thread.join()
         self.__sender.close()
 
+    def handle_icmp_message(self, packet, locator_interface):
+        icmp_msg = ICMPHeader.from_bytes(packet)
+
+        if icmp_msg.message_type not in icmp_type_to_class:
+            # silently drop
+            return
+        else:
+            icmp_msg.body.apply_function(packet, self, locator_interface)

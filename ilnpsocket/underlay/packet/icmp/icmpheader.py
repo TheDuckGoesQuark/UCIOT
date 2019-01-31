@@ -1,19 +1,25 @@
 import struct
 
+from ilnpsocket.underlay.packet.icmp.dsr import RouteReply, RouteRequest
 from ilnpsocket.underlay.packet.icmp.locatorupdate import LocatorUpdateHeader
 from ilnpsocket.underlay.packet.icmp.ndp import RouterSolicitation, RouterAdvertisement, NeighborSolicitation, NeighborAdvertisement, Redirect
 
 icmp_type_to_class = {
+    # ndp
     RouterSolicitation.TYPE: RouterSolicitation,
     RouterAdvertisement.TYPE: RouterAdvertisement,
     NeighborSolicitation.TYPE: NeighborSolicitation,
     NeighborAdvertisement.TYPE: NeighborAdvertisement,
     Redirect.TYPE: Redirect,
-    LocatorUpdateHeader.TYPE: LocatorUpdateHeader
+    # ilnp only
+    LocatorUpdateHeader.TYPE: LocatorUpdateHeader,
+    # dsr
+    RouteRequest.TYPE: RouteRequest,
+    RouteReply.TYPE: RouteReply
 }
 
 
-class ICMPMessage:
+class ICMPHeader:
     NEXT_HEADER_VALUE = 58
     HEADER_DESCRIPTION_FORMAT = "!BBH"
     HEADER_SIZE = struct.calcsize(HEADER_DESCRIPTION_FORMAT)
@@ -38,7 +44,7 @@ class ICMPMessage:
         return header
 
     @classmethod
-    def parse_message(cls, message_bytes):
+    def from_bytes(cls, message_bytes):
         vals = struct.unpack(cls.HEADER_DESCRIPTION_FORMAT, message_bytes[:cls.HEADER_SIZE])
         message_type = vals[0]
 
@@ -53,7 +59,7 @@ class ICMPMessage:
         if calc_checksum(message_type, code, body.calc_checksum()) != checksum:
             raise ValueError("Calculated checksum doesn't match checksum in header.")
 
-        return ICMPMessage(message_type, code, checksum, body)
+        return ICMPHeader(message_type, code, checksum, body)
 
 
 def calc_checksum(message_type, code, body_checksum):
