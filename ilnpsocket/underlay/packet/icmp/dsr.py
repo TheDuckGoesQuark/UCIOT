@@ -100,14 +100,15 @@ class RouteRequest(RouteList):
 
     def send_route_reply(self, router, origin):
         packet = self.construct_reply(router, origin)
-        router.forward_packet(packet, router.get_next_hops(origin))
+        next_hops = router.get_next_hops(origin)
+        router.forward_packet(packet, next_hops)
 
     def construct_reply(self, router, origin):
         reply = RouteReply(self.num_of_locs, self.request_id, self.locators)
         icmp_msg = ICMPHeader(self.TYPE, 0, calc_checksum(self.TYPE, 0, self.calc_checksum()), reply)
         return router.construct_host_packet(bytes(icmp_msg), origin)
 
-    def add_self_and_forward(self, arriving_interface):
+    def add_self_and_forward(self, packet, router, arriving_interface):
         self.append_locator(arriving_interface)
-        # TODO change flow? feeling a bit spaghetti...
-        return router.construct_host_packet(bytes(icmp_msg), origin)
+        next_hops = router.get_next_hops(packet.dest_locator)
+        router.forward_packet(packet, next_hops)
