@@ -4,8 +4,6 @@ as in RFC4861
 """
 import struct
 
-from ilnpsocket.underlay.packet.icmp.icmpmessage import ICMPMessage
-
 
 class RouterSolicitation:
     """
@@ -40,7 +38,7 @@ class RouterSolicitation:
         :return:
         """
         advertisement = RouterAdvertisement(0, False, False, 0, 0, 0, None)
-        icmp = ICMPMessage(self.TYPE, self.CODE, )
+        icmp = ICMPMessage(self.TYPE, self.CODE, advertisement.calc_checksum(), advertisement)
 
     def calc_checksum(self):
         # TODO checksum
@@ -96,6 +94,7 @@ class RouterAdvertisement:
     def calc_checksum(self):
         # TODO checksum
         pass
+
 
 class NeighborSolicitation:
     """

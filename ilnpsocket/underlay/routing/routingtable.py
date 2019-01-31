@@ -1,8 +1,6 @@
 import threading
 import time
 
-from ilnpsocket.underlay.packet.icmp.ndp import RouterSolicitation
-
 
 class RoutingTable:
     def __init__(self, max_hop_limit, refresh_delay_secs):
@@ -42,9 +40,9 @@ class RoutingTable:
         else:
             self.add_entry(packet.dest_locator, locator_interface, route_cost)
 
-    def find_next_hop(self, packet_dest_locator):
+    def find_next_hops(self, packet_dest_locator):
         if self.has_entry_for(packet_dest_locator):
-            return self.retrieve_entry_for(packet_dest_locator)
+            return [self.retrieve_entry_for(packet_dest_locator)]
         else:
             return None
 

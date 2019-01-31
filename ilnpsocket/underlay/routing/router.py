@@ -105,7 +105,6 @@ class Router(threading.Thread):
 
             if not self.is_from_me(packet):
                 self.routing_table.backwards_learn_from_packet(packet, locator_interface)
-                self.routing_table.handle_icmp(packet)
 
             self.route_packet(packet, locator_interface)
 
@@ -124,12 +123,12 @@ class Router(threading.Thread):
         return locator in self.interfaced_locators
 
     def get_next_hops(self, dest_locator):
-        next_hop = self.routing_table.find_next_hop(dest_locator)
+        next_hops = self.routing_table.find_next_hops(dest_locator)
 
-        if next_hop is None:
+        if next_hops is None:
             return self.interfaced_locators
         else:
-            return next_hop
+            return next_hops
 
     def route_packet(self, packet, locator_interface=None):
         """
@@ -163,12 +162,9 @@ class Router(threading.Thread):
         """
         if packet.hop_limit > 0:
             packet.decrement_hop_limit()
+            packet_bytes = bytes(packet)
             for locator in next_hop_locators:
-                packet_bytes = packet.__bytes__()
                 self.__sender.sendTo(packet_bytes, locator)
-
-    def __enter__(self):
-        return self
 
     def __exit__(self):
         """Closes sockets and joins thread upon exit"""

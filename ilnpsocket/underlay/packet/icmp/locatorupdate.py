@@ -4,7 +4,7 @@ import struct
 class LocatorUpdateHeader:
     HEADER_DESCRIPTION_FORMAT = "!BB2x"
     HEADER_DESCRIPTION_SIZE = struct.calcsize(HEADER_DESCRIPTION_FORMAT)
-    LOCATOR_TUPLE_FORMAT = "!LHH"
+    LOCATOR_TUPLE_FORMAT = "!QHH"
     LOCATOR_TUPLE_SIZE = struct.calcsize(LOCATOR_TUPLE_FORMAT)
     TYPE = 156
 
