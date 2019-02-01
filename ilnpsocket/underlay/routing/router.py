@@ -41,8 +41,9 @@ class Router(threading.Thread):
         self.hop_limit = conf.hop_limit
         self.interfaced_locators = {int(l) for l in conf.locators_to_ipv6}
 
-        # packets awaiting routing
+        # packets awaiting routing or route reply
         self.__to_be_routed_queue = Queue()
+        self.__awaiting_route_reply = {}
 
         # packets for the current node
         self.__received_packets_queue = received_packets_queue
@@ -111,11 +112,9 @@ class Router(threading.Thread):
             if not self.is_from_me(packet):
                 self.routing_table.record_path(packet.src_locator, locator_interface, packet.hop_limit)
 
-            if packet.is_icmp_message():
-                # Might contain useful information
-                self.handle_icmp_message(packet, locator_interface)
+            if packet.is_control_message():
+                self.handle_control_message(packet, locator_interface)
             else:
-                # Forward as usual
                 self.route_packet(packet, locator_interface)
 
             self.__to_be_routed_queue.task_done()
@@ -132,32 +131,47 @@ class Router(threading.Thread):
     def interface_exists_for_locator(self, locator):
         return locator in self.interfaced_locators
 
-    def get_next_hops(self, dest_locator):
+    def get_next_hops(self, dest_locator, arriving_interface):
+        """
+        Provides a set of next hops to send the packet to get it to its destination. The arriving interface if provided
+        will avoid the packet being pointlessly sent the way it came.
+
+        :param dest_locator: locator address packet is destined for
+        :param arriving_interface: locator interface that packet arrived on
+        :return: list of viable next hops that should lead to the packets destination
+        """
         next_hops = self.routing_table.find_next_hops(dest_locator)
 
-        if next_hops is None:
-            return self.interfaced_locators
+        if arriving_interface in next_hops:
+            next_hops.remove(arriving_interface)
+
+        if len(next_hops) is 0:
+            next_hops = self.interfaced_locators
+            if arriving_interface in next_hops:
+                next_hops.remove(arriving_interface)
+
+            return next_hops
         else:
             return next_hops
 
-    def route_packet(self, packet, locator_interface=None):
+    def route_packet(self, packet, arriving_interface=None):
         """
         Attempts to either receive packets for this node, or to forward packets to their destination
         :param packet: packet to be routed
-        :param locator_interface: locator that packet arrived from. Default value of None
+        :param arriving_interface: locator that packet arrived from. Default value of None
         implies that packet was created by this node to be routed
         """
         if self.interface_exists_for_locator(packet.dest_locator):
             if self.is_for_me(packet):
                 self.__received_packets_queue.put(packet)
-            elif packet.dest_locator is not locator_interface:
+            elif packet.dest_locator is not arriving_interface:
                 # Packet needs forwarded to destination
                 self.forward_packet(packet, [packet.dest_locator])
-            elif self.is_from_me(packet) and locator_interface is None:
+            elif self.is_from_me(packet) and arriving_interface is None:
                 # Packet from host needing broadcast to locator
                 self.forward_packet(packet, [packet.dest_locator])
         else:
-            next_hop_locators = self.get_next_hops(packet.dest_locator)
+            next_hop_locators = self.get_next_hops(packet.dest_locator, arriving_interface)
             self.forward_packet(packet, next_hop_locators)
 
     def forward_packet(self, packet, next_hop_locators):
@@ -179,7 +193,7 @@ class Router(threading.Thread):
         self.__listening_thread.join()
         self.__sender.close()
 
-    def handle_icmp_message(self, packet, locator_interface):
+    def handle_control_message(self, packet, locator_interface):
         icmp_msg = ICMPHeader.from_bytes(packet)
 
         if icmp_msg.message_type not in icmp_type_to_class:
@@ -187,3 +201,7 @@ class Router(threading.Thread):
             return
         else:
             icmp_msg.body.apply_function(packet, self, locator_interface)
+
+    def add_to_route_reply_queue(self, packet, identifier):
+        self.__awaiting_route_reply[identifier] = packet
+

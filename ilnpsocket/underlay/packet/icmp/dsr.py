@@ -1,7 +1,6 @@
 import struct
 
-from ilnpsocket.underlay.packet.icmp.icmpheader import ICMPHeader, calc_checksum
-from ilnpsocket.underlay.packet.packet import Packet
+from ilnpsocket.underlay.packet.icmp.icmpheader import  *
 
 
 class RouteList:

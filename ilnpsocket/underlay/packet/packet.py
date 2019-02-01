@@ -54,7 +54,7 @@ class Packet:
     def decrement_hop_limit(self):
         self.hop_limit -= 1
 
-    def is_icmp_message(self):
+    def is_control_message(self):
         return self.next_header == ICMPHeader.NEXT_HEADER_VALUE
 
     def __bytes__(self):
@@ -65,7 +65,7 @@ class Packet:
                                    self.src_locator, self.src_identifier,
                                    self.dest_locator,
                                    self.dest_identifier)
-        header_bytes += self.payload
+        header_bytes += bytes(self.payload)
         return header_bytes
 
     def print_packet(self):

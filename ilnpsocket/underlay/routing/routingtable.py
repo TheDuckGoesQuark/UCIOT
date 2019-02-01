@@ -27,7 +27,6 @@ class RoutingTable:
         :param dest_locator: locator reachable via arriving locator
         :param arriving_locator: interface packet arrived on
         """
-
         if self.has_entry_for(dest_locator):
             entry = self.retrieve_entry_for(dest_locator)
 
@@ -40,7 +39,7 @@ class RoutingTable:
         if self.has_entry_for(packet_dest_locator):
             return [self.retrieve_entry_for(packet_dest_locator)]
         else:
-            return None
+            return []
 
     def clear_table(self):
         self.entries.clear()

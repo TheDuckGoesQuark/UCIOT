@@ -33,9 +33,6 @@ class ICMPHeader:
     def is_error(self):
         return self.message_type < 127
 
-    def apply_function_to_router(self, router):
-        self.body.apply_function_to_router(router)
-
     def __bytes__(self):
         header = struct.pack(self.HEADER_DESCRIPTION_FORMAT, self.message_type, self.code, self.checksum)
         if self.body is not None:
