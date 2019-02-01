@@ -65,44 +65,8 @@ class RouteList:
 
 
 class RouteReply(RouteList):
-
     TYPE = 163
-
-    def apply_function(self, packet, router):
-        pass
 
 
 class RouteRequest(RouteList):
-
     TYPE = 162
-
-    def apply_function(self, packet, router, arriving_interface):
-        # cache path so far
-        self.update_routing_table(router, arriving_interface)
-
-        if router.is_for_me(packet):
-            self.send_route_reply(router, packet.src_locator)
-        else:
-            self.add_self_and_forward(packet, router, arriving_interface)
-
-    def update_routing_table(self, router, arriving_interface):
-        length_of_path = len(self.locators)
-
-        for locator in self.locators:
-            router.routing_table.record_path(locator, length_of_path, arriving_interface)
-            length_of_path -= 1
-
-    def send_route_reply(self, router, origin):
-        packet = self.construct_reply(router, origin)
-        next_hops = router.get_next_hops(origin)
-        router.forward_packet(packet, next_hops)
-
-    def construct_reply(self, router, origin):
-        reply = RouteReply(self.num_of_locs, self.request_id, self.locators)
-        icmp_msg = ICMPHeader(self.TYPE, 0, calc_checksum(self.TYPE, 0, self.calc_checksum()), reply)
-        return router.construct_host_packet(bytes(icmp_msg), origin)
-
-    def add_self_and_forward(self, packet, router, arriving_interface):
-        self.append_locator(arriving_interface)
-        next_hops = router.get_next_hops(packet.dest_locator)
-        router.forward_packet(packet, next_hops)

@@ -1,10 +1,11 @@
+import collections
 import threading
 from os import urandom
 from queue import Queue
 from struct import unpack
 
 from ilnpsocket.underlay.listeningthread import ListeningThread
-from ilnpsocket.underlay.packet.icmp.dsr import RouteRequest
+from ilnpsocket.underlay.packet.icmp.dsr import RouteRequest, RouteReply
 from ilnpsocket.underlay.packet.icmp.icmpheader import ICMPHeader
 from ilnpsocket.underlay.packet.packet import Packet
 from ilnpsocket.underlay.routing.forwardingtable import ForwardingTable
@@ -175,6 +176,13 @@ class Router(threading.Thread):
             else:
                 self.forward_packet_to_addresses(packet, next_hop_locators)
 
+    def flood(self, packet, arriving_interface):
+        next_hops = self.interfaced_locators
+        if arriving_interface in next_hops:
+            next_hops.remove(arriving_interface)
+
+        self.forward_packet_to_addresses(packet, next_hops)
+
     def forward_packet_to_addresses(self, packet, next_hop_locators):
         """
         Forwards packet to locator with given value if hop limit is still greater than 0.
@@ -212,6 +220,11 @@ class DSRService:
         self.router = router
         self.forwarding_table = forwarding_table
         self.request_id_counter = 0
+        # Fixed size list of request ids to track those that have already been seen
+        self.recent_request_ids = collections.deque(5*[0], 5)
+
+    def recently_seen_id(self, request_id):
+        return request_id in self.recent_request_ids
 
     def create_request_id(self):
         """
@@ -225,7 +238,7 @@ class DSRService:
     def find_route_for_packet(self, packet):
         request_id = self.create_request_id()
         self.awaiting_route[request_id] = packet
-        request_packet = self.build_route_request_packet(request_id, packet.dest_locator)
+        request_packet = self.build_route_request_packet(request_id, (packet.dest_locator, packet.dest_identifier))
         self.router.forward_packet_to_addresses(request_packet, self.router.interfaced_locators)
 
     def build_route_request_packet(self, request_id, destination):
@@ -233,7 +246,55 @@ class DSRService:
         icmp_message = ICMPHeader(rreq.TYPE, 0, 0, bytes(rreq))
         return self.router.construct_host_packet(bytes(icmp_message), destination)
 
+    def build_route_reply_packet(self, rreq, destination):
+        rrply = RouteReply(0, rreq.request_id, rreq.locators)
+        icmp_message = ICMPHeader(rrply.TYPE, 0, 0, bytes(rrply))
+        return self.router.construct_host_packet(bytes(icmp_message), destination)
+
     def handle_message(self, packet, locator_interface):
-        icmp_message = ICMPHeader.from_bytes(packet.payload)
+        packet.payload = ICMPHeader.from_bytes(packet.payload)
+
+        if packet.payload.message_type is RouteRequest.TYPE:
+            self.handle_route_request(packet, locator_interface)
+        elif packet.payload.message_type is RouteReply.TYPE:
+            self.handle_route_reply(packet, locator_interface)
+
+    def handle_route_request(self, packet,  arriving_locator):
+        rreq = packet.payload.body
+        self.add_path_to_routing_table(rreq.locators, arriving_locator)
+
+        if self.router.is_for_me(packet):
+            self.send_route_reply(rreq, (packet.src_locator, packet.src_identifier))
+        elif not self.recently_seen_id(rreq.request_id) and not rreq.already_in_list(arriving_locator):
+            known_path = self.build_path_from_cache()
+
+            if known_path is None:
+                self.forward_route_request(packet, arriving_locator)
+            else:
+                rreq.locators.extend(known_path)
+                self.send_route_reply(rreq, arriving_locator)
+
+    def forward_route_request(self, packet, arriving_locator):
+        packet.payload.body.append_locator(arriving_locator)
+        self.router.flood(packet, arriving_locator)
+
+    def add_path_to_routing_table(self, locators, arriving_locator):
+        length_of_path = len(locators)
+
+        for locator in locators:
+            self.forwarding_table.record_path(locator, arriving_locator, length_of_path)
+            length_of_path -= 1
+
+    def handle_route_reply(self, packet, arriving_locator):
+        rreq = packet.payload.body
+        self.add_path_to_routing_table(rreq.locators, arriving_locator)
+
+    def send_route_reply(self, rreq, destination):
+        reply = self.build_route_reply_packet(rreq, destination)
+        # Assumes that path back should have been learned, but will be routed otherwise
+        self.router.route_packet(reply)
+
+    def build_path_from_cache(self):
+        # TODO
         pass
 
