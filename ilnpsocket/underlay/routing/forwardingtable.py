@@ -2,7 +2,11 @@ import threading
 import time
 
 
-class RoutingTable:
+class ForwardingTable:
+    """
+    Forwarding table stores the next hops for destination locators. It is routinely cleared and so will require
+    updating.
+    """
     def __init__(self, refresh_delay_secs):
         self.entries = {}
         self.refresh_thread = RefreshTableThread(refresh_delay_secs, self)
@@ -16,7 +20,7 @@ class RoutingTable:
         return self.entries[locator]
 
     def add_entry(self, destination_locator, next_hop_locator, cost):
-        self.entries[destination_locator] = RoutingEntry(next_hop_locator, cost)
+        self.entries[destination_locator] = ForwardingEntry(next_hop_locator, cost)
 
     def record_path(self, dest_locator, arriving_locator, route_cost):
         """
@@ -61,7 +65,7 @@ class RefreshTableThread(threading.Thread):
         self.running = False
 
 
-class RoutingEntry:
+class ForwardingEntry:
     def __init__(self, next_hop_locator, cost):
         self.cost = cost
         self.next_hop_locator = next_hop_locator

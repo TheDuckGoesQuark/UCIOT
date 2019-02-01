@@ -5,7 +5,7 @@ from struct import unpack
 
 from ilnpsocket.underlay.listeningthread import ListeningThread
 from ilnpsocket.underlay.packet.packet import Packet
-from ilnpsocket.underlay.routing.routingtable import RoutingTable
+from ilnpsocket.underlay.routing.forwardingtable import ForwardingTable
 from ilnpsocket.underlay.sockets.listeningsocket import ListeningSocket
 from ilnpsocket.underlay.sockets.sendingsocket import SendingSocket
 from ilnpsocket.underlay.packet.icmp.icmpheader import ICMPHeader, icmp_type_to_class
@@ -60,7 +60,7 @@ class Router(threading.Thread):
         self.__listening_thread.start()
 
         # Configures routing table
-        self.routing_table = RoutingTable(conf.router_refresh_delay_secs)
+        self.forwarding_table = ForwardingTable(conf.router_refresh_delay_secs)
 
     def add_to_route_queue(self, packet_to_route, arriving_locator=None):
         """
@@ -110,7 +110,7 @@ class Router(threading.Thread):
                 continue
 
             if not self.is_from_me(packet):
-                self.routing_table.record_path(packet.src_locator, locator_interface, packet.hop_limit)
+                self.forwarding_table.record_path(packet.src_locator, locator_interface, packet.hop_limit)
 
             if packet.is_control_message():
                 self.handle_control_message(packet, locator_interface)
@@ -140,7 +140,7 @@ class Router(threading.Thread):
         :param arriving_interface: locator interface that packet arrived on
         :return: list of viable next hops that should lead to the packets destination
         """
-        next_hops = self.routing_table.find_next_hops(dest_locator)
+        next_hops = self.forwarding_table.find_next_hops(dest_locator)
 
         if arriving_interface in next_hops:
             next_hops.remove(arriving_interface)
@@ -157,9 +157,8 @@ class Router(threading.Thread):
     def route_packet(self, packet, arriving_interface=None):
         """
         Attempts to either receive packets for this node, or to forward packets to their destination
+        :param arriving_interface:
         :param packet: packet to be routed
-        :param arriving_interface: locator that packet arrived from. Default value of None
-        implies that packet was created by this node to be routed
         """
         if self.interface_exists_for_locator(packet.dest_locator):
             if self.is_for_me(packet):
@@ -205,3 +204,7 @@ class Router(threading.Thread):
     def add_to_route_reply_queue(self, packet, identifier):
         self.__awaiting_route_reply[identifier] = packet
 
+class DSRService:
+    """
+    DSR service handles route request and reply messages, and updates the forwarding table with relevant information
+    """

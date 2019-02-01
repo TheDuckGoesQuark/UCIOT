@@ -1,6 +1,4 @@
-import struct
-
-from ilnpsocket.underlay.packet.icmp.icmpheader import  *
+from ilnpsocket.underlay.packet.icmp.icmpheader import *
 
 
 class RouteList:
@@ -32,10 +30,7 @@ class RouteList:
 
     @classmethod
     def from_bytes(cls, packet_bytes):
-        header_description = struct.unpack(cls.HEADER_DESCRIPTION_FORMAT, packet_bytes[:cls.HEADER_DESCRIPTION_SIZE])
-
-        num_of_locs = header_description[0]
-        request_id = header_description[1]
+        num_of_locs, request_id = struct.unpack(cls.HEADER_DESCRIPTION_FORMAT, packet_bytes[:cls.HEADER_DESCRIPTION_SIZE])
 
         list_format = cls.LOCATOR_FORMAT.format(num_of_locs)
         locator_list = []
