@@ -4,11 +4,12 @@ from queue import Queue
 from struct import unpack
 
 from ilnpsocket.underlay.listeningthread import ListeningThread
+from ilnpsocket.underlay.packet.icmp.dsr import RouteRequest
+from ilnpsocket.underlay.packet.icmp.icmpheader import ICMPHeader
 from ilnpsocket.underlay.packet.packet import Packet
 from ilnpsocket.underlay.routing.forwardingtable import ForwardingTable
 from ilnpsocket.underlay.sockets.listeningsocket import ListeningSocket
 from ilnpsocket.underlay.sockets.sendingsocket import SendingSocket
-from ilnpsocket.underlay.packet.icmp.icmpheader import ICMPHeader, icmp_type_to_class
 
 
 def create_receivers(locators_to_ipv6, port_number):
@@ -43,7 +44,6 @@ class Router(threading.Thread):
 
         # packets awaiting routing or route reply
         self.__to_be_routed_queue = Queue()
-        self.__awaiting_route_reply = {}
 
         # packets for the current node
         self.__received_packets_queue = received_packets_queue
@@ -59,8 +59,9 @@ class Router(threading.Thread):
         self.__listening_thread.daemon = True
         self.__listening_thread.start()
 
-        # Configures routing table
+        # Configures routing service and forwarding table
         self.forwarding_table = ForwardingTable(conf.router_refresh_delay_secs)
+        self.dsr_service = DSRService(self.forwarding_table, self)
 
     def add_to_route_queue(self, packet_to_route, arriving_locator=None):
         """
@@ -113,7 +114,7 @@ class Router(threading.Thread):
                 self.forwarding_table.record_path(packet.src_locator, locator_interface, packet.hop_limit)
 
             if packet.is_control_message():
-                self.handle_control_message(packet, locator_interface)
+                self.dsr_service.handle_message(packet, locator_interface)
             else:
                 self.route_packet(packet, locator_interface)
 
@@ -134,7 +135,7 @@ class Router(threading.Thread):
     def get_next_hops(self, dest_locator, arriving_interface):
         """
         Provides a set of next hops to send the packet to get it to its destination. The arriving interface if provided
-        will avoid the packet being pointlessly sent the way it came.
+        will be removed to avoid the packet being pointlessly sent the way it came.
 
         :param dest_locator: locator address packet is destined for
         :param arriving_interface: locator interface that packet arrived on
@@ -145,19 +146,16 @@ class Router(threading.Thread):
         if arriving_interface in next_hops:
             next_hops.remove(arriving_interface)
 
-        if len(next_hops) is 0:
-            next_hops = self.interfaced_locators
-            if arriving_interface in next_hops:
-                next_hops.remove(arriving_interface)
-
-            return next_hops
-        else:
-            return next_hops
+        return next_hops
 
     def route_packet(self, packet, arriving_interface=None):
         """
-        Attempts to either receive packets for this node, or to forward packets to their destination
-        :param arriving_interface:
+        Attempts to either receive packets for this node, or to forward packets to their destination.
+
+        If a path isn't found, its handed over to the DSR service to find a path.
+        :param arriving_interface: interface packet arrived on. If not given or None, packet will be assumed
+        to have been created by the host.
+
         :param packet: packet to be routed
         """
         if self.interface_exists_for_locator(packet.dest_locator):
@@ -165,15 +163,19 @@ class Router(threading.Thread):
                 self.__received_packets_queue.put(packet)
             elif packet.dest_locator is not arriving_interface:
                 # Packet needs forwarded to destination
-                self.forward_packet(packet, [packet.dest_locator])
+                self.forward_packet_to_addresses(packet, [packet.dest_locator])
             elif self.is_from_me(packet) and arriving_interface is None:
                 # Packet from host needing broadcast to locator
-                self.forward_packet(packet, [packet.dest_locator])
+                self.forward_packet_to_addresses(packet, [packet.dest_locator])
         else:
             next_hop_locators = self.get_next_hops(packet.dest_locator, arriving_interface)
-            self.forward_packet(packet, next_hop_locators)
 
-    def forward_packet(self, packet, next_hop_locators):
+            if len(next_hop_locators) is 0 and arriving_interface is None:
+                self.dsr_service.find_route_for_packet(packet)
+            else:
+                self.forward_packet_to_addresses(packet, next_hop_locators)
+
+    def forward_packet_to_addresses(self, packet, next_hop_locators):
         """
         Forwards packet to locator with given value if hop limit is still greater than 0.
         Decrements hop limit by one before forwarding.
@@ -192,19 +194,46 @@ class Router(threading.Thread):
         self.__listening_thread.join()
         self.__sender.close()
 
-    def handle_control_message(self, packet, locator_interface):
-        icmp_msg = ICMPHeader.from_bytes(packet)
-
-        if icmp_msg.message_type not in icmp_type_to_class:
-            # silently drop
-            return
-        else:
-            icmp_msg.body.apply_function(packet, self, locator_interface)
-
-    def add_to_route_reply_queue(self, packet, identifier):
-        self.__awaiting_route_reply[identifier] = packet
 
 class DSRService:
     """
     DSR service handles route request and reply messages, and updates the forwarding table with relevant information
     """
+    def __init__(self, forwarding_table, router):
+        """
+        Initializes DSRService with forwarding table which it will maintain with information it gains from routing
+        messages.
+        :type router: Router
+        :param router: router that can be used to forward any control messages
+        :type forwarding_table: ForwardingTable
+        :param forwarding_table: forwarding table to update when routing information is available
+        """
+        self.awaiting_route = {}
+        self.router = router
+        self.forwarding_table = forwarding_table
+        self.request_id_counter = 0
+
+    def create_request_id(self):
+        """
+        Generates a request id and increments the current value, ensuring that it can be stored in a single byte.
+        :return: request_id
+        """
+        current_val = self.request_id_counter
+        self.request_id_counter = (current_val + 1) % 255
+        return current_val
+
+    def find_route_for_packet(self, packet):
+        request_id = self.create_request_id()
+        self.awaiting_route[request_id] = packet
+        request_packet = self.build_route_request_packet(request_id, packet.dest_locator)
+        self.router.forward_packet_to_addresses(request_packet, self.router.interfaced_locators)
+
+    def build_route_request_packet(self, request_id, destination):
+        rreq = RouteRequest(0, request_id, [])
+        icmp_message = ICMPHeader(rreq.TYPE, 0, 0, bytes(rreq))
+        return self.router.construct_host_packet(bytes(icmp_message), destination)
+
+    def handle_message(self, packet, locator_interface):
+        icmp_message = ICMPHeader.from_bytes(packet.payload)
+        pass
+
