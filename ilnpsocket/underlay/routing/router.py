@@ -222,6 +222,7 @@ class DSRService:
         self.request_id_counter = 0
         # Fixed size list of request ids to track those that have already been seen
         self.recent_request_ids = collections.deque(5*[0], 5)
+        self.network_graph = NetworkGraph(self.router.interfaced_locators)
 
     def recently_seen_id(self, request_id):
         return request_id in self.recent_request_ids
@@ -266,7 +267,7 @@ class DSRService:
         if self.router.is_for_me(packet):
             self.send_route_reply(rreq, (packet.src_locator, packet.src_identifier))
         elif not self.recently_seen_id(rreq.request_id) and not rreq.already_in_list(arriving_locator):
-            known_path = self.build_path_from_cache()
+            known_path = self.network_graph.get_path_between(arriving_locator, packet.dest_locator)
 
             if known_path is None:
                 self.forward_route_request(packet, arriving_locator)
@@ -294,7 +295,26 @@ class DSRService:
         # Assumes that path back should have been learned, but will be routed otherwise
         self.router.route_packet(reply)
 
-    def build_path_from_cache(self):
-        # TODO
-        pass
 
+class NetworkGraph:
+    def __init__(self, initial_locators):
+        self.nodes = {}
+
+        for locator in initial_locators:
+            self.nodes[locator] = {loc for loc in initial_locators if loc != locator}
+
+    def get_path_between(self, start, end, path=[]):
+        path.append(start)
+
+        if start == end:
+            return path
+        if not start not in self.nodes:
+            return None
+
+        for node in self.nodes[start]:
+            if node not in path:
+                new_path = self.get_path_between(node, end, path)
+                if new_path:
+                    return new_path
+
+        return None
