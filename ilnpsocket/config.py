@@ -48,6 +48,7 @@ class Config:
                                      self.group_ids}
             self.my_id = fields.getint('my_id', 1)
             self.packet_buffer_size_bytes = fields.getint('packet_buffer_size_bytes', 512)
+            self.loopback = fields.getboolean("loopback", True)
             self.print_config()
         else:
             raise FileNotFoundError("No config file could be found at {}".format(config_file))
@@ -62,5 +63,6 @@ class Config:
         print("INFO - sleep: {}".format(self.sleep))
         print("INFO - locators:ipv6: {}".format(self.locators_to_ipv6))
         print("INFO - packet buffer size: {} bytes".format(self.packet_buffer_size_bytes))
+        print("INFO - my id: {}".format(self.my_id))
         print("INFO - CONFIGURATION DESCRIPTION END")
 

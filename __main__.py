@@ -12,6 +12,6 @@ section = args.section
 if __name__ == "__main__":
     sock = ILNPSocket(config_file, section)
     while True:
-        print("Message received: {}".format(sock.receive()))
+        print("Message for me received: {}".format(sock.receive()))
 else:
     sock = ILNPSocket(config_file, section)

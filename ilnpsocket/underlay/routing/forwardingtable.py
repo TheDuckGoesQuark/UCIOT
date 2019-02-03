@@ -22,7 +22,7 @@ class ForwardingTable:
     def add_entry(self, destination_locator, next_hop_locator, cost):
         self.entries[destination_locator] = ForwardingEntry(next_hop_locator, cost)
 
-    def record_path(self, dest_locator, arriving_locator, route_cost):
+    def record_entry(self, dest_locator, arriving_locator, route_cost):
         """
         Uses the packet source and hop count to estimate number of hops to source address.
         This information alongside the arriving interface is used to identify the best next-hop

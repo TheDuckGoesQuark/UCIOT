@@ -3,6 +3,9 @@ from queue import Queue
 from ilnpsocket.config import Config
 from ilnpsocket.underlay.routing.router import Router
 
+import logging
+logging.basicConfig(level=logging.DEBUG)
+
 
 class ILNPSocket:
     """Abstracts UDP layer to leave only ILNP overlay"""
@@ -20,7 +23,7 @@ class ILNPSocket:
         self.__router.daemon = True
         self.__router.start()
 
-        print("ILNP IO Initialised")
+        logging.debug("ILNPSocket Initialised")
 
     def send(self, payload, destination):
         """

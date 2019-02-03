@@ -1,5 +1,6 @@
 import collections
 import threading
+import logging
 from os import urandom
 from queue import Queue
 from struct import unpack
@@ -50,7 +51,7 @@ class Router(threading.Thread):
         self.__received_packets_queue = received_packets_queue
 
         # Create sending socket
-        self.__sender = SendingSocket(conf.port, conf.locators_to_ipv6)
+        self.__sender = SendingSocket(conf.port, conf.locators_to_ipv6, conf.loopback)
 
         # Configures listening thread
         receivers = create_receivers(conf.locators_to_ipv6, conf.port)
@@ -100,23 +101,27 @@ class Router(threading.Thread):
 
         return packet
 
-    def calc_path_cost(self, packet):
-        return self.hop_limit - packet.hop_limit
-
     def run(self):
         """Polls for messages."""
         while True:
+            logging.debug("Polling for packet...")
             packet, locator_interface = self.__to_be_routed_queue.get(block=True)
 
             if type(packet) is not Packet:
                 continue
 
             if not self.is_from_me(packet):
-                self.forwarding_table.record_path(packet.src_locator, locator_interface, packet.hop_limit)
+                self.forwarding_table.record_entry(packet.src_locator, locator_interface, packet.hop_limit)
 
             if packet.is_control_message():
+                logging.debug("Received control message from {}-{} for {} {}"
+                              .format(packet.src_locator, packet.src_identifier,
+                                      packet.dest_locator, packet.dest_locator))
                 self.dsr_service.handle_message(packet, locator_interface)
             else:
+                logging.debug("Received normal packet from {}-{} for {} {}"
+                              .format(packet.src_locator, packet.src_identifier,
+                                      packet.dest_locator, packet.dest_locator))
                 self.route_packet(packet, locator_interface)
 
             self.__to_be_routed_queue.task_done()
@@ -161,22 +166,27 @@ class Router(threading.Thread):
         """
         if self.interface_exists_for_locator(packet.dest_locator):
             if self.is_for_me(packet):
+                logging.debug("Packet added to received queue")
                 self.__received_packets_queue.put(packet)
             elif packet.dest_locator is not arriving_interface:
+                logging.debug("Packet being forwarded to final destination")
                 # Packet needs forwarded to destination
                 self.forward_packet_to_addresses(packet, [packet.dest_locator])
             elif self.is_from_me(packet) and arriving_interface is None:
+                logging.debug("Packet being broadcast to my locator group {}".format(packet.dest_locator))
                 # Packet from host needing broadcast to locator
                 self.forward_packet_to_addresses(packet, [packet.dest_locator])
         else:
             next_hop_locators = self.get_next_hops(packet.dest_locator, arriving_interface)
 
             if len(next_hop_locators) is 0 and arriving_interface is None:
+                logging.debug("No route found, requesting one.")
                 self.dsr_service.find_route_for_packet(packet)
             else:
                 self.forward_packet_to_addresses(packet, next_hop_locators)
 
     def flood(self, packet, arriving_interface):
+        logging.debug("Flooding packet ")
         next_hops = self.interfaced_locators
         if arriving_interface in next_hops:
             next_hops.remove(arriving_interface)
@@ -191,10 +201,13 @@ class Router(threading.Thread):
         :param next_hop_locators: set of locators (interfaces) to forward packet to
         """
         if packet.hop_limit > 0:
+            logging.debug("Forwarding packet to the following locator(s): {}".format(next_hop_locators))
             packet.decrement_hop_limit()
             packet_bytes = bytes(packet)
             for locator in next_hop_locators:
                 self.__sender.sendTo(packet_bytes, locator)
+        else:
+            logging.debug("Packet dropped. Hop limit reached")
 
     def __exit__(self):
         """Closes sockets and joins thread upon exit"""
@@ -257,45 +270,59 @@ class DSRService:
         packet.payload = ICMPHeader.from_bytes(packet.payload)
 
         if packet.payload.message_type is RouteRequest.TYPE:
+            logging.debug("Received route request")
             self.handle_route_request(packet, locator_interface)
         elif packet.payload.message_type is RouteReply.TYPE:
+            logging.debug("Received route reply")
             self.handle_route_reply(packet, locator_interface)
 
     def handle_route_request(self, packet, arriving_locator):
         rreq = packet.payload.body
-        self.add_path_to_routing_table(rreq.locators, arriving_locator)
+        self.add_path_to_forwarding_table(rreq.locators, arriving_locator)
 
         if self.router.is_for_me(packet):
+            logging.debug("Replying to route request")
             self.reply_to_route_request(rreq, (packet.src_locator, packet.src_identifier))
         elif not self.is_recently_seen_id(rreq.request_id) and not rreq.already_in_list(arriving_locator):
             known_path = self.network_graph.get_path_between(arriving_locator, packet.dest_locator)
 
             if known_path is None:
+                logging.debug("Forwarding route request")
                 self.forward_route_request(packet, arriving_locator)
             else:
+                logging.debug("Replying to route request with cached path")
                 rreq.locators.extend(known_path)
                 self.reply_to_route_request(rreq, arriving_locator)
 
     def forward_route_request(self, packet, arriving_locator):
+        logging.debug("Appending arriving locator and forwarding route request")
         packet.payload.body.append_locator(arriving_locator)
         self.router.flood(packet, arriving_locator)
 
-    def add_path_to_routing_table(self, locators, arriving_locator):
+    def add_path_to_forwarding_table(self, locators, arriving_locator):
+        logging.debug("Adding the following path to forwarding table: {}".format(locators))
         length_of_path = len(locators)
 
-        for locator in locators:
-            self.forwarding_table.record_path(locator, arriving_locator, length_of_path)
+        for index, locator in enumerate(locators):
+            self.forwarding_table.record_entry(locator, arriving_locator, length_of_path)
+            if index < len(locator) - 1:
+                self.network_graph.add_vertex(locator, locators[index+1])
+
             length_of_path -= 1
 
     def handle_route_reply(self, packet, arriving_locator):
         rrep = packet.payload.body
-        self.add_path_to_routing_table(rrep.locators, arriving_locator)
+        self.add_path_to_forwarding_table(rrep.locators, arriving_locator)
 
         if self.router.is_for_me(packet):
             if rrep.request_id in self.awaiting_route:
+                logging.debug("Found path for packet from route reply, routing now!")
                 waiting_packet = self.awaiting_route.pop(rrep.request_id)
                 self.router.route_packet(waiting_packet, None)
+            else:
+                logging.debug("Discarding route reply as old request_id present")
         else:
+            logging.debug("Forwarding route reply")
             self.router.route_packet(packet, arriving_locator)
 
     def reply_to_route_request(self, rreq, destination):
