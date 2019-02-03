@@ -224,7 +224,7 @@ class DSRService:
         self.recent_request_ids = collections.deque(5*[0], 5)
         self.network_graph = NetworkGraph(self.router.interfaced_locators)
 
-    def recently_seen_id(self, request_id):
+    def is_recently_seen_id(self, request_id):
         return request_id in self.recent_request_ids
 
     def create_request_id(self):
@@ -266,7 +266,7 @@ class DSRService:
 
         if self.router.is_for_me(packet):
             self.send_route_reply(rreq, (packet.src_locator, packet.src_identifier))
-        elif not self.recently_seen_id(rreq.request_id) and not rreq.already_in_list(arriving_locator):
+        elif not self.is_recently_seen_id(rreq.request_id) and not rreq.already_in_list(arriving_locator):
             known_path = self.network_graph.get_path_between(arriving_locator, packet.dest_locator)
 
             if known_path is None:
@@ -292,7 +292,6 @@ class DSRService:
 
     def send_route_reply(self, rreq, destination):
         reply = self.build_route_reply_packet(rreq, destination)
-        # Assumes that path back should have been learned, but will be routed otherwise
         self.router.route_packet(reply)
 
 
@@ -303,12 +302,16 @@ class NetworkGraph:
         for locator in initial_locators:
             self.nodes[locator] = {loc for loc in initial_locators if loc != locator}
 
-    def get_path_between(self, start, end, path=[]):
+    def get_path_between(self, start, end, path=None):
+        """Finds a path between the start and end node. Not necessarily the shortest"""
+        if path is None:
+            path = []
+
         path.append(start)
 
         if start == end:
             return path
-        if not start not in self.nodes:
+        if not self.node_exists(start):
             return None
 
         for node in self.nodes[start]:
@@ -318,3 +321,24 @@ class NetworkGraph:
                     return new_path
 
         return None
+
+    def node_exists(self, node):
+        return node in self.nodes
+
+    def add_node(self, node):
+        self.nodes[node] = set()
+
+    def add_vertex(self, start, end):
+        if not self.node_exists(start):
+            self.add_node(start)
+
+        if not self.node_exists(end):
+            self.add_node(end)
+
+        self.nodes[start].add(end)
+        self.nodes[end].add(start)
+
+    def remove_vertex(self, start, end):
+        if self.node_exists(start) and self.node_exists(end):
+            self.nodes[start].remove(end)
+            self.nodes[end].remove(start)

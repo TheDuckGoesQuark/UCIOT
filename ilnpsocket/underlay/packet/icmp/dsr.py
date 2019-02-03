@@ -43,7 +43,7 @@ class RouteList:
         return RouteList(num_of_locs, request_id, list_format)
 
     def __bytes__(self):
-        return struct.pack(self.HEADER_DESCRIPTION_FORMAT, self.num_of_locs, self.request_id, self.locators_to_bytes())
+        return struct.pack(self.HEADER_DESCRIPTION_FORMAT, self.num_of_locs, self.request_id) + self.locators_to_bytes()
 
     def locators_to_bytes(self):
         tuple_bytes = bytearray(self.num_of_locs * self.LOCATOR_SIZE)

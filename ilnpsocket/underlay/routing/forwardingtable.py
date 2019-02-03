@@ -48,6 +48,12 @@ class ForwardingTable:
     def clear_table(self):
         self.entries.clear()
 
+    def print_contents(self):
+        print("INFO - Current state of forwarding table before refreshing:")
+        print("INFO - Destination, NextHop, Cost")
+        for dest, entry in self.entries:
+            print("INFO - {}, {}, {}".format(dest, entry.next_hop_locator, entry.cost))
+
 
 class RefreshTableThread(threading.Thread):
     def __init__(self, refresh_delay, routing_table):
@@ -58,6 +64,7 @@ class RefreshTableThread(threading.Thread):
 
     def run(self):
         while self.running:
+            self.routing_table.print_contents()
             self.routing_table.clear_table()
             time.sleep(self.refresh_delay)
 

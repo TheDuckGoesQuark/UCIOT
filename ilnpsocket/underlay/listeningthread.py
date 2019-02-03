@@ -1,4 +1,3 @@
-import datetime
 import threading
 import select
 
@@ -47,8 +46,8 @@ class ListeningThread(threading.Thread):
 
         :param listening_socket: socket that has bytes ready to read
         """
-        data, addr = listening_socket.recvfrom_into(self.__buffer, Packet.HEADER_SIZE)
-        packet = Packet.parse_header(data)
+        n_bytes, addr = listening_socket.recvfrom_into(self.__buffer, Packet.HEADER_SIZE)
+        packet = Packet.parse_header(self.__buffer)
 
         if packet.payload_length is not 0:
             packet.payload = parse_payload(packet.payload_length, listening_socket)
