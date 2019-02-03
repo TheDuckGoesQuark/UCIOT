@@ -207,6 +207,7 @@ class DSRService:
     """
     DSR service handles route request and reply messages, and updates the forwarding table with relevant information
     """
+
     def __init__(self, forwarding_table, router):
         """
         Initializes DSRService with forwarding table which it will maintain with information it gains from routing
@@ -221,7 +222,7 @@ class DSRService:
         self.forwarding_table = forwarding_table
         self.request_id_counter = 0
         # Fixed size list of request ids to track those that have already been seen
-        self.recent_request_ids = collections.deque(5*[0], 5)
+        self.recent_request_ids = collections.deque(5 * [0], 5)
         self.network_graph = NetworkGraph(self.router.interfaced_locators)
 
     def is_recently_seen_id(self, request_id):
@@ -260,12 +261,12 @@ class DSRService:
         elif packet.payload.message_type is RouteReply.TYPE:
             self.handle_route_reply(packet, locator_interface)
 
-    def handle_route_request(self, packet,  arriving_locator):
+    def handle_route_request(self, packet, arriving_locator):
         rreq = packet.payload.body
         self.add_path_to_routing_table(rreq.locators, arriving_locator)
 
         if self.router.is_for_me(packet):
-            self.send_route_reply(rreq, (packet.src_locator, packet.src_identifier))
+            self.reply_to_route_request(rreq, (packet.src_locator, packet.src_identifier))
         elif not self.is_recently_seen_id(rreq.request_id) and not rreq.already_in_list(arriving_locator):
             known_path = self.network_graph.get_path_between(arriving_locator, packet.dest_locator)
 
@@ -273,7 +274,7 @@ class DSRService:
                 self.forward_route_request(packet, arriving_locator)
             else:
                 rreq.locators.extend(known_path)
-                self.send_route_reply(rreq, arriving_locator)
+                self.reply_to_route_request(rreq, arriving_locator)
 
     def forward_route_request(self, packet, arriving_locator):
         packet.payload.body.append_locator(arriving_locator)
@@ -287,10 +288,17 @@ class DSRService:
             length_of_path -= 1
 
     def handle_route_reply(self, packet, arriving_locator):
-        rreq = packet.payload.body
-        self.add_path_to_routing_table(rreq.locators, arriving_locator)
+        rrep = packet.payload.body
+        self.add_path_to_routing_table(rrep.locators, arriving_locator)
 
-    def send_route_reply(self, rreq, destination):
+        if self.router.is_for_me(packet):
+            if rrep.request_id in self.awaiting_route:
+                waiting_packet = self.awaiting_route.pop(rrep.request_id)
+                self.router.route_packet(waiting_packet, None)
+        else:
+            self.router.route_packet(packet, arriving_locator)
+
+    def reply_to_route_request(self, rreq, destination):
         reply = self.build_route_reply_packet(rreq, destination)
         self.router.route_packet(reply)
 
