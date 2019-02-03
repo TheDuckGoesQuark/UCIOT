@@ -31,7 +31,7 @@ def get_default_id():
 
 
 class Config:
-    def __init__(self, config_file, section="DEFAULT"):
+    def __init__(self, config_file, section):
         if config_file is not None:
             cp = ConfigParser()
             cp.read(config_file)

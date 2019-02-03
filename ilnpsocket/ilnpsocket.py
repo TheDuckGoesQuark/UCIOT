@@ -7,12 +7,12 @@ from ilnpsocket.underlay.routing.router import Router
 class ILNPSocket:
     """Abstracts UDP layer to leave only ILNP overlay"""
 
-    def __init__(self, config_file):
+    def __init__(self, config_file, config_section="DEFAULT"):
         """
         Creates an io instance able to send and receive ILNP packets. A thread will be created for listening
         for incoming packets which will then populate the message queue, which can be polled using the receive method.
         """
-        conf = Config(config_file)
+        conf = Config(config_file, config_section)
         # packets for this node
         self.__received_packets = Queue()
         # router thread for forwarding and sending packets
