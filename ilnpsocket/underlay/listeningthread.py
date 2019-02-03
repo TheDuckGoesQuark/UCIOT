@@ -1,7 +1,7 @@
 import threading
 import select
 
-from ilnpsocket.underlay.packet.packet import Packet
+from ilnpsocket.underlay.packet import Packet
 
 
 def parse_payload(to_read, socket):
@@ -29,7 +29,7 @@ class ListeningThread(threading.Thread):
                              "Given value: {}".format(buffer_size_bytes))
 
         self.__buffer_size_bytes = buffer_size_bytes
-        self.__buffer = memoryview(bytearray(buffer_size_bytes))
+        self.__buffer = bytearray(buffer_size_bytes)
 
     def run(self):
         """Continuously checks for incoming packets on each listening socket and

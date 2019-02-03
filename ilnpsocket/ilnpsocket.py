@@ -31,7 +31,6 @@ class ILNPSocket:
         :param payload: data to be sent as bytes object
         :param destination: ILNP address as L:ID tuple of target
         """
-
         if payload is None or type(payload) is not bytes:
             raise TypeError("Payload must be bytes object.")
 

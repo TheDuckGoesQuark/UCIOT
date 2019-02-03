@@ -1,6 +1,7 @@
 import socket
 import logging
 
+
 class SendingSocket:
     def __init__(self, port_number, locator_to_ipv6, loopback):
         self.__port = port_number

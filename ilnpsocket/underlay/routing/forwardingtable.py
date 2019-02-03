@@ -51,7 +51,7 @@ class ForwardingTable:
     def print_contents(self):
         print("INFO - Current state of forwarding table before refreshing:")
         print("INFO - Destination, NextHop, Cost")
-        for dest, entry in self.entries:
+        for dest, entry in self.entries.items():
             print("INFO - {}, {}, {}".format(dest, entry.next_hop_locator, entry.cost))
 
 

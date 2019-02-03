@@ -6,9 +6,9 @@ from queue import Queue
 from struct import unpack
 
 from ilnpsocket.underlay.listeningthread import ListeningThread
-from ilnpsocket.underlay.packet.icmp.dsr import RouteRequest, RouteReply
-from ilnpsocket.underlay.packet.icmp.icmpheader import ICMPHeader
-from ilnpsocket.underlay.packet.packet import Packet
+from ilnpsocket.underlay.icmp.dsr import RouteRequest, RouteReply
+from ilnpsocket.underlay.icmp.icmpheader import ICMPHeader
+from ilnpsocket.underlay.packet import Packet
 from ilnpsocket.underlay.routing.forwardingtable import ForwardingTable
 from ilnpsocket.underlay.sockets.listeningsocket import ListeningSocket
 from ilnpsocket.underlay.sockets.sendingsocket import SendingSocket
@@ -111,7 +111,7 @@ class Router(threading.Thread):
                 continue
 
             if not self.is_from_me(packet):
-                self.forwarding_table.record_entry(packet.src_locator, locator_interface, packet.hop_limit)
+                self.forwarding_table.record_entry(packet.src_locator, locator_interface, self.hop_limit - packet.hop_limit)
 
             if packet.is_control_message():
                 logging.debug("Received control message from {}-{} for {} {}"
@@ -186,7 +186,7 @@ class Router(threading.Thread):
                 self.forward_packet_to_addresses(packet, next_hop_locators)
 
     def flood(self, packet, arriving_interface):
-        logging.debug("Flooding packet ")
+        logging.debug("Flooding packet")
         next_hops = self.interfaced_locators
         if arriving_interface in next_hops:
             next_hops.remove(arriving_interface)

@@ -1,4 +1,4 @@
-from ilnpsocket.underlay.packet.icmp.icmpheader import *
+from ilnpsocket.underlay.icmp.icmpheader import *
 
 
 class RouteList:

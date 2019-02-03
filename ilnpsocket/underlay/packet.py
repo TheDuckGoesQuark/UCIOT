@@ -1,6 +1,6 @@
 import struct
 
-from ilnpsocket.underlay.packet.icmp.icmpheader import ICMPHeader
+from ilnpsocket.underlay.icmp.icmpheader import ICMPHeader
 
 NEXT_HEADER_CLASSES = {
     ICMPHeader.NEXT_HEADER_VALUE, ICMPHeader

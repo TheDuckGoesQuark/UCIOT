@@ -13,5 +13,6 @@ if __name__ == "__main__":
     sock = ILNPSocket(config_file, section)
     while True:
         print("Message for me received: {}".format(sock.receive()))
+        sock.send(bytes("Hello you lovely little person you", "utf-8"), (0, 2))
 else:
     sock = ILNPSocket(config_file, section)
