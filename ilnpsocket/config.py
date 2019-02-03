@@ -15,7 +15,7 @@ def parse_group_ids(opt_list_uids):
     if opt_list_uids:
         return (uid for uid in opt_list_uids.split(','))
     else:
-        return {hex(0)}
+        return {"0"}
 
 
 def build_ipv6_multicast_address(uid, group_id):
@@ -38,8 +38,8 @@ class Config:
             fields = cp[section]
 
             self.router_refresh_delay_secs = fields.getint('router_refresh_delay_secs', 60)
-            self.uid = parse_uid(fields['unique_identifier'])
-            self.group_ids = parse_group_ids(fields['group_ids'])
+            self.uid = parse_uid(fields.get('unique_identifier', None))
+            self.group_ids = parse_group_ids(fields.get('group_ids'))
             self.port = fields.getint('port', 8080)
             self.hop_limit = fields.getint('hop_limit', 32)
             self.message = fields.get('message', "hello world")

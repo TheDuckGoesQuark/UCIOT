@@ -4,14 +4,6 @@ from ilnpsocket.config import Config
 from ilnpsocket.underlay.routing.router import Router
 
 
-# TODO
-# support mobility by allowing changes to locators to occur and sending updates when these changes do occur.
-# see https://tools.ietf.org/html/rfc6740#section-2.1 page 30
-# TODO
-# routing table implementation
-# TODO
-# neighbour discovery
-
 class ILNPSocket:
     """Abstracts UDP layer to leave only ILNP overlay"""
 
