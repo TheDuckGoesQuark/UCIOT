@@ -1,3 +1,4 @@
+import logging
 import struct
 
 from ilnpsocket.underlay.icmp.icmpheader import ICMPHeader

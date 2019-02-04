@@ -12,11 +12,6 @@ class ListeningThread(threading.Thread):
         self.__router = router
         self.__stopped = False
         self.__timeout = timeout
-
-        if buffer_size_bytes < Packet.HEADER_SIZE:
-            raise ValueError("Buffer size must be at least the size of an ILNPv6 packet header. "
-                             "Given value: {}".format(buffer_size_bytes))
-
         self.__buffer = bytearray(buffer_size_bytes)
         self.buffer_view = memoryview(self.__buffer)
 
@@ -28,20 +23,18 @@ class ListeningThread(threading.Thread):
             for sock in ready_socks:
                 self.read_sock(sock)
 
-    def read_sock(self, listening_socket):
-        """
-        Reads bytes from the given socket and attempts to parse a packet from it. On success, this packet will be added
-        to the message queue alongside this listening threads' locator value so the arriving interface can be identified
+    def read_sock(self, sock):
+        n_bytes_to_read, _ = sock.recvfrom_into(self.buffer_view)
+        packet = Packet.parse_header(self.buffer_view)
 
-        :param listening_socket: socket that has bytes ready to read
-        """
-        packet_bytes = listening_socket.recvall(Packet.HEADER_SIZE)
-        packet = Packet.parse_header(packet_bytes)
-
+        # Copy payload into bytearray from buffer
         if packet.payload_length is not 0:
-            packet.payload = listening_socket.recvall(packet.payload_length)
+            offset = Packet.HEADER_SIZE
+            end = offset + packet.payload_length
+            packet.payload = bytearray(self.buffer_view[offset:end])
 
-        self.__router.add_to_route_queue(packet, listening_socket.locator)
+        self.__router.add_to_route_queue(packet, sock.locator)
 
     def stop(self):
         self.__stopped = True
+
