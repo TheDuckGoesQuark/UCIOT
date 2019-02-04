@@ -32,7 +32,6 @@ class RouteList:
     def from_bytes(cls, packet_bytes):
         num_of_locs, request_id = struct.unpack(cls.HEADER_DESCRIPTION_FORMAT, packet_bytes[:cls.HEADER_DESCRIPTION_SIZE])
 
-        list_format = cls.LOCATOR_FORMAT.format(num_of_locs)
         locator_list = []
         start = cls.HEADER_DESCRIPTION_SIZE
         for value in range(num_of_locs):
@@ -40,7 +39,7 @@ class RouteList:
             locator_list.append(struct.unpack(cls.LOCATOR_FORMAT, packet_bytes[start:end]))
             start += cls.LOCATOR_SIZE
 
-        return RouteList(num_of_locs, request_id, list_format)
+        return RouteList(num_of_locs, request_id, locator_list)
 
     def __bytes__(self):
         return struct.pack(self.HEADER_DESCRIPTION_FORMAT, self.num_of_locs, self.request_id) + self.locators_to_bytes()
