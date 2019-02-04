@@ -233,7 +233,7 @@ class DSRService:
         self.awaiting_route = {}
         self.router = router
         self.forwarding_table = forwarding_table
-        self.request_id_counter = 0
+        self.request_id_counter = 1
         # Fixed size list of request ids to track those that have already been seen
         self.recent_request_ids = collections.deque(5 * [0], 5)
         self.network_graph = NetworkGraph(self.router.interfaced_locators)
@@ -248,6 +248,10 @@ class DSRService:
         """
         current_val = self.request_id_counter
         self.request_id_counter = (current_val + 1) % 255
+
+        if self.request_id_counter == 0:
+            self.request_id_counter += 1
+
         return current_val
 
     def find_route_for_packet(self, packet):
