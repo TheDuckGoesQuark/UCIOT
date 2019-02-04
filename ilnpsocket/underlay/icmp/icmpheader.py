@@ -46,15 +46,15 @@ class ICMPHeader:
         message_type = vals[0]
 
         if message_type in icmp_type_to_class:
-            body = icmp_type_to_class[message_type].parse_message(message_bytes[cls.HEADER_SIZE:])
+            body = icmp_type_to_class[message_type].from_bytes(message_bytes[cls.HEADER_SIZE:])
         else:
             raise ValueError("Unsupported or unknown icmp type value: {}".format(message_type))
 
         code = vals[1]
         checksum = vals[2]
 
-        if calc_checksum(message_type, code, body.calc_checksum()) != checksum:
-            raise ValueError("Calculated checksum doesn't match checksum in header.")
+        # if calc_checksum(message_type, code, body.calc_checksum()) != checksum:
+        #     raise ValueError("Calculated checksum doesn't match checksum in header.")
 
         return ICMPHeader(message_type, code, checksum, body)
 

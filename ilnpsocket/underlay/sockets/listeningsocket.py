@@ -13,7 +13,7 @@ class ListeningSocket:
         :param port: port number this socket should accept traffic from
         :param locator: ILNP locator value this socket is the interface for
         """
-        self.__multicast_address = multicast_address
+        self.multicast_address = multicast_address
         self.__port = port
         self.__sock = create_listening_socket(port, multicast_address)
         self.locator = locator
@@ -28,17 +28,8 @@ class ListeningSocket:
 
         return self.__sock.recvfrom_into(buffer, buffer_size)
 
-    def recvall(self, count):
-        buf = b''
-        while count:
-            newbuf = self.__sock.recv(count)
-            if not newbuf:
-                return None
-            else:
-                buf += newbuf
-                count -= len(newbuf)
-
-        return buf
+    def getsockname(self):
+        return self.__sock.getsockname()
 
 
 def create_listening_socket(port, multicast_address):

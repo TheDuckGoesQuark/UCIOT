@@ -114,14 +114,14 @@ class Router(threading.Thread):
                 self.forwarding_table.record_entry(packet.src_locator, locator_interface, self.hop_limit - packet.hop_limit)
 
             if packet.is_control_message():
-                logging.debug("Received control message from {}-{} for {} {}"
+                logging.debug("Received control message from {}-{} for {} {} on interface {}"
                               .format(packet.src_locator, packet.src_identifier,
-                                      packet.dest_locator, packet.dest_locator))
+                                      packet.dest_locator, packet.dest_identifier, locator_interface))
                 self.dsr_service.handle_message(packet, locator_interface)
             else:
-                logging.debug("Received normal packet from {}-{} for {} {}"
+                logging.debug("Received normal packet from {}-{} for {} {} on interface {}"
                               .format(packet.src_locator, packet.src_identifier,
-                                      packet.dest_locator, packet.dest_locator))
+                                      packet.dest_locator, packet.dest_identifier, locator_interface))
                 self.route_packet(packet, locator_interface)
 
             self.__to_be_routed_queue.task_done()
@@ -259,12 +259,16 @@ class DSRService:
     def build_route_request_packet(self, request_id, destination):
         rreq = RouteRequest(0, request_id, [])
         icmp_message = ICMPHeader(rreq.TYPE, 0, 0, bytes(rreq))
-        return self.router.construct_host_packet(bytes(icmp_message), destination)
+        packet = self.router.construct_host_packet(bytes(icmp_message), destination)
+        packet.next_header = ICMPHeader.NEXT_HEADER_VALUE
+        return packet
 
     def build_route_reply_packet(self, rreq, destination):
         rrply = RouteReply(0, rreq.request_id, rreq.locators)
         icmp_message = ICMPHeader(rrply.TYPE, 0, 0, bytes(rrply))
-        return self.router.construct_host_packet(bytes(icmp_message), destination)
+        packet = self.router.construct_host_packet(bytes(icmp_message), destination)
+        packet.next_header = ICMPHeader.NEXT_HEADER_VALUE
+        return packet
 
     def handle_message(self, packet, locator_interface):
         packet.payload = ICMPHeader.from_bytes(packet.payload)

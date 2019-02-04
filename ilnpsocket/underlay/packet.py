@@ -69,10 +69,10 @@ class Packet:
         header_bytes += bytes(self.payload)
         return header_bytes
 
-    def print_packet(self):
-        print("+---------------Start------------------+")
-        print("ILNP Source: {}-{}".format(self.src_locator, self.src_identifier))
-        print("ILNP Dest  : {}-{}".format(self.dest_locator, self.dest_identifier))
-        print("Hop limit  : {}".format(self.hop_limit))
-        print("Payload    : {}".format(self.payload))
-        print("+----------------End-------------------+")
+    def __str__(self):
+        return "+---------------Start------------------+ \n" \
+         "ILNP Source: {}-{}\n" \
+         "ILNP Dest  : {}-{}\n" \
+         "Hop limit  : {}\n" \
+         "Payload    : {}\n" \
+         "+----------------End-------------------+".format(self.src_locator, self.src_identifier, self.dest_locator, self.dest_identifier, self.hop_limit, self.payload)
