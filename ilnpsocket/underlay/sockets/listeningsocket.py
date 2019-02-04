@@ -22,8 +22,23 @@ class ListeningSocket:
         """Provides direct access to socket file handle for select module"""
         return self.__sock.fileno()
 
-    def recvfrom_into(self, buffer, buffer_size):
+    def recvfrom_into(self, buffer, buffer_size=None):
+        if buffer_size is None:
+            buffer_size = len(buffer)
+
         return self.__sock.recvfrom_into(buffer, buffer_size)
+
+    def recvall(self, count):
+        buf = b''
+        while count:
+            newbuf = self.__sock.recv(count)
+            if not newbuf:
+                return None
+            else:
+                buf += newbuf
+                count -= len(newbuf)
+
+        return buf
 
 
 def create_listening_socket(port, multicast_address):
