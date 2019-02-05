@@ -268,8 +268,9 @@ class DSRService:
         packet.next_header = ICMPHeader.NEXT_HEADER_VALUE
         return packet
 
-    def build_route_reply_packet(self, rreq, destination):
+    def build_route_reply_packet(self, rreq, destination, arriving_locator):
         rrply = RouteReply(0, rreq.request_id, rreq.locators)
+        rrply.append_locator(arriving_locator)
         icmp_message = ICMPHeader(rrply.TYPE, 0, 0, bytes(rrply))
         packet = self.router.construct_host_packet(bytes(icmp_message), destination)
         packet.next_header = ICMPHeader.NEXT_HEADER_VALUE
@@ -291,7 +292,7 @@ class DSRService:
 
         if self.router.is_for_me(packet):
             logging.debug("Replying to route request")
-            self.reply_to_route_request(rreq, (packet.src_locator, packet.src_identifier))
+            self.reply_to_route_request(rreq, (packet.src_locator, packet.src_identifier), arriving_locator)
         elif not self.is_recently_seen_id(rreq.request_id) and not rreq.already_in_list(arriving_locator):
             known_path = self.network_graph.get_path_between(arriving_locator, packet.dest_locator)
 
@@ -300,8 +301,8 @@ class DSRService:
                 self.forward_route_request(packet, arriving_locator)
             else:
                 logging.debug("Replying to route request with cached path")
-                rreq.locators.extend(known_path)
-                self.reply_to_route_request(rreq, arriving_locator)
+                rreq.locators.extend(known_path) # TODO doesnt add self when path is literally beside them!
+                self.reply_to_route_request(rreq, (packet.src_locator, packet.src_identifier), arriving_locator)
 
     def forward_route_request(self, packet, arriving_locator):
         logging.debug("Appending arriving locator and forwarding route request")
@@ -334,8 +335,8 @@ class DSRService:
             logging.debug("Forwarding route reply")
             self.router.route_packet(packet, arriving_locator)
 
-    def reply_to_route_request(self, rreq, destination):
-        reply = self.build_route_reply_packet(rreq, destination)
+    def reply_to_route_request(self, rreq, destination, arriving_locator):
+        reply = self.build_route_reply_packet(rreq, destination, arriving_locator)
         self.router.route_packet(reply)
 
 
