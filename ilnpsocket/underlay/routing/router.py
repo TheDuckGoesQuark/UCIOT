@@ -16,7 +16,7 @@ from ilnpsocket.underlay.sockets.sendingsocket import SendingSocket
 
 def create_receivers(locators_to_ipv6, port_number):
     """Creates a listening socket instance for each locator-ipv6 key value pair"""
-    return [ListeningSocket(address, port_number, locator)
+    return [ListeningSocket(address, port_number, int(locator))
             for locator, address
             in locators_to_ipv6.items()]
 
@@ -188,6 +188,7 @@ class Router(threading.Thread):
     def flood(self, packet, arriving_interface):
         logging.debug("Flooding packet")
         next_hops = self.interfaced_locators
+
         if arriving_interface in next_hops:
             next_hops.remove(arriving_interface)
 
@@ -384,4 +385,4 @@ class NetworkGraph:
     def remove_vertex(self, start, end):
         if self.node_exists(start) and self.node_exists(end):
             self.nodes[start].remove(end)
-            self.nodes[end].remove(start)
+

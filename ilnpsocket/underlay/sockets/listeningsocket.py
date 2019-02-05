@@ -46,11 +46,11 @@ def create_listening_socket(port, multicast_address):
     # Allows address to be reused
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
-    # Binds to all interfaces on the given port
-    sock.bind(('', port))
+    # Get interface to use
+    interface_index = socket.if_nametoindex("enp4s0")
 
-    # Allow messages from this socket to loop back for development
-    sock.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_MULTICAST_LOOP, True)
+    # Binds to all interfaces on the given port
+    sock.bind((multicast_address, port, 0, interface_index))
 
     # Construct message for joining multicast group
     multicast_request = struct.pack("16s15s".encode('utf-8'), socket.inet_pton(socket.AF_INET6, multicast_address),
