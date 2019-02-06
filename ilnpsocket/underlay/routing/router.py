@@ -3,6 +3,7 @@ import threading
 import logging
 from os import urandom
 from queue import Queue
+from random import shuffle
 from struct import unpack
 
 from ilnpsocket.underlay.listeningthread import ListeningThread
@@ -111,7 +112,8 @@ class Router(threading.Thread):
                 continue
 
             if not self.is_from_me(packet):
-                self.forwarding_table.record_entry(packet.src_locator, locator_interface, self.hop_limit - packet.hop_limit)
+                self.forwarding_table.record_entry(packet.src_locator, locator_interface,
+                                                   self.hop_limit - packet.hop_limit)
 
             if packet.is_control_message():
                 logging.debug("Received control message from {}-{} for {} {} on interface {}"
@@ -242,7 +244,7 @@ class DSRService:
     def is_recently_seen_id(self, request_id):
         return request_id in self.recent_request_ids
 
-    def create_request_id(self):
+    def create_request_id(self, source_locator, source_identifer):
         """
         Generates a request id and increments the current value, ensuring that it can be stored in a single byte.
         :return: request_id
@@ -250,8 +252,10 @@ class DSRService:
         current_val = self.request_id_counter
         self.request_id_counter = (current_val + 1) % 255
 
-        if self.request_id_counter == 0:
-            self.request_id_counter += 1
+        current_val = (source_locator + current_val) & 255
+
+        if current_val == 0:
+            current_val = 1
 
         return current_val
 
@@ -268,9 +272,8 @@ class DSRService:
         packet.next_header = ICMPHeader.NEXT_HEADER_VALUE
         return packet
 
-    def build_route_reply_packet(self, rreq, destination, arriving_locator):
+    def build_route_reply_packet(self, rreq, destination):
         rrply = RouteReply(0, rreq.request_id, rreq.locators)
-        rrply.append_locator(arriving_locator)
         icmp_message = ICMPHeader(rrply.TYPE, 0, 0, bytes(rrply))
         packet = self.router.construct_host_packet(bytes(icmp_message), destination)
         packet.next_header = ICMPHeader.NEXT_HEADER_VALUE
@@ -292,7 +295,7 @@ class DSRService:
 
         if self.router.is_for_me(packet):
             logging.debug("Replying to route request")
-            self.reply_to_route_request(rreq, (packet.src_locator, packet.src_identifier), arriving_locator)
+            self.reply_to_route_request(rreq, (packet.src_locator, packet.src_identifier))
         elif not self.is_recently_seen_id(rreq.request_id) and not rreq.already_in_list(arriving_locator):
             known_path = self.network_graph.get_path_between(arriving_locator, packet.dest_locator)
 
@@ -301,8 +304,8 @@ class DSRService:
                 self.forward_route_request(packet, arriving_locator)
             else:
                 logging.debug("Replying to route request with cached path")
-                rreq.locators.extend(known_path) # TODO doesnt add self when path is literally beside them!
-                self.reply_to_route_request(rreq, (packet.src_locator, packet.src_identifier), arriving_locator)
+                rreq.locators.extend(known_path)
+                self.reply_to_route_request(rreq, (packet.src_locator, packet.src_identifier))
 
     def forward_route_request(self, packet, arriving_locator):
         logging.debug("Appending arriving locator and forwarding route request")
@@ -316,7 +319,7 @@ class DSRService:
         for index, locator in enumerate(locators):
             self.forwarding_table.record_entry(locator, arriving_locator, length_of_path)
             if index < len(locator) - 1:
-                self.network_graph.add_vertex(locator, locators[index+1])
+                self.network_graph.add_vertex(locator, locators[index + 1])
 
             length_of_path -= 1
 
@@ -329,14 +332,31 @@ class DSRService:
                 logging.debug("Found path for packet from route reply, routing now!")
                 waiting_packet = self.awaiting_route.pop(rrep.request_id)
                 self.router.route_packet(waiting_packet, None)
+
+                # Route any other packets for same destination
+                logging.debug("Routing other packets for the given destination")
+                also_waiting_for_dest = self.pop_packets_waiting_for_dest(packet.dest_locator)
+                for packet in also_waiting_for_dest:
+                    self.router.route_packet(packet)
+
             else:
                 logging.debug("Discarding route reply as old request_id present")
         else:
             logging.debug("Forwarding route reply")
             self.router.route_packet(packet, arriving_locator)
 
-    def reply_to_route_request(self, rreq, destination, arriving_locator):
-        reply = self.build_route_reply_packet(rreq, destination, arriving_locator)
+    def pop_packets_waiting_for_dest(self, locator):
+        """
+        Removes and returns a list of all packets with the given locator as a destination.
+        :param locator: destination locator
+        :return: A list of all packets currently waiting on a route reply for the given locator destination
+        """
+        request_ids_for_dest = [request_id for request_id, packet in self.awaiting_route.items()
+                                if packet.dest_locator == locator]
+        return [self.awaiting_route.pop(request_id) for request_id in request_ids_for_dest]
+
+    def reply_to_route_request(self, rreq, destination):
+        reply = self.build_route_reply_packet(rreq, destination)
         self.router.route_packet(reply)
 
 
@@ -386,4 +406,5 @@ class NetworkGraph:
     def remove_vertex(self, start, end):
         if self.node_exists(start) and self.node_exists(end):
             self.nodes[start].remove(end)
+
 
