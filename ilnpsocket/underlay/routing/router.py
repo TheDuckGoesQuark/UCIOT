@@ -1,9 +1,9 @@
 import collections
+import random
 import threading
 import logging
 from os import urandom
 from queue import Queue
-from random import shuffle
 from struct import unpack
 
 from ilnpsocket.underlay.listeningthread import ListeningThread
@@ -187,7 +187,7 @@ class Router(threading.Thread):
             else:
                 self.forward_packet_to_addresses(packet, next_hop_locators)
 
-    def flood(self, packet, arriving_interface):
+    def flood(self, packet, arriving_interface=None):
         logging.debug("Flooding packet")
         next_hops = self.interfaced_locators
 
@@ -219,6 +219,14 @@ class Router(threading.Thread):
         self.__sender.close()
 
 
+def create_request_id():
+    """
+    Generates a request id and increments the current value, ensuring that it can be stored in a single byte.
+    :return: request_id
+    """
+    return random.getrandbits(8)
+
+
 class DSRService:
     """
     DSR service handles route request and reply messages, and updates the forwarding table with relevant information
@@ -236,7 +244,6 @@ class DSRService:
         self.awaiting_route = {}
         self.router = router
         self.forwarding_table = forwarding_table
-        self.request_id_counter = 1
         # Fixed size list of request ids to track those that have already been seen
         self.recent_request_ids = collections.deque(5 * [0], 5)
         self.network_graph = NetworkGraph(self.router.interfaced_locators)
@@ -244,26 +251,11 @@ class DSRService:
     def is_recently_seen_id(self, request_id):
         return request_id in self.recent_request_ids
 
-    def create_request_id(self, source_locator, source_identifer):
-        """
-        Generates a request id and increments the current value, ensuring that it can be stored in a single byte.
-        :return: request_id
-        """
-        current_val = self.request_id_counter
-        self.request_id_counter = (current_val + 1) % 255
-
-        current_val = (source_locator + current_val) & 255
-
-        if current_val == 0:
-            current_val = 1
-
-        return current_val
-
     def find_route_for_packet(self, packet):
-        request_id = self.create_request_id()
+        request_id = create_request_id()
         self.awaiting_route[request_id] = packet
         request_packet = self.build_route_request_packet(request_id, (packet.dest_locator, packet.dest_identifier))
-        self.router.forward_packet_to_addresses(request_packet, self.router.interfaced_locators)
+        self.router.flood(request_packet)
 
     def build_route_request_packet(self, request_id, destination):
         rreq = RouteRequest(0, request_id, [])
@@ -273,7 +265,7 @@ class DSRService:
         return packet
 
     def build_route_reply_packet(self, rreq, destination):
-        rrply = RouteReply(0, rreq.request_id, rreq.locators)
+        rrply = RouteReply(rreq.num_of_locs, rreq.request_id, rreq.locators)
         icmp_message = ICMPHeader(rrply.TYPE, 0, 0, bytes(rrply))
         packet = self.router.construct_host_packet(bytes(icmp_message), destination)
         packet.next_header = ICMPHeader.NEXT_HEADER_VALUE
@@ -295,6 +287,11 @@ class DSRService:
 
         if self.router.is_for_me(packet):
             logging.debug("Replying to route request")
+            rreq.append_locator(arriving_locator)
+
+            if arriving_locator != packet.dest_locator:
+                rreq.append_locator(packet.dest_locator)
+
             self.reply_to_route_request(rreq, (packet.src_locator, packet.src_identifier))
         elif not self.is_recently_seen_id(rreq.request_id) and not rreq.already_in_list(arriving_locator):
             known_path = self.network_graph.get_path_between(arriving_locator, packet.dest_locator)
@@ -304,7 +301,7 @@ class DSRService:
                 self.forward_route_request(packet, arriving_locator)
             else:
                 logging.debug("Replying to route request with cached path")
-                rreq.locators.extend(known_path)
+                rreq.append_locators(known_path)
                 self.reply_to_route_request(rreq, (packet.src_locator, packet.src_identifier))
 
     def forward_route_request(self, packet, arriving_locator):
@@ -318,7 +315,7 @@ class DSRService:
 
         for index, locator in enumerate(locators):
             self.forwarding_table.record_entry(locator, arriving_locator, length_of_path)
-            if index < len(locator) - 1:
+            if index < len(locators) - 1:
                 self.network_graph.add_vertex(locator, locators[index + 1])
 
             length_of_path -= 1

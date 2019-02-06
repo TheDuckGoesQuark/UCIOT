@@ -36,7 +36,7 @@ class RouteList:
         start = cls.HEADER_DESCRIPTION_SIZE
         for value in range(num_of_locs):
             end = start + cls.LOCATOR_SIZE
-            locator_list.append(struct.unpack(cls.LOCATOR_FORMAT, packet_bytes[start:end]))
+            locator_list.append(struct.unpack(cls.LOCATOR_FORMAT, packet_bytes[start:end])[0])
             start += cls.LOCATOR_SIZE
 
         return RouteList(num_of_locs, request_id, locator_list)
@@ -55,6 +55,11 @@ class RouteList:
 
     def append_locator(self, locator):
         self.locators.append(locator)
+        self.num_of_locs = self.num_of_locs + 1
+
+    def append_locators(self, locators):
+        self.locators.extend(locators)
+        self.num_of_locs = self.num_of_locs + len(locators)
 
     def already_in_list(self, locator):
         return locator in self.locators
