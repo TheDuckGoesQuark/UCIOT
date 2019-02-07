@@ -20,7 +20,6 @@ class SendingSocket:
         """
         try:
             ipv6_addr = self.translate_locator_to_ipv6(dest)
-            logging.debug("Sending packet to locator:ipv6 address {}-{} on sock with name {}".format(dest, ipv6_addr, self.getsockname()))
             return self.__sock.sendto(packet_bytes, (ipv6_addr, self.__port))
         except KeyError:
             logging.error("Unable to send to locator {}".format(dest))

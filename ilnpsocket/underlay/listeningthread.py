@@ -27,10 +27,9 @@ class ListeningThread(threading.Thread):
     def read_sock(self, sock):
         n_bytes_to_read, addr_info = sock.recvfrom_into(self.buffer_view)
         packet = Packet.parse_header(self.buffer_view)
-        logging.debug("Packet from {}-{} to {} {} arrived on interface {} (ipv6 address {}, port address: {}) from sock ipv6 addr {}"
+        logging.debug("Packet from {}-{} to {} {} arrived on interface {}"
                       .format(packet.src_locator, packet.src_identifier,
-                              packet.dest_locator, packet.dest_identifier,
-                              sock.locator, sock.multicast_address, sock.getsockname(), addr_info))
+                              packet.dest_locator, packet.dest_identifier, sock.locator))
 
         # Copy payload into bytearray from buffer
         if packet.payload_length is not 0:

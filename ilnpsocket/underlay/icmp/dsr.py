@@ -50,6 +50,7 @@ class RouteList:
         for i in range(self.num_of_locs):
             end = start + self.LOCATOR_SIZE
             tuple_bytes[start:end] = struct.pack(self.LOCATOR_FORMAT, self.locators[i])
+            start = end
 
         return tuple_bytes
 

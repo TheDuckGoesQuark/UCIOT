@@ -43,13 +43,13 @@ def create_listening_socket(port, multicast_address):
     # Initialise socket for IPv6 datagrams
     sock = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
 
-    # Allows address to be reused
-    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    # Stops address from being reused
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 0)
 
     # Get interface to use
     interface_index = socket.if_nametoindex("enp4s0")
 
-    # Binds to all interfaces on the given port
+    # Bind to the one interface on the given port
     sock.bind((multicast_address, port, 0, interface_index))
 
     # Construct message for joining multicast group

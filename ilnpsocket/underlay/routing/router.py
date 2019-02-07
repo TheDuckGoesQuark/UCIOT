@@ -300,7 +300,7 @@ class DSRService:
                 logging.debug("Forwarding route request")
                 self.forward_route_request(packet, arriving_locator)
             else:
-                logging.debug("Replying to route request with cached path")
+                logging.debug("Replying to route request with cached path {}".format(known_path))
                 rreq.append_locators(known_path)
                 self.reply_to_route_request(rreq, (packet.src_locator, packet.src_identifier))
 
