@@ -7,7 +7,7 @@ from queue import Queue
 from struct import unpack
 
 from ilnpsocket.underlay.listeningthread import ListeningThread
-from ilnpsocket.underlay.icmp.dsr import RouteRequest, RouteReply
+from ilnpsocket.underlay.icmp.dsr import RouteRequest, RouteReply, RouteList
 from ilnpsocket.underlay.icmp.icmpheader import ICMPHeader
 from ilnpsocket.underlay.packet import Packet
 from ilnpsocket.underlay.routing.forwardingtable import ForwardingTable
@@ -307,6 +307,7 @@ class DSRService:
     def forward_route_request(self, packet, arriving_locator):
         logging.debug("Appending arriving locator and forwarding route request")
         packet.payload.body.append_locator(arriving_locator)
+        packet.payload_length = packet.payload_length + RouteList.LOCATOR_SIZE
         self.router.flood(packet, arriving_locator)
 
     def add_path_to_forwarding_table(self, locators, arriving_locator):

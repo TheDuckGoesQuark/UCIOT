@@ -42,7 +42,6 @@ class Config:
             self.group_ids = parse_group_ids(fields.get('group_ids'))
             self.port = fields.getint('port', 8080)
             self.hop_limit = fields.getint('hop_limit', 32)
-            self.message = fields.get('message', "hello world")
             self.sleep = fields.getint('sleep', 3)
             self.locators_to_ipv6 = {group_id: build_ipv6_multicast_address(self.uid, group_id) for group_id in
                                      self.group_ids}
@@ -59,7 +58,6 @@ class Config:
         print("INFO - uid: {}".format(self.uid))
         print("INFO - port: {}".format(self.port))
         print("INFO - hop count: {}".format(self.hop_limit))
-        print("INFO - message: {}".format(self.message))
         print("INFO - sleep: {}".format(self.sleep))
         print("INFO - locators:ipv6: {}".format(self.locators_to_ipv6))
         print("INFO - packet buffer size: {} bytes".format(self.packet_buffer_size_bytes))
