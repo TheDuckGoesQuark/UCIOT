@@ -23,7 +23,7 @@ if __name__ == "__main__":
     if not config.is_sink:
         while monitor.max_sends > 0:
             time.sleep(config.send_delay_secs)
-            sock.send(bytes(mock_generator.get_data()))
+            sock.send(bytes(mock_generator.get_data()), (config.sink_loc, config.sink_id))
     else:
         while True:
             pass
