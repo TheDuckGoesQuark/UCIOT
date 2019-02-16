@@ -4,7 +4,6 @@ import fcntl
 import logging
 import random
 import struct
-import threading
 import time
 
 
@@ -12,15 +11,23 @@ class Monitor:
     def __init__(self, max_sends, node_id, save_file_loc):
         self.max_sends = max_sends
         self.data_sent = 0
+        self.data_forwarded = 0
         self.control_packets_sent = 0
+        self.control_packets_forwarded = 0
         self.node_id = node_id
         self.save_file = save_file_loc
 
-    def record_sent_packet(self, packet):
+    def record_sent_packet(self, packet, forwarded=True):
         if packet.is_control_message():
-            self.control_packets_sent = self.control_packets_sent + 1
+            if forwarded:
+                self.control_packets_forwarded = self.control_packets_forwarded + 1
+            else:
+                self.control_packets_sent = self.control_packets_sent + 1
         else:
-            self.data_sent = self.data_sent + 1
+            if forwarded:
+                self.data_forwarded = self.data_forwarded + 1
+            else:
+                self.data_sent = self.data_sent + 1
 
         self.max_sends = self.max_sends - 1
 
@@ -40,7 +47,8 @@ class Monitor:
                         time.sleep(0.1)
 
             writer = csv.writer(csv_file, delimiter=',')
-            writer.writerow([self.node_id, self.max_sends, self.data_sent, self.control_packets_sent])
+            writer.writerow([self.node_id, self.max_sends, self.data_sent, self.control_packets_sent,
+                             self.data_forwarded, self.control_packets_forwarded])
 
             # Unlock
             logging.debug("Unlocking file")
@@ -95,10 +103,6 @@ class MockDataGenerator:
 
 
 class SensorReading:
-    """
-    Sensor data that is serialized and sent as the payload of a data packet
-    """
-
     struct_format = "!fBHB"
 
     def __init__(self, temperature_kelvin, humidity_percentage, pressure_hpa, uv_index):

@@ -209,12 +209,13 @@ class Router(threading.Thread):
         if packet.hop_limit > 0:
             logging.debug("Forwarding packet to the following locator(s): {}".format(next_hop_locators))
             packet.decrement_hop_limit()
+            from_me = self.is_from_me(packet)
             packet_bytes = bytes(packet)
             for locator in next_hop_locators:
                 self.__sender.sendTo(packet_bytes, locator)
 
                 if self.monitor:
-                    self.monitor.record_sent_packet(packet)
+                    self.monitor.record_sent_packet(packet, from_me)
         else:
             logging.debug("Packet dropped. Hop limit reached")
 
