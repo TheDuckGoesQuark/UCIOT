@@ -1,6 +1,5 @@
 from queue import Queue
 
-from experiment.config import Config
 from ilnpsocket.underlay.routing.router import Router
 
 import logging

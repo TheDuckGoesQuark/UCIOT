@@ -57,6 +57,7 @@ class Config:
             self.send_delay_secs = fields.getint("send_delay_secs", 10)
             self.sink_loc = fields.getint("sink_loc", 1)
             self.sink_id = fields.getint("sink_id", 1)
+            self.sink_save_file = fields.get("sink_save_file", "sink_log.csv")
 
         else:
             raise FileNotFoundError("No config file could be found at {}".format(config_file))

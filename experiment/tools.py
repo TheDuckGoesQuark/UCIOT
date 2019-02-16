@@ -114,3 +114,38 @@ class SensorReading:
     def from_bytes(cls, payload):
         (temperature, humidity, pressure, uv_index) = struct.unpack(cls.struct_format, payload)
         return SensorReading(temperature, humidity, payload, uv_index)
+
+
+class SinkLog:
+
+    def __init__(self, sink_save_file):
+        self.readings = []
+        self.sink_save_file = sink_save_file
+
+    def record_reading(self, sensor_reading):
+        self.readings.append(sensor_reading)
+
+    def save(self):
+        with open(self.sink_save_file, "a+") as csv_file:
+            logging.debug("Attempting to gain sink log file lock")
+            while True:
+                # Loop to gain lock
+                try:
+                    fcntl.flock(csv_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    logging.debug("Lock obtained")
+                    break
+                except IOError as e:
+                    if e.errno != errno.EAGAIN:
+                        raise
+                    else:
+                        time.sleep(0.1)
+
+            writer = csv.writer(csv_file, delimiter=',')
+            for sensor_reading in self.readings:
+                writer.writerow([sensor_reading.temperature, sensor_reading.humidy,
+                                 sensor_reading.pressure, sensor_reading.uv_index])
+
+            # Unlock
+            logging.debug("Unlocking file")
+            fcntl.flock(csv_file, fcntl.LOCK_UN)
+
