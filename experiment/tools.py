@@ -4,12 +4,13 @@ import fcntl
 import logging
 import random
 import struct
+import threading
 import time
 
 
 class Monitor:
-    def __init__(self, number_of_sends, node_id, save_file_loc):
-        self.number_of_sends = number_of_sends
+    def __init__(self, max_sends, node_id, save_file_loc):
+        self.max_sends = max_sends
         self.data_sent = 0
         self.control_packets_sent = 0
         self.node_id = node_id
@@ -21,7 +22,7 @@ class Monitor:
         else:
             self.data_sent = self.data_sent + 1
 
-        self.number_of_sends = self.number_of_sends + 1
+        self.max_sends = self.max_sends - 1
 
     def save(self):
         with open(self.save_file, "a+") as csv_file:
@@ -39,7 +40,7 @@ class Monitor:
                         time.sleep(0.1)
 
             writer = csv.writer(csv_file, delimiter=',')
-            writer.writerow([self.node_id, self.number_of_sends, self.data_sent, self.control_packets_sent])
+            writer.writerow([self.node_id, self.max_sends, self.data_sent, self.control_packets_sent])
 
             # Unlock
             logging.debug("Unlocking file")

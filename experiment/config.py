@@ -49,6 +49,13 @@ class Config:
             self.packet_buffer_size_bytes = fields.getint('packet_buffer_size_bytes', 512)
             self.loopback = fields.getboolean("loopback", True)
             self.print_config()
+
+            # Experiment config
+            self.max_sends = fields.getint("max_sends", 100)
+            self.save_file_loc = fields.get("save_file_loc", "test_log.csv")
+            self.is_sink = fields.getboolean("is_sink", False)
+            self.send_delay_secs = fields.getint("send_delay_secs", 10)
+
         else:
             raise FileNotFoundError("No config file could be found at {}".format(config_file))
 

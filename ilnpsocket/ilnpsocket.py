@@ -1,6 +1,6 @@
 from queue import Queue
 
-from ilnpsocket.config import Config
+from experiment.config import Config
 from ilnpsocket.underlay.routing.router import Router
 
 import logging
@@ -10,16 +10,15 @@ logging.basicConfig(level=logging.DEBUG)
 class ILNPSocket:
     """Abstracts UDP layer to leave only ILNP overlay"""
 
-    def __init__(self, config_file, config_section="DEFAULT"):
+    def __init__(self, conf, monitor=None):
         """
         Creates an io instance able to send and receive ILNP packets. A thread will be created for listening
         for incoming packets which will then populate the message queue, which can be polled using the receive method.
         """
-        conf = Config(config_file, config_section)
         # packets for this node
         self.__received_packets = Queue()
         # router thread for forwarding and sending packets
-        self.__router = Router(conf, self.__received_packets)
+        self.__router = Router(conf, self.__received_packets, monitor)
         self.__router.daemon = True
         self.__router.start()
 

@@ -6,6 +6,7 @@ from os import urandom
 from queue import Queue
 from struct import unpack
 
+from experiment.tools import Monitor
 from ilnpsocket.underlay.listeningthread import ListeningThread
 from ilnpsocket.underlay.icmp.dsr import RouteRequest, RouteReply, RouteList
 from ilnpsocket.underlay.icmp.icmpheader import ICMPHeader
@@ -31,7 +32,7 @@ def create_random_id():
 
 
 class Router(threading.Thread):
-    def __init__(self, conf, received_packets_queue):
+    def __init__(self, conf, received_packets_queue, monitor):
         super(Router, self).__init__()
 
         self.hop_limit = conf.hop_limit
@@ -65,6 +66,8 @@ class Router(threading.Thread):
         # Configures routing service and forwarding table
         self.forwarding_table = ForwardingTable(conf.router_refresh_delay_secs)
         self.dsr_service = DSRService(self.forwarding_table, self)
+
+        self.monitor = monitor
 
     def add_to_route_queue(self, packet_to_route, arriving_locator=None):
         """
@@ -209,6 +212,7 @@ class Router(threading.Thread):
             packet_bytes = bytes(packet)
             for locator in next_hop_locators:
                 self.__sender.sendTo(packet_bytes, locator)
+                self.monitor.record_sent_packet(packet)
         else:
             logging.debug("Packet dropped. Hop limit reached")
 
