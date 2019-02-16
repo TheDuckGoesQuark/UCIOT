@@ -27,8 +27,11 @@ def run_as_node(config):
     mock_generator = MockDataGenerator()
 
     while monitor.max_sends > 0:
+        print("{} sends left".format(monitor.max_sends))
         time.sleep(config.send_delay_secs)
         sock.send(bytes(mock_generator.get_data()), (config.sink_loc, config.sink_id))
+
+    monitor.save()
 
 
 if __name__ == "__main__":

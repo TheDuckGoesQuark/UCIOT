@@ -47,7 +47,7 @@ class Monitor:
                         time.sleep(0.1)
 
             writer = csv.writer(csv_file, delimiter=',')
-            writer.writerow([self.node_id, self.max_sends, self.data_sent, self.control_packets_sent,
+            writer.writerow([self.node_id, self.data_sent, self.control_packets_sent,
                              self.data_forwarded, self.control_packets_forwarded])
 
             # Unlock
