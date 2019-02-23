@@ -135,7 +135,7 @@ class DSRService:
         reply = self.build_route_reply_packet(rreq, destination)
         self.router.route_packet(reply)
 
-    def get_next_hops(self, dest_locator, arriving_interface):
+    def get_next_hop(self, dest_locator, arriving_interface):
         """
         Provides a set of next hops to send the packet to get it to its destination. The arriving interface if provided
         will be removed to avoid the packet being pointlessly sent the way it came.
@@ -149,7 +149,10 @@ class DSRService:
         if arriving_interface in next_hops:
             next_hops.remove(arriving_interface)
 
-        return next_hops
+        if len(next_hops) > 0:
+            return random.choice(next_hops)
+        else:
+            return None
 
 
 class NetworkGraph:

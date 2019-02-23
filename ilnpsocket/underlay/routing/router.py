@@ -160,13 +160,13 @@ class Router(threading.Thread):
                 # Packet from host needing broadcast to locator
                 self.forward_packet_to_addresses(packet, [packet.dest_locator])
         else:
-            next_hop_locators = self.dsr_service.get_next_hops(packet.dest_locator, arriving_interface)
+            next_hop_locator = self.dsr_service.get_next_hop(packet.dest_locator, arriving_interface)
 
-            if len(next_hop_locators) is 0 and arriving_interface is None:
+            if next_hop_locator is None and arriving_interface is None:
                 logging.debug("No route found, requesting one.")
                 self.dsr_service.find_route_for_packet(packet)
             else:
-                self.forward_packet_to_addresses(packet, next_hop_locators)
+                self.forward_packet_to_addresses(packet, next_hop_locator)
 
     def flood(self, packet, arriving_interface=None):
         logging.debug("Flooding packet")
