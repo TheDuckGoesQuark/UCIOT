@@ -46,7 +46,7 @@ class ForwardingTable:
 
     def find_next_hops(self, packet_dest_locator):
         if self.has_entries_for(packet_dest_locator):
-            return self.retrieve_entries_for(packet_dest_locator).next_hop_locator
+            return [x.next_hop_locator for x in self.retrieve_entries_for(packet_dest_locator)]
         else:
             return []
 
