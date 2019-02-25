@@ -23,8 +23,11 @@ def run_as_sink(config):
     sink_log.save()
 
 
+killswitch_dir = os.path.expanduser("~/killswitch")
+
+
 def killswitch():
-    return not os.path.isdir("~/killswitch")
+    return not os.path.isdir(killswitch_dir)
 
 
 def run_as_node(config):
