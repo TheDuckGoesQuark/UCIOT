@@ -159,8 +159,9 @@ class Router(threading.Thread):
         else:
             next_hop_locator = self.dsr_service.get_next_hop(packet.dest_locator, arriving_interface)
 
-            if next_hop_locator is None:
-                logging.debug("No route found, requesting one.")
+            if next_hop_locator is None and arriving_interface is None:
+                logging.debug("No route found to {} {}, requesting one."
+                              .format(packet.dest_locator, packet.dest_identifier))
                 self.dsr_service.find_route_for_packet(packet)
             else:
                 self.forward_packet_to_addresses(packet, [next_hop_locator])
