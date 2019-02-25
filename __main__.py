@@ -1,4 +1,5 @@
 import argparse
+import logging
 import time
 from queue import Empty
 
@@ -42,6 +43,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     config_file = args.config
     section = args.section
+    logging.info("Running config file {} section {}".format(config_file, section))
     configuration = Config(config_file, section)
 
     # Run node
