@@ -40,8 +40,10 @@ for i in "${!configs[@]}"; do
     config="${configs[$i]}"
     machine="${machines[$i]}"
 
+    nodeid=${config#*ID_}
+
     config_path="${project_path}/test_scripts/${config_file}"
-    logfile="${project_path}/logs/${config}.log"
+    logfile="${project_path}/logs/${nodeid}.log"
 
     number=$((i + 1))
     echo "$number/$nConfigs: Running config ${config} on machine ${machine}"
