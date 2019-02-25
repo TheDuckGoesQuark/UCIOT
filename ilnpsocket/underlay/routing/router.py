@@ -4,7 +4,7 @@ from os import urandom
 from queue import Queue
 from struct import unpack
 
-from ilnpsocket.underlay.listeningthread import ListeningThread
+from underlay.routing.listeningthread import ListeningThread
 from underlay.routing.packet import Packet
 from ilnpsocket.underlay.sockets.listeningsocket import ListeningSocket
 from ilnpsocket.underlay.sockets.sendingsocket import SendingSocket
