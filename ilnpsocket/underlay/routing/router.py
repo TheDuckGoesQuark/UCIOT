@@ -8,7 +8,7 @@ from ilnpsocket.underlay.listeningthread import ListeningThread
 from ilnpsocket.underlay.packet import Packet
 from ilnpsocket.underlay.sockets.listeningsocket import ListeningSocket
 from ilnpsocket.underlay.sockets.sendingsocket import SendingSocket
-from underlay.routing.dsrservice import DSRService
+from ilnpsocket.underlay.routing.dsrservice import DSRService
 
 
 def create_receivers(locators_to_ipv6, port_number):
