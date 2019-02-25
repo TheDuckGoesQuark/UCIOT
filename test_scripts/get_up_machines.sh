@@ -1,5 +1,11 @@
 #!/usr/bin/env bash
 
+working_list_file="up_machines.txt"
+# Clear file if exists from previous experiment
+if [[ -e ${working_list_file} ]]; then
+    > ${working_list_file}
+fi
+
 machines=(
     138.251.29.10
     138.251.29.11
@@ -290,9 +296,11 @@ for del in ${to_remove[@]}; do
 done
 
 # write reachable machines to file
+n=0
 for m in ${machines[@]}; do
     echo "Add $m to file"
-    printf "%s\n" "$m" > up_machines.txt
+    printf "%s\n" "$m" >> "${working_list_file}"
+    let n++
 done
 
-echo "Found ${#machines[@]} machines"
+echo "$n working machines listed in ${working_list_file}"
