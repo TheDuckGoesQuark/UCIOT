@@ -193,6 +193,7 @@ class Router(threading.Thread):
                 self.__sender.sendTo(packet_bytes, locator)
 
                 if self.monitor:
+                    logging.info("Recording sent packet")
                     self.monitor.record_sent_packet(packet, from_me)
         else:
             logging.debug("Packet dropped. Hop limit reached")
