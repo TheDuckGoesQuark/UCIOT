@@ -19,5 +19,5 @@ if [[ -z "${script_path}" ]]; then
     exit 1
 fi
 
-python3 -u "${script_path}" "${config_file_path}" "${config_file_section}"
+/cs/home/jm354/Documents/FourthYear/SH/UCIOT/venv/bin/python -u "${script_path}" "${config_file_path}" "${config_file_section}"
 
