@@ -23,6 +23,9 @@ class ILNPSocket:
 
         logging.debug("ILNPSocket Initialised")
 
+    def is_alive(self):
+        return self.__router.isAlive()
+
     def send(self, payload, destination):
         """
         Sends the given packet to the specified destination.
