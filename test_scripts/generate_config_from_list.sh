@@ -7,7 +7,7 @@ read -r -d '' TEMPLATE << EOM
 [NAME]
 group_ids = LOCS
 my_id = ID
-is_sink = true
+is_sink = false
 sink_loc = 0
 sink_id = 1
 router_refresh_delay_secs = 120
