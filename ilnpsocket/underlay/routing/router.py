@@ -5,7 +5,7 @@ from queue import Queue
 from struct import unpack
 
 from ilnpsocket.underlay.listeningthread import ListeningThread
-from ilnpsocket.underlay.packet import Packet
+from underlay.routing.packet import Packet
 from ilnpsocket.underlay.sockets.listeningsocket import ListeningSocket
 from ilnpsocket.underlay.sockets.sendingsocket import SendingSocket
 from ilnpsocket.underlay.routing.dsrservice import DSRService
