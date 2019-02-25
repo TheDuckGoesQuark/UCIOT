@@ -21,7 +21,7 @@ class ForwardingTable:
         return self.entries[locator]
 
     def add_entry(self, destination_locator, next_hop_locator, cost):
-        if destination_locator in self.entries:
+        if destination_locator not in self.entries:
             self.entries[destination_locator] = [ForwardingEntry(next_hop_locator, cost)]
         else:
             self.entries[destination_locator].append([ForwardingEntry(next_hop_locator, cost)])
