@@ -17,9 +17,9 @@ hop_limit = 32
 sleep = 3
 packet_buffer_size_bytes = 4096
 loopback = no
-max_sends = 1000
+max_sends = 100
 save_file_loc = "test.csv"
-send_delay_secs = 10
+send_delay_secs = 5
 
 EOM
 
