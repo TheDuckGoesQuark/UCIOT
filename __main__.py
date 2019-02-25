@@ -1,6 +1,6 @@
 import argparse
 import time
-from _queue import Empty
+from queue import Empty
 
 from experiment.config import Config
 from experiment.tools import Monitor, MockDataGenerator, SinkLog, SensorReading
