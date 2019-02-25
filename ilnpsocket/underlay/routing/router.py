@@ -163,7 +163,7 @@ class Router(threading.Thread):
                 logging.debug("No route found, requesting one.")
                 self.dsr_service.find_route_for_packet(packet)
             else:
-                self.forward_packet_to_addresses(packet, next_hop_locator)
+                self.forward_packet_to_addresses(packet, [next_hop_locator])
 
     def flood(self, packet, arriving_interface=None):
         logging.debug("Flooding packet")
