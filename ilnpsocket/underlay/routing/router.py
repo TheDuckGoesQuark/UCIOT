@@ -109,8 +109,8 @@ class Router(threading.Thread):
                 continue
 
             if not self.is_from_me(packet):
-                self.forwarding_table.record_entry(packet.src_locator, locator_interface,
-                                                   self.hop_limit - packet.hop_limit)
+                self.dsr_service.forwarding_table.record_entry(packet.src_locator, locator_interface,
+                                                               self.hop_limit - packet.hop_limit)
 
             if packet.is_control_message():
                 logging.debug("Received control message from {}-{} for {} {} on interface {}"
@@ -202,5 +202,3 @@ class Router(threading.Thread):
         self.__listening_thread.stop()
         self.__listening_thread.join()
         self.__sender.close()
-
-

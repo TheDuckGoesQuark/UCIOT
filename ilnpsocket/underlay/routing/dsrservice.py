@@ -2,7 +2,7 @@ import collections
 import logging
 import random
 
-from ilnpsocket.underlay.routing.icmp.dsr import RouteRequest, RouteReply
+from ilnpsocket.underlay.routing.icmp.dsr import RouteRequest, RouteReply, RouteList
 from ilnpsocket.underlay.routing.icmp.icmpheader import ICMPHeader
 from ilnpsocket.underlay.routing.forwardingtable import ForwardingTable
 
