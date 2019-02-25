@@ -31,7 +31,7 @@ for i in "${!configs[@]}"; do
 
     project_path="/cs/home/jm354/Documents/FourthYear/SH/UCIOT"
     run_script="${project_path}/test_scripts/run_with_config.sh"
-    config_path="${project_path}/test_scripts/configs/${config_file}"
+    config_path="${project_path}/test_scripts/${config_file}"
 
     number=$((i + 1))
     echo "$number/$nConfigs: Running config ${config} on machine ${machine}"
