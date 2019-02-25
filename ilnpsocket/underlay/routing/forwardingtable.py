@@ -14,17 +14,24 @@ class ForwardingTable:
         self.refresh_thread.daemon = True
         self.refresh_thread.start()
 
-    def has_entry_for(self, locator):
+    def has_entries_for(self, locator):
         return locator in self.entries
 
-    def retrieve_entry_for(self, locator):
+    def retrieve_entries_for(self, locator):
         return self.entries[locator]
 
     def add_entry(self, destination_locator, next_hop_locator, cost):
         if destination_locator not in self.entries:
             self.entries[destination_locator] = [ForwardingEntry(next_hop_locator, cost)]
         else:
-            self.entries[destination_locator].append([ForwardingEntry(next_hop_locator, cost)])
+            entries = self.entries[destination_locator]
+            try:
+                # Update cost if next hop already recorded
+                entry = next(x for x in entries if x.next_hop_locator is next_hop_locator)
+                entry.cost = cost
+            except StopIteration:
+                # Insert new possible next hop
+                entries.append(ForwardingEntry(next_hop_locator, cost))
 
     def record_entry(self, dest_locator, arriving_locator, route_cost):
         """
@@ -35,17 +42,11 @@ class ForwardingTable:
         :param dest_locator: locator reachable via arriving locator
         :param arriving_locator: interface packet arrived on
         """
-        if self.has_entry_for(dest_locator):
-            entry = self.retrieve_entry_for(dest_locator)
-
-            if entry.should_be_replaced_by(route_cost):
-                entry.change_path(arriving_locator, route_cost)
-        else:
-            self.add_entry(dest_locator, arriving_locator, route_cost)
+        self.add_entry(dest_locator, arriving_locator, route_cost)
 
     def find_next_hops(self, packet_dest_locator):
-        if self.has_entry_for(packet_dest_locator):
-            return self.retrieve_entry_for(packet_dest_locator).next_hop_locator
+        if self.has_entries_for(packet_dest_locator):
+            return self.retrieve_entries_for(packet_dest_locator).next_hop_locator
         else:
             return []
 
