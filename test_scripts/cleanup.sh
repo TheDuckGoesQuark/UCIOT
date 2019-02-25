@@ -9,7 +9,7 @@ mapfile -t machines < ${machine_list_file}
 nMachines=${#machines[@]}
 
 for i in "${!machines[@]}"; do
-    ssh -i jm354@${machines[i]} "export UCIOT_CONT=0;"
+    ssh jm354@${machines[i]} "export UCIOT_CONT=0;"
     echo "Status code: $?"
     if [[ ${i} -eq ${nMachines} ]]; then
         break;
