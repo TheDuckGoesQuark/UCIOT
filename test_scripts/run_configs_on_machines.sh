@@ -31,11 +31,12 @@ for i in "${!configs[@]}"; do
 
     project_path="/cs/home/jm354/Documents/FourthYear/SH/UCIOT"
     run_script="${project_path}/test_scripts/run_with_config.sh"
+    main="${project_path}/__main__.py"
     config_path="${project_path}/test_scripts/${config_file}"
 
     number=$((i + 1))
     echo "$number/$nConfigs: Running config ${config} on machine ${machine}"
-    ssh ${machine} "${run_script} ${config_path} ${config}" &
+    ssh ${machine} "${run_script} ${config_path} ${config} ${main}" &
     echo "Status code: $?"
 done
 
