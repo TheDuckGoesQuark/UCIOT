@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/usr/bin/env bas
 
 DEFAULT_CONFIG_FILE_PATH="./configs/config.ini"
 DEFAULT_CONFIG_FILE_SECTION="DEFAULT"
