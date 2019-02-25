@@ -23,6 +23,6 @@ fi
 if [[ -z "${logfile}" ]]; then
     /cs/home/jm354/Documents/FourthYear/SH/UCIOT/venv/bin/python -u "${script_path}" "${config_file_path}" "${config_file_section}"
 else
-    /cs/home/jm354/Documents/FourthYear/SH/UCIOT/venv/bin/python -u "${script_path}" "${config_file_path}" "${config_file_section}" 1> ${logfile} 2> ${logfile}
+    /cs/home/jm354/Documents/FourthYear/SH/UCIOT/venv/bin/python -u "${script_path}" "${config_file_path}" "${config_file_section}" 1> ${logfile} 2> ${logfile} 3> ${logfile}
 fi
 
