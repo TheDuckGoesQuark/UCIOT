@@ -23,13 +23,16 @@ def run_as_sink(config):
     sink_log.save()
 
 
+def killswitch():
+    return not os.path.isdir("~/killswitch")
+
+
 def run_as_node(config):
     monitor = Monitor(config.max_sends, config.my_id, config.save_file_loc)
     sock = ILNPSocket(config, monitor)
     mock_generator = MockDataGenerator()
 
-    os.environ["UCIOT_CONT"] = "1"
-    while monitor.max_sends > 0 and os.environ["UCIOT_CONT"] is "1":
+    while monitor.max_sends > 0 and killswitch():
         print("{}: {} sends left".format(config.my_id, monitor.max_sends))
         time.sleep(config.send_delay_secs)
         sock.send(bytes(mock_generator.get_data()), (config.sink_loc, config.sink_id))
