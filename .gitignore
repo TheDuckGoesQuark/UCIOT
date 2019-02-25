@@ -1,3 +1,6 @@
 .idea
 venv
 __pycache__
+logs
+test.csv
+sink_log.csv
