@@ -2,7 +2,7 @@ import logging
 import threading
 import select
 
-from underlay.routing.packet import Packet
+from ilnpsocket.underlay.routing.packet import Packet
 
 
 class ListeningThread(threading.Thread):

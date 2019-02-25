@@ -4,8 +4,8 @@ from os import urandom
 from queue import Queue
 from struct import unpack
 
-from underlay.routing.listeningthread import ListeningThread
-from underlay.routing.packet import Packet
+from ilnpsocket.underlay.routing.listeningthread import ListeningThread
+from ilnpsocket.underlay.routing.packet import Packet
 from ilnpsocket.underlay.sockets.listeningsocket import ListeningSocket
 from ilnpsocket.underlay.sockets.sendingsocket import SendingSocket
 from ilnpsocket.underlay.routing.dsrservice import DSRService
