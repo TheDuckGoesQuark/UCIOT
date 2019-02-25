@@ -37,8 +37,6 @@ class ListeningThread(threading.Thread):
             end = offset + packet.payload_length
             packet.payload = bytearray(self.buffer_view[offset:end])
 
-        logging.debug(str(packet))
-
         self.__router.add_to_route_queue(packet, sock.locator)
 
     def stop(self):

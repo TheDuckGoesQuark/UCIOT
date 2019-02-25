@@ -61,6 +61,11 @@ class Router(threading.Thread):
         # Configures routing service and forwarding table
         self.dsr_service = DSRService(self, conf.router_refresh_delay_secs)
 
+        if not monitor:
+            logging.info("MONITOR IS NONE WTF")
+        else:
+            logging.info("MONITOR IS THERE WTF")
+
         self.monitor = monitor
 
     def add_to_route_queue(self, packet_to_route, arriving_locator=None):
@@ -113,9 +118,6 @@ class Router(threading.Thread):
                                                                self.hop_limit - packet.hop_limit)
 
             if packet.is_control_message():
-                logging.debug("Received control message from {}-{} for {} {} on interface {}"
-                              .format(packet.src_locator, packet.src_identifier,
-                                      packet.dest_locator, packet.dest_identifier, locator_interface))
                 self.dsr_service.handle_message(packet, locator_interface)
             else:
                 logging.debug("Received normal packet from {}-{} for {} {} on interface {}"
@@ -193,7 +195,7 @@ class Router(threading.Thread):
                 self.__sender.sendTo(packet_bytes, locator)
 
                 if self.monitor:
-                    logging.info("Recording sent packet")
+                    logging.debug("Recording sent packet")
                     self.monitor.record_sent_packet(packet, from_me)
         else:
             logging.debug("Packet dropped. Hop limit reached")
