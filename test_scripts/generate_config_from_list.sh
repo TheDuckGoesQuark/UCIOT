@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 list_file=$1
-target_file=$2
+target_file=${list_file/_list.txt/.ini}
 
 read -r -d '' TEMPLATE << EOM
 [NAME]
