@@ -277,8 +277,9 @@ echo "Testing ${#machines[@]} machines using ping"
 # Test for active machines
 to_remove=()
 n=0
+nMachines=${#machines[@]}
 for m in ${machines[@]}; do
-    echo "Pinging machine $n"
+    echo "Pinging machine $n/${nMachines}"
     ping -c 1 $m;
 
     if [[ $? -ne 0 ]]; then

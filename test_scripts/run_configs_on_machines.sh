@@ -25,6 +25,9 @@ if [[ ${nMachines} -lt ${nConfigs} ]]; then
     exit 1
 fi
 
-for i in {0 .. ${#nConfigs}}; do
-    echo "Running config ${configs[$i]} on machine ${machines[$i]}"
+for i in "${!configs[@]}"; do
+    config="${configs[$i]}"
+    machine="${machines[$i]}"
+    number=$((i + 1))
+    echo "$number/$nConfigs: Running config ${config} on machine ${machine}"
 done
