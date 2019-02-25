@@ -32,15 +32,20 @@ project_path="/cs/home/jm354/Documents/FourthYear/SH/UCIOT"
 run_script="${project_path}/test_scripts/run_with_config.sh"
 main="${project_path}/__main__.py"
 
+if [[ -d "${project_path}/logs" ]]; then
+    mkdir "${project_path}/logs"
+fi
+
 for i in "${!configs[@]}"; do
     config="${configs[$i]}"
     machine="${machines[$i]}"
 
     config_path="${project_path}/test_scripts/${config_file}"
+    logfile="${project_path}/logs/${config}.log"
 
     number=$((i + 1))
     echo "$number/$nConfigs: Running config ${config} on machine ${machine}"
-    ssh -o ConnectTimeout=3 ${machine} "cd ${project_path}; source venv/bin/activate; ${run_script} ${config_path} ${config} ${main}" &
+    ssh -o ConnectTimeout=3 ${machine} "cd ${project_path}; source venv/bin/activate; ${run_script} ${config_path} ${config} ${main} ${logfile}" &
     echo "Status code: $?"
 done
 

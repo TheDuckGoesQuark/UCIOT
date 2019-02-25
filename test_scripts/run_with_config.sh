@@ -3,6 +3,7 @@
 config_file_path="$1"
 config_file_section="$2"
 script_path="$3"
+logfile="$4"
 
 if [[ -z "${config_file_path}" ]]; then
     echo "No config file provided. "
@@ -19,5 +20,9 @@ if [[ -z "${script_path}" ]]; then
     exit 1
 fi
 
-/cs/home/jm354/Documents/FourthYear/SH/UCIOT/venv/bin/python -u "${script_path}" "${config_file_path}" "${config_file_section}"
+if [[ -z "${logfile}" ]]; then
+    /cs/home/jm354/Documents/FourthYear/SH/UCIOT/venv/bin/python -u "${script_path}" "${config_file_path}" "${config_file_section}"
+else
+    /cs/home/jm354/Documents/FourthYear/SH/UCIOT/venv/bin/python -u "${script_path}" "${config_file_path}" "${config_file_section}" > ${logfile}
+fi
 
