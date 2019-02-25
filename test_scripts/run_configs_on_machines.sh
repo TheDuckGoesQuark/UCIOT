@@ -35,9 +35,10 @@ for i in "${!configs[@]}"; do
 
     number=$((i + 1))
     echo "$number/$nConfigs: Running config ${config} on machine ${machine}"
-    echo ${run_script}
-    echo ${config_path}
-    echo ${config}
-    #ssh ${machine} "${run_script} ${config_path} ${config}"
-
+    ssh ${machine} "${run_script} ${config_path} ${config}" &
+    echo "Status code: $?"
 done
+
+wait
+
+

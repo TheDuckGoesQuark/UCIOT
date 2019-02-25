@@ -280,7 +280,7 @@ n=0
 nMachines=${#machines[@]}
 for m in ${machines[@]}; do
     echo "Pinging machine $n/${nMachines}"
-    ping -c 1 $m;
+    ping -c 1 ${m};
 
     if [[ $? -ne 0 ]]; then
         echo "Unable to connect to $m"
