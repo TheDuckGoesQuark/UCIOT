@@ -1,10 +1,9 @@
 import collections
 import logging
 import random
-import sys
 
-sys.path.append("..")
-from underlay.icmp.dsr import RouteList, RouteRequest, ICMPHeader, RouteReply
+from underlay.routing.icmp.dsr import RouteRequest, RouteReply, RouteList
+from underlay.routing.icmp.icmpheader import ICMPHeader
 from underlay.routing.forwardingtable import ForwardingTable
 
 

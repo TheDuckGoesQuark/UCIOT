@@ -1,7 +1,6 @@
-import logging
 import struct
 
-from ilnpsocket.underlay.icmp.icmpheader import ICMPHeader
+from underlay.routing.icmp.icmpheader import ICMPHeader
 
 NEXT_HEADER_CLASSES = {
     ICMPHeader.NEXT_HEADER_VALUE, ICMPHeader

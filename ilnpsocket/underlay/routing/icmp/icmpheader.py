@@ -1,8 +1,8 @@
 import struct
 
-from ilnpsocket.underlay.icmp.dsr import RouteReply, RouteRequest
-from ilnpsocket.underlay.icmp.locatorupdate import LocatorUpdateHeader
-from ilnpsocket.underlay.icmp.ndp import RouterSolicitation, RouterAdvertisement, NeighborSolicitation, NeighborAdvertisement, Redirect
+from underlay.routing.icmp.dsr import RouteRequest, RouteReply
+from underlay.routing.icmp.locatorupdate import LocatorUpdateHeader
+from underlay.routing.icmp.ndp import RouterSolicitation, RouterAdvertisement, NeighborSolicitation, NeighborAdvertisement, Redirect
 
 icmp_type_to_class = {
     # ndp
