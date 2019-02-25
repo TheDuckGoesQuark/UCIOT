@@ -32,7 +32,7 @@ project_path="/cs/home/jm354/Documents/FourthYear/SH/UCIOT"
 run_script="${project_path}/test_scripts/run_with_config.sh"
 main="${project_path}/__main__.py"
 
-if [[ -d "${project_path}/logs" ]]; then
+if [[ ! -d "${project_path}/logs" ]]; then
     mkdir "${project_path}/logs"
 fi
 
