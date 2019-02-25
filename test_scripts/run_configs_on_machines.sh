@@ -40,7 +40,7 @@ for i in "${!configs[@]}"; do
 
     number=$((i + 1))
     echo "$number/$nConfigs: Running config ${config} on machine ${machine}"
-    ssh ${machine} "cd ${project_path}; source venv/bin/activate; ${run_script} ${config_path} ${config} ${main}" &
+    ssh -o ConnectTimeout=3 ${machine} "cd ${project_path}; source venv/bin/activate; ${run_script} ${config_path} ${config} ${main}" &
     echo "Status code: $?"
 done
 
