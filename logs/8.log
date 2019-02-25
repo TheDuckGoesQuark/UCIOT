@@ -1,0 +1,38 @@
+INFO - CONFIGURATION DESCRIPTION START
+INFO - The following configuration was detected:
+INFO - uid: 4ea3
+INFO - port: 8080
+INFO - hop coDEBUG:root:Polling for packet...
+DEBUG:root:ILNPSocket Initialised
+DEBUG:root:Packet from 14-39 to 0 1 arrived on interface 7
+DEBUG:root:Received route request
+DEBUG:root:Adding the following path to forwarding table: [15, 11]
+DEBUG:root:Forwarding route request
+DEBUG:root:Appending arriving locator and forwarding route request
+DEBUG:root:Flooding packet
+DEBUG:root:Forwarding packet to the following locator(s): set()
+DEBUG:root:Polling for packet...
+DEBUG:root:Packet from 11-36 to 0 1 arrived on interface 7
+Exception in thread Thread-1:
+Traceback (most recent call last):
+  File "/usr/lib64/python3.7/threading.py", line 917, in _bootstrap_inner
+    self.run()
+  File "/cs/home/jm354/Documents/FourthYear/SH/UCIOT/ilnpsocket/underlay/routing/router.py", line 113, in run
+    self.hop_limit - packet.hop_limit)
+  File "/cs/home/jm354/Documents/FourthYear/SH/UCIOT/ilnpsocket/underlay/routing/forwardingtable.py", line 41, in record_entry
+    if entry.should_be_replaced_by(route_cost):
+AttributeError: 'list' object has no attribute 'should_be_replaced_by'
+
+DEBUG:root:Packet from 7-29 to 0 1 arrived on interface 7
+Traceback (most recent call last):
+  File "/cs/home/jm354/Documents/FourthYear/SH/UCIOT/__main__.py", line 62, in <module>
+    run_as_node(configuration)
+  File "/cs/home/jm354/Documents/FourthYear/SH/UCIOT/__main__.py", line 41, in run_as_node
+    sock.send(bytes(mock_generator.get_data()), (config.sink_loc, config.sink_id))
+  File "/cs/home/jm354/Documents/FourthYear/SH/UCIOT/ilnpsocket/ilnpsocket.py", line 41, in send
+    self.__router.add_to_route_queue(self.__router.construct_host_packet(payload, destination))
+  File "/cs/home/jm354/Documents/FourthYear/SH/UCIOT/ilnpsocket/underlay/routing/router.py", line 97, in construct_host_packet
+    packet = Packet(self.get_addresses()[0], destination,
+  File "/cs/home/jm354/Documents/FourthYear/SH/UCIOT/ilnpsocket/underlay/routing/router.py", line 82, in get_addresses
+    raise ValueError("An address cannot be obtained as this router has no interfaces.")
+ValueError: An address cannot be obtained as this router has no interfaces.

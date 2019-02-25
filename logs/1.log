@@ -1,0 +1,11 @@
+INFO - CONFIGURATION DESCRIPTION START
+INFO - The following configuration was detected:
+INFO - uid: 4ea3
+INFO - port: 8080
+INFO - hop coDEBUG:root:Polling for packet...
+DEBUG:root:ILNPSocket Initialised
+DEBUG:root:Attempting to gain sink log file lock
+DEBUG:root:Lock obtained
+DEBUG:root:Unlocking file
+urrent state of forwarding table before refreshing:
+INFO - Destination, NextHop, Cost

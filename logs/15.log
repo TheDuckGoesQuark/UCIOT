@@ -1,0 +1,22 @@
+INFO - CONFIGURATION DESCRIPTION START
+INFO - The following configuration was detected:
+INFO - uid: 4ea3
+INFO - port: 8080
+INFO - hop counTraceback (most recent call last):
+  File "/cs/home/jm354/Documents/FourthYear/SH/UCIOT/__main__.py", line 62, in <module>
+    run_as_node(configuration)
+  File "/cs/home/jm354/Documents/FourthYear/SH/UCIOT/__main__.py", line 35, in run_as_node
+    sock = ILNPSocket(config, monitor)
+  File "/cs/home/jm354/Documents/FourthYear/SH/UCIOT/ilnpsocket/ilnpsocket.py", line 20, in __init__
+    self.__router = Router(conf, self.__received_packets, monitor)
+  File "/cs/home/jm354/Documents/FourthYear/SH/UCIOT/ilnpsocket/underlay/routing/router.py", line 54, in __init__
+    receivers = create_receivers(conf.locators_to_ipv6, conf.port)
+  File "/cs/home/jm354/Documents/FourthYear/SH/UCIOT/ilnpsocket/underlay/routing/router.py", line 18, in create_receivers
+    in locators_to_ipv6.items()]
+  File "/cs/home/jm354/Documents/FourthYear/SH/UCIOT/ilnpsocket/underlay/routing/router.py", line 17, in <listcomp>
+    for locator, address
+  File "/cs/home/jm354/Documents/FourthYear/SH/UCIOT/ilnpsocket/underlay/sockets/listeningsocket.py", line 18, in __init__
+    self.__sock = create_listening_socket(port, multicast_address)
+  File "/cs/home/jm354/Documents/FourthYear/SH/UCIOT/ilnpsocket/underlay/sockets/listeningsocket.py", line 53, in create_listening_socket
+    sock.bind((multicast_address, port, 0, interface_index))
+OSError: [Errno 98] Address already in use

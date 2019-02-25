@@ -1,0 +1,69 @@
+INFO - CONFIGURATION DESCRIPTION START
+INFO - The following configuration was detected:
+INFO - uid: 4ea3
+INFO - port: 8080
+INFO - hop count: DEBUG:root:Polling for packet...
+DEBUG:root:ILNPSocket Initialised
+DEBUG:root:Received normal packet from 14-39 for 0 1 on interface None
+DEBUG:root:No route found, requesting one.
+DEBUG:root:Flooding packet
+DEBUG:root:Forwarding packet to the following locator(s): {14, 15}
+DEBUG:root:Polling for packet...
+DEBUG:root:Received 39: 16 sends left
+39: 14 sends left
+39: 12 sends left
+39: 10 sends left
+39: 8 sends left
+39: 6 sends left
+39: 4 sends left
+39: 2 sends left
+ng packet to the following locator(s): {14, 15}
+DEBUG:root:Polling for packet...
+DEBUG:root:Received normal packet from 14-39 for 0 1 on interface None
+DEBUG:root:No route found, requesting one.
+DEBUG:root:Flooding packet
+DEBUG:root:Forwarding packet to the following locator(s): {14, 15}
+DEBUG:root:Polling for packet...
+DEBUG:root:Received normal packet from 14-39 for 0 1 on interface None
+DEBUG:root:No route found, requesting one.
+DEBUG:root:Flooding packet
+DEBUG:root:Forwarding packet to the following locator(s): {14, 15}
+DEBUG:root:Polling for packet...
+DEBUG:root:Received normal packet from 14-39 for 0 1 on interface None
+DEBUG:root:No route found, requesting one.
+DEBUG:root:Flooding packet
+DEBUG:root:Forwarding packet to the following locator(s): {14, 15}
+DEBUG:root:Polling for packet...
+DEBUG:root:Received normal packet from 14-39 for 0 1 on interface None
+DEBUG:root:No route found, requesting one.
+DEBUG:root:Flooding packet
+DEBUG:root:Forwarding packet to the following locator(s): {14, 15}
+DEBUG:root:Polling for packet...
+DEBUG:root:Received normal packet from 14-39 for 0 1 on interface None
+DEBUG:root:No route found, requesting one.
+DEBUG:root:Flooding packet
+DEBUG:root:Forwarding packet to the following locator(s): {14, 15}
+DEBUG:root:Polling for packet...
+DEBUG:root:Received normal packet from 14-39 for 0 1 on interface None
+DEBUG:root:No route found, requesting one.
+DEBUG:root:Flooding packet
+DEBUG:root:Forwarding packet to the following locator(s): {14, 15}
+DEBUG:root:Polling for packet...
+DEBUG:root:Received normal packet from 14-39 for 0 1 on interface None
+DEBUG:root:No route found, requesting one.
+DEBUG:root:Flooding packet
+DEBUG:root:Forwarding packet to the following locator(s): {14, 15}
+DEBUG:root:Polling for packet...
+DEBUG:root:Received normal packet from 14-39 for 0 1 on interface None
+DEBUG:root:No route found, requesting one.
+DEBUG:root:Flooding packet
+DEBUG:root:Forwarding packet to the following locator(s): {14, 15}
+DEBUG:root:Polling for packet...
+DEBUG:root:Received normal packet from 14-39 for 0 1 on interface None
+DEBUG:root:No route found, requesting one.
+DEBUG:root:Flooding packet
+DEBUG:root:Forwarding packet to the following locator(s): {14, 15}
+DEBUG:root:Polling for packet...
+DEBUG:root:Attempting to gain log file lock
+DEBUG:root:Lock obtained
+DEBUG:root:Unlocking file
