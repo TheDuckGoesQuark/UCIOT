@@ -8,7 +8,7 @@ mapfile -t machines < ${machine_list_file}
 nMachines=${#machines[@]}
 
 for machine in "${machines[@]}"; do
-    ssh ${machine} "export UCIOT_CONT=0;" &
+    ssh jm354@${machine} "export UCIOT_CONT=0;" &
     echo "Status code: $?"
 done
 
