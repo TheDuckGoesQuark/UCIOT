@@ -163,12 +163,12 @@ class Router(threading.Thread):
                 logging.debug("No route found to {} {}, requesting one."
                               .format(packet.dest_locator, packet.dest_identifier))
                 self.dsr_service.find_route_for_packet(packet)
-            else:
+            elif next_hop_locator is not None:
                 self.forward_packet_to_addresses(packet, [next_hop_locator])
 
     def flood(self, packet, arriving_interface=None):
         logging.debug("Flooding packet")
-        next_hops = self.interfaced_locators
+        next_hops = [x for x in self.interfaced_locators]
 
         if arriving_interface in next_hops:
             next_hops.remove(arriving_interface)
