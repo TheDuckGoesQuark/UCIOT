@@ -1,0 +1,126 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% University Assignment Title Page 
+% LaTeX Template
+% Version 1.0 (27/12/12)
+%
+% This template has been downloaded from:
+% http://www.LaTeXTemplates.com
+%
+% Original author:
+% WikiBooks (http://en.wikibooks.org/wiki/LaTeX/Title_Creation)
+%
+% License:
+% CC BY-NC-SA 3.0 (http://creativecommons.org/licenses/by-nc-sa/3.0/)
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%\title{Title page with logo}
+%----------------------------------------------------------------------------------------
+%	PACKAGES AND OTHER DOCUMENT CONFIGURATIONS
+%----------------------------------------------------------------------------------------
+
+\documentclass[12pt]{article}
+\usepackage[english]{babel}
+\usepackage[utf8x]{inputenc}
+\usepackage{natbib}
+\usepackage{amsmath}
+\usepackage[colorinlistoftodos]{todonotes}
+\usepackage{listings}
+\usepackage{color}
+\usepackage{tabu}
+\tabulinesep=1.2mm
+\usepackage[explicit]{titlesec}
+\usepackage{url}
+\usepackage{subfig}
+\usepackage{graphicx}
+\usepackage{grffile}
+\usepackage{mwe}
+\usepackage[section]{placeins}
+
+\begin{document}
+
+\begin{titlepage}
+
+\newcommand{\HRule}{\rule{\linewidth}{0.5mm}} % Defines a new command for the horizontal lines, change thickness here
+
+\center % Center everything on the page
+ 
+%----------------------------------------------------------------------------------------
+%	HEADING SECTIONS
+%----------------------------------------------------------------------------------------
+
+\textsc{\LARGE University of St Andrews}\\[1.5cm] % Name of your university/college
+\textsc{\Large CS3099}\\[0.5cm] % Major heading such as course name
+\textsc{\large }\\[0.5cm] % Minor heading such as course title
+
+%----------------------------------------------------------------------------------------
+%	TITLE SECTION
+%----------------------------------------------------------------------------------------
+
+\HRule \\[0.4cm]
+{ \huge \bfseries ILNP Routing for IoT}\\[0.4cm] % Title of your document
+\HRule \\[1.5cm]
+ 
+%----------------------------------------------------------------------------------------
+%	AUTHOR SECTION
+%----------------------------------------------------------------------------------------
+
+
+\Large \emph{Author:}\\
+ \textsc{Jordan Mackie}\\[1cm] % Your name
+ 
+\Large \emph{Supervisor:}\\
+ \textsc{Saleem Bhatti}\\[1cm] % Your name
+%----------------------------------------------------------------------------------------
+%	DATE SECTION
+%----------------------------------------------------------------------------------------
+
+{\large \today}\\[2cm] % Date, change the \today to a set date if you want to be precise
+
+%----------------------------------------------------------------------------------------
+%	LOGO SECTION
+%---------------------------------------------------------------------------------------
+
+\includegraphics[width = 2.5cm]{images/standrewslogo.png}
+ 
+%----------------------------------------------------------------------------------------
+
+\vfill % Fill the rest of the page with whitespace
+
+\end{titlepage}
+
+\section*{Abstract}
+
+\section*{Acknowledgements}
+
+\newpage
+
+\tableofcontents
+
+\newpage
+
+\section{Introduction}
+
+\begin{enumerate}
+\item Explain current issues with IP
+\item Explain ILNP, and how it addresses these issues
+\item Explain how this project plans to exemplify the benefits of ILNP 
+\end{enumerate}
+
+\section{Implementation Design}
+
+\begin{enumerate}
+\item 
+\end{enumerate}
+
+\section{Experiment Design}
+
+\section{Results and Discussion}
+
+\section{Conclusions}
+
+\citep{cfc}
+
+\bibliographystyle{unsrt}
+\bibliography{mybib}
+
+\end{document}
