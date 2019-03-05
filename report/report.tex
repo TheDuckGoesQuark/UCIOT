@@ -49,7 +49,7 @@
 %----------------------------------------------------------------------------------------
 
 \textsc{\LARGE University of St Andrews}\\[1.5cm] % Name of your university/college
-\textsc{\Large CS3099}\\[0.5cm] % Major heading such as course name
+\textsc{\Large CS4099}\\[0.5cm] % Major heading such as course name
 \textsc{\large }\\[0.5cm] % Minor heading such as course title
 
 %----------------------------------------------------------------------------------------
@@ -69,7 +69,7 @@
  \textsc{Jordan Mackie}\\[1cm] % Your name
  
 \Large \emph{Supervisor:}\\
- \textsc{Saleem Bhatti}\\[1cm] % Your name
+ \textsc{Prof Saleem Bhatti}\\[1cm] % Your name
 %----------------------------------------------------------------------------------------
 %	DATE SECTION
 %----------------------------------------------------------------------------------------
@@ -88,15 +88,19 @@
 
 \end{titlepage}
 
+\pagenumbering{gobble}
+
 \section*{Abstract}
 
-\section*{Acknowledgements}
+\section*{Declaration}
 
 \newpage
 
 \tableofcontents
 
 \newpage
+\pagenumbering{arabic}
+\setcounter{page}{1} 
 
 \section{Introduction}
 
@@ -106,17 +110,58 @@
 \item Explain how this project plans to exemplify the benefits of ILNP 
 \end{enumerate}
 
-\section{Implementation Design}
+\section{Context Survey}
 
 \begin{enumerate}
-\item 
+\item ILNP research 
+\item Ad Hoc sensor networks
+\item Energy effecient routing protocols
 \end{enumerate}
 
-\section{Experiment Design}
+\section{Requirements Specification}
+
+\begin{enumerate}
+\item Describe requirements of resulting python library
+\end{enumerate}
+
+\section{Design}
+
+\begin{enumerate}
+\item Component structure (socket interface, router/dsrservice/forwardingtable, raw sockets)
+\item Runtime behaviour (packet parsing, routing, and forwarding)
+\item Use figures to visualise project structure and workflow
+\end{enumerate}
+
+\section{Experiment}
+
+\begin{enumerate}
+\item Discuss aim of experiment (to measure effeciency of the used routing protocol with ILNP, and compare to IP).
+\item Explain case study, with reference to source (i.e. agricultural sensor setup)
+\item Use visuals to show locators to real life position and sensor radi
+\item Discuss experiment configuration (how machines were chosen, results collected, battery life simulated, etc)
+\item discuss choice of metrics, justifcation and how to compare results.
+\end{enumerate}
 
 \section{Results and Discussion}
 
+\begin{enumerate}
+\item Show heat map of results
+\item Explain features of heat map
+\item Describe the behaviour if IP was used instead through analysis
+\item Discuss weaknesses with experiment
+\end{enumerate}
+
 \section{Conclusions}
+
+\begin{enumerate}	
+\item was the goal met, and if so how well?
+\item future work with ILNP, possible suggestions of better alternatives to the routing protocol used.
+\end{enumerate}
+
+\section{Appendix}
+\begin{enumerate}
+\item Instructions on installing, and executing and using the python module, and how to configure the experiments.
+\end{enumerate}
 
 \citep{cfc}
 
