@@ -7,27 +7,37 @@ import struct
 import time
 
 
+class PacketEntry:
+    def __init__(self, my_id, sent_at_time, packet_type, forwarded):
+        """
+        Record of sent or forwarded packet for analysis
+        :param my_id id of node being recorded
+        :type my_id int
+        :param sent_at_time: epoch time packet was sent
+        :type sent_at_time float
+        :param packet_type: type of packet (control or data)
+        :type packet_type str
+        :param forwarded: was packet sent or forwarded by this node
+        :type forwarded bool
+        """
+        self.node_id = my_id
+        self.sent_at_time = sent_at_time
+        self.packet_type = packet_type
+        self.forwarded_or_sent = forwarded
+
+
 class Monitor:
     def __init__(self, max_sends, node_id, save_file_loc):
         self.max_sends = max_sends
-        self.data_sent = 0
-        self.data_forwarded = 0
-        self.control_packets_sent = 0
-        self.control_packets_forwarded = 0
         self.node_id = node_id
+        self.entries = []
         self.save_file = save_file_loc
 
     def record_sent_packet(self, packet, forwarded=True):
         if packet.is_control_message():
-            if forwarded:
-                self.control_packets_forwarded = self.control_packets_forwarded + 1
-            else:
-                self.control_packets_sent = self.control_packets_sent + 1
+            self.entries.append(PacketEntry(self.node_id, time.time(), "control", forwarded))
         else:
-            if forwarded:
-                self.data_forwarded = self.data_forwarded + 1
-            else:
-                self.data_sent = self.data_sent + 1
+            self.entries.append(PacketEntry(self.node_id, time.time(), "data", forwarded))
 
         self.max_sends = self.max_sends - 1
 
@@ -47,8 +57,8 @@ class Monitor:
                         time.sleep(0.1)
 
             writer = csv.writer(csv_file, delimiter=',')
-            writer.writerow([self.node_id, self.data_sent, self.control_packets_sent,
-                             self.data_forwarded, self.control_packets_forwarded])
+            for entry in self.entries:
+                writer.writerow([entry.node_id, entry.sent_at_time, entry.packet_type, entry.forwarded_or_sent])
 
             # Unlock
             logging.debug("Unlocking file")
@@ -121,7 +131,6 @@ class SensorReading:
 
 
 class SinkLog:
-
     def __init__(self, sink_save_file):
         self.readings = []
         self.sink_save_file = sink_save_file
@@ -152,4 +161,3 @@ class SinkLog:
             # Unlock
             logging.debug("Unlocking file")
             fcntl.flock(csv_file, fcntl.LOCK_UN)
-
