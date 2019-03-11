@@ -58,7 +58,7 @@ class Monitor:
                         time.sleep(0.1)
 
             writer = csv.writer(csv_file, delimiter=',')
-            if os.path.getsize(csv_file) is 0:
+            if os.path.getsize(self.save_file) is 0:
                 writer.writerow(["node_id", "sent_at_time", "packet_type", "forwarded"])
 
             for entry in self.entries:
