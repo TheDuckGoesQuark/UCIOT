@@ -62,7 +62,7 @@ class Monitor:
                 writer.writerow(["node_id", "sent_at_time", "packet_type", "forwarded"])
 
             for entry in self.entries:
-                writer.writerow([entry.node_id, entry.sent_at_time, entry.packet_type, entry.forwarded_or_sent])
+                writer.writerow([entry.node_id, entry.sent_at_time, entry.packet_type, entry.forwarded])
 
             # Unlock
             logging.debug("Unlocking file")
