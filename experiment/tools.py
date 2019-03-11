@@ -2,6 +2,7 @@ import csv
 import errno
 import fcntl
 import logging
+import os
 import random
 import struct
 import time
@@ -23,7 +24,7 @@ class PacketEntry:
         self.node_id = my_id
         self.sent_at_time = sent_at_time
         self.packet_type = packet_type
-        self.forwarded_or_sent = forwarded
+        self.forwarded = forwarded
 
 
 class Monitor:
@@ -57,6 +58,9 @@ class Monitor:
                         time.sleep(0.1)
 
             writer = csv.writer(csv_file, delimiter=',')
+            if os.path.getsize(csv_file) is 0:
+                writer.writerow(["node_id", "sent_at_time", "packet_type", "forwarded"])
+
             for entry in self.entries:
                 writer.writerow([entry.node_id, entry.sent_at_time, entry.packet_type, entry.forwarded_or_sent])
 
