@@ -13,7 +13,7 @@ def run_as_sink(config):
     sock = ILNPSocket(config)
     sink_log = SinkLog(config.sink_save_file)
     timed_out = False
-    while timed_out:
+    while not timed_out:
         try:
             reading = sock.receive(120)
             sink_log.record_reading(SensorReading.from_bytes(reading))
