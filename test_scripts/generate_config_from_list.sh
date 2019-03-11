@@ -44,7 +44,7 @@ loopback = no
 max_sends = 20
 save_file_loc = test.csv
 send_delay_secs = 1
-
+number_of_paths = 2
 EOM
 
 mapfile -t config_names < ${list_file}

@@ -48,7 +48,7 @@ for idx, snapshot in enumerate(snapshots):
     ax.set_title("Packets sent during snapshot {}".format(idx + 1))
     fig.colorbar(im)
 
-    # Label with node ID
+    # Label with node ID and number of packets sent
     for i in range(len(layout)):
         for j in range(len(layout)):
             text = ax.text(j, i, "ID {}\nSENT {}".format((i * 4 + j) + 1, snapshot[i][j]),
