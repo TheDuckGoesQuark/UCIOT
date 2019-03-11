@@ -51,7 +51,7 @@ for idx, snapshot in enumerate(snapshots):
     # Label with node ID
     for i in range(len(layout)):
         for j in range(len(layout)):
-            text = ax.text(j, i, (i * 4 + j) + 1,
+            text = ax.text(j, i, "ID {}\nSENT {}".format((i * 4 + j) + 1, snapshot[i][j]),
                            ha="center", va="center", color="w")
 
     fig.show()
