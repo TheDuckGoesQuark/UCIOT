@@ -1,44 +1,44 @@
-from queue import Queue
-
+from experiment.config import Config
+from experiment.tools import Monitor
 from ilnpsocket.underlay.routing.router import Router
 
 import logging
+
+from underlay.routing.ilnpaddress import ILNPAddress
+from underlay.routing.queues import ReceivedQueue
+
 logging.basicConfig(level=logging.DEBUG)
 
 
 class ILNPSocket:
-    """Abstracts UDP layer to leave only ILNP overlay"""
-
-    def __init__(self, conf, monitor=None):
+    def __init__(self, conf: Config, monitor: Monitor = None):
         """
         Creates an io instance able to send and receive ILNP packets. A thread will be created for listening
         for incoming packets which will then populate the message queue, which can be polled using the receive method.
         """
-        # packets for this node
-        self.__received_packets = Queue()
-        # router thread for forwarding and sending packets
-        self.__router = Router(conf, self.__received_packets, monitor)
+        self.__received_packets: ReceivedQueue = ReceivedQueue()
+        self.ilnp_address: ILNPAddress = ILNPAddress(conf.locators_to_ipv6.keys()[0], conf.my_id)
+        self.__router: Router = Router(conf, self.__received_packets, monitor)
+
         self.__router.daemon = True
         self.__router.start()
 
         logging.debug("ILNPSocket Initialised")
 
-    def is_alive(self):
+    def is_closed(self) -> bool:
         return self.__router.isAlive()
 
-    def send(self, payload, destination):
+    def close(self):
+        logging.debug("Closing socket")
+        self.__router.stop()
+
+    def send(self, payload: bytes, destination: ILNPAddress):
         """
         Sends the given packet to the specified destination.
         :param payload: data to be sent as bytes object
-        :param destination: ILNP address as L:ID tuple of target
+        :param destination: ILNP address of target
         """
-        if payload is None or type(payload) is not bytes:
-            raise TypeError("Payload must be bytes object.")
-
-        if destination is None or type(destination) is not tuple or len(destination) != 2:
-            raise TypeError("Destination must be two element tuple of destination locator and identifier.")
-
-        self.__router.add_to_route_queue(self.__router.construct_host_packet(payload, destination))
+        self.__router.send_from_host(payload, destination)
 
     def receive(self, timeout=None):
         """
@@ -46,11 +46,6 @@ class ILNPSocket:
         :param timeout: optional timeout for when to stop listening for bytes
         :return: bytes of message
         """
-        received_packet = self.__received_packets.get(block=True, timeout=timeout)
-
-        if received_packet is None:
-            return
-
+        payload = self.__received_packets.get(block=True, timeout=timeout)
         self.__received_packets.task_done()
-
-        return received_packet.payload
+        return payload

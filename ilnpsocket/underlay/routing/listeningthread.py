@@ -4,20 +4,20 @@ import select
 from typing import List
 
 from ilnpsocket.underlay.routing.ippacket import IPPacket
-from underlay.routing.router import Router
+from underlay.routing.queues import PacketQueue
 from underlay.sockets.listeningsocket import ListeningSocket
 
 
 class ListeningThread(threading.Thread):
 
-    def __init__(self, listening_sockets: List[ListeningSocket], router: Router, buffer_size_bytes: int,
+    def __init__(self, listening_sockets: List[ListeningSocket], inbound_queue: PacketQueue, buffer_size_bytes: int,
                  timeout: int = None):
         super(ListeningThread, self).__init__()
         self.__listening_sockets: List[ListeningSocket] = listening_sockets
-        self.__router: Router = router
         self.__stopped: bool = False
         self.__timeout: int = timeout
         self.__buffer_size: int = buffer_size_bytes
+        self.__queue: PacketQueue = inbound_queue
 
     def run(self):
         """Continuously checks for incoming packets on each listening socket and
@@ -35,7 +35,7 @@ class ListeningThread(threading.Thread):
                       .format(packet.src_locator, packet.src_identifier,
                               packet.dest_locator, packet.dest_identifier, sock.locator))
 
-        self.__router.add_to_route_queue(packet, sock.locator)
+        self.__queue.add(packet, sock.locator)
 
     def stop(self):
         self.__stopped = True

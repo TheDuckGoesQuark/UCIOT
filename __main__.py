@@ -35,12 +35,12 @@ def run_as_node(config):
     sock = ILNPSocket(config, monitor)
     mock_generator = MockDataGenerator()
 
-    while monitor.max_sends > 0 and killswitch() and sock.is_alive():
+    while monitor.max_sends > 0 and killswitch() and sock.is_closed():
         print("{}: {} sends left".format(config.my_id, monitor.max_sends))
         time.sleep(config.send_delay_secs)
         sock.send(bytes(mock_generator.get_data()), (config.sink_loc, config.sink_id))
 
-    if not sock.is_alive():
+    if not sock.is_closed():
         logging.info("Router failed for some reason?")
 
     monitor.save()

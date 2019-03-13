@@ -3,7 +3,6 @@ import logging
 import random
 
 from underlay.routing.dsrmessages import RouteRequest, RouteReply, RouteList
-from ilnpsocket.underlay.routing.icmp.icmpheader import ICMPHeader
 from ilnpsocket.underlay.routing.forwardingtable import ForwardingTable
 
 

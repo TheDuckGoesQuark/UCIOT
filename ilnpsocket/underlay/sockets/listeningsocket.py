@@ -23,6 +23,11 @@ class ListeningSocket:
         return self.__sock.fileno()
 
     def recvfrom_into(self, buffer: bytearray, buffer_size: int = None):
+        """
+        Reads socket contents into given buffer
+        :param buffer: buffer to read socket contents into
+        :param buffer_size: size of buffer
+        """
         if buffer_size is None:
             buffer_size = len(buffer)
 

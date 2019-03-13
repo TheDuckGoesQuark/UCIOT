@@ -3,22 +3,27 @@ import threading
 from os import urandom
 from queue import Queue
 from struct import unpack
+from typing import Dict, List
 
-from ilnpsocket.underlay.routing.listeningthread import ListeningThread
-from ilnpsocket.underlay.routing.ippacket import IPPacket
-from ilnpsocket.underlay.sockets.listeningsocket import ListeningSocket
-from ilnpsocket.underlay.sockets.sendingsocket import SendingSocket
-from ilnpsocket.underlay.routing.dsrservice import DSRService
+from experiment.config import Config
+from experiment.tools import Monitor
+from underlay.routing.dsrservice import DSRService
+from underlay.routing.ilnpaddress import ILNPAddress
+from underlay.routing.ippacket import IPPacket
+from underlay.routing.listeningthread import ListeningThread
+from underlay.routing.queues import ReceivedQueue
+from underlay.sockets.listeningsocket import ListeningSocket
+from underlay.sockets.sendingsocket import SendingSocket
 
 
-def create_receivers(locators_to_ipv6, port_number):
+def create_receivers(locators_to_ipv6: Dict[int, str], port_number: int) -> List[ListeningSocket]:
     """Creates a listening socket instance for each locator-ipv6 key value pair"""
     return [ListeningSocket(address, port_number, int(locator))
             for locator, address
             in locators_to_ipv6.items()]
 
 
-def create_random_id():
+def create_random_id() -> int:
     """
     Uses the OSs RNG to produce an id for this node.
     :return: a 64 bit id with low likelihood of collision
@@ -27,9 +32,11 @@ def create_random_id():
 
 
 class Router(threading.Thread):
-    def __init__(self, conf, received_packets_queue, monitor):
+    def __init__(self, conf: Config, received_packets_queue: ReceivedQueue, monitor: Monitor):
+
         super(Router, self).__init__()
 
+        self.__stop_event = threading.Event()
         self.hop_limit = conf.hop_limit
 
         # Assign addresses to this node
@@ -101,7 +108,7 @@ class Router(threading.Thread):
 
     def run(self):
         """Polls for messages."""
-        while True:
+        while not self.__stop_event.is_set():
             logging.debug("Polling for packet...")
             packet, locator_interface = self.__to_be_routed_queue.get(block=True)
 
@@ -200,3 +207,8 @@ class Router(threading.Thread):
         self.__listening_thread.stop()
         self.__listening_thread.join()
         self.__sender.close()
+
+    def stop(self):
+        self.__stop_event.set()
+
+    def send_from_host(self, payload: bytes, destination: ILNPAddress):
