@@ -1,16 +1,16 @@
 from queue import Queue
 
-from underlay.routing.ippacket import IPPacket
+from underlay.routing.ilnppacket import ILNPPacket
 
 
 class PacketQueue:
     def __init__(self):
         self.queue = Queue()
 
-    def add(self, packet_to_route: IPPacket, arriving_locator: int = None):
+    def add(self, packet_to_route: ILNPPacket, arriving_locator: int = None):
         self.queue.put((packet_to_route, arriving_locator))
 
-    def get(self, block: bool) -> (IPPacket, int):
+    def get(self, block: bool) -> (ILNPPacket, int):
         return self.queue.get(block)
 
     def task_done(self):

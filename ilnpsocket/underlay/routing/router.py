@@ -1,25 +1,24 @@
 import logging
 import threading
 from os import urandom
-from queue import Queue
 from struct import unpack
-from typing import Dict, List
+from typing import Dict, List, Set
 
 from experiment.config import Config
 from experiment.tools import Monitor
 from underlay.routing.dsrservice import DSRService
 from underlay.routing.ilnpaddress import ILNPAddress
-from underlay.routing.ippacket import IPPacket
+from underlay.routing.ilnppacket import ILNPPacket
 from underlay.routing.listeningthread import ListeningThread
-from underlay.routing.queues import ReceivedQueue
+from underlay.routing.queues import ReceivedQueue, PacketQueue
 from underlay.sockets.listeningsocket import ListeningSocket
 from underlay.sockets.sendingsocket import SendingSocket
 
 
 def create_receivers(locators_to_ipv6: Dict[int, str], port_number: int) -> List[ListeningSocket]:
     """Creates a listening socket instance for each locator-ipv6 key value pair"""
-    return [ListeningSocket(address, port_number, int(locator))
-            for locator, address
+    return [ListeningSocket(ipv6_address, port_number, locator)
+            for locator, ipv6_address
             in locators_to_ipv6.items()]
 
 
@@ -36,30 +35,21 @@ class Router(threading.Thread):
 
         super(Router, self).__init__()
 
-        self.__stop_event = threading.Event()
-        self.hop_limit = conf.hop_limit
+        self.__stop_event: threading.Event() = threading.Event()
+        self.hop_limit: int = conf.hop_limit
 
         # Assign addresses to this node
-        if conf.my_id:
-            self.my_id = conf.my_id
-        else:
-            self.my_id = create_random_id()
+        self.interfaced_locators: Set[int] = {int(l) for l in conf.locators_to_ipv6}
+        my_id: int = conf.my_id if conf.my_id is not None else create_random_id()
 
-        self.hop_limit = conf.hop_limit
-        self.interfaced_locators = {int(l) for l in conf.locators_to_ipv6}
-
-        # packets awaiting routing or route reply
-        self.__to_be_routed_queue = Queue()
-
-        # packets for the current node
+        self.my_address: ILNPAddress = ILNPAddress(my_id, next(iter(self.interfaced_locators)))
+        self.__to_be_routed_queue: PacketQueue = PacketQueue()
         self.__received_packets_queue = received_packets_queue
-
-        # Create sending socket
         self.__sender = SendingSocket(conf.port, conf.locators_to_ipv6, conf.loopback)
 
         # Configures listening thread
         receivers = create_receivers(conf.locators_to_ipv6, conf.port)
-        self.__listening_thread = ListeningThread(receivers, self, conf.packet_buffer_size_bytes)
+        self.__listening_thread = ListeningThread(receivers, self.__to_be_routed_queue, conf.packet_buffer_size_bytes)
 
         # Ensures that child threads die with parent
         self.__listening_thread.daemon = True
@@ -70,49 +60,13 @@ class Router(threading.Thread):
 
         self.monitor = monitor
 
-    def add_to_route_queue(self, packet_to_route, arriving_locator=None):
-        """
-        Adds the given packet to the queue waiting to be routed, alongside the locator value the packet arrived from.
-        Defaults to None when the packet was created locally.
-
-        :param packet_to_route: packet instance to be routed
-        :param arriving_locator: locator value that packet arrived from
-        """
-        self.__to_be_routed_queue.put((packet_to_route, arriving_locator))
-
-    def get_addresses(self):
-        """
-        If no interfaces are configured, a ValueError is raised as no address exists.
-        :return: a list of tuples of locator:identifier pairs that can be used as an address for this host.
-        """
-        if self.interfaced_locators is None or len(self.interfaced_locators) == 0:
-            raise ValueError("An address cannot be obtained as this router has no interfaces.")
-        else:
-            return [(locator, self.my_id) for locator in self.interfaced_locators]
-
-    def construct_host_packet(self, payload, destination):
-        """
-        Constructs a packet from this host to the given destination with the given payload
-        :param payload: bytes to be sent
-        :param destination: destination as (locator:identifier) tuple
-        :return: Packet from this host to the given destination carrying the given payload
-        """
-        if len(payload) > IPPacket.MAX_PAYLOAD_SIZE:
-            raise ValueError("Payload cannot exceed {} bytes. "
-                             "Provided payload size: {} bytes. ".format(IPPacket.MAX_PAYLOAD_SIZE, len(payload)))
-
-        packet = IPPacket(self.get_addresses()[0], destination,
-                          payload=payload, payload_length=len(payload), hop_limit=self.hop_limit)
-
-        return packet
-
     def run(self):
         """Polls for messages."""
         while not self.__stop_event.is_set():
             logging.debug("Polling for packet...")
             packet, locator_interface = self.__to_be_routed_queue.get(block=True)
 
-            if type(packet) is not IPPacket:
+            if type(packet) is not ILNPPacket:
                 continue
 
             if not self.is_from_me(packet):
@@ -212,3 +166,10 @@ class Router(threading.Thread):
         self.__stop_event.set()
 
     def send_from_host(self, payload: bytes, destination: ILNPAddress):
+        packet = ILNPPacket(self.my_address,
+                            destination,
+                            payload=memoryview(payload),
+                            payload_length=len(payload),
+                            hop_limit=self.hop_limit)
+
+        self.__to_be_routed_queue.add(packet)

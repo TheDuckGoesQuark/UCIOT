@@ -38,7 +38,6 @@ router_refresh_delay_secs = 3
 unique_identifier=
 port = 8080
 hop_limit = 16
-sleep = 1
 packet_buffer_size_bytes = 4096
 loopback = no
 max_sends = 200

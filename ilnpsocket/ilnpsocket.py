@@ -17,7 +17,6 @@ class ILNPSocket:
         for incoming packets which will then populate the message queue, which can be polled using the receive method.
         """
         self.__received_packets: ReceivedQueue = ReceivedQueue()
-        self.ilnp_address: ILNPAddress = ILNPAddress(conf.locators_to_ipv6.keys()[0], conf.my_id)
         self.__router: Router = Router(conf, self.__received_packets, monitor)
 
         self.__router.daemon = True

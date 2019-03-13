@@ -3,7 +3,7 @@ import threading
 import select
 from typing import List
 
-from ilnpsocket.underlay.routing.ippacket import IPPacket
+from ilnpsocket.underlay.routing.ilnppacket import ILNPPacket
 from underlay.routing.queues import PacketQueue
 from underlay.sockets.listeningsocket import ListeningSocket
 
@@ -30,7 +30,7 @@ class ListeningThread(threading.Thread):
     def read_sock(self, sock: ListeningSocket):
         buffer = bytearray(self.__buffer_size)
         n_bytes_to_read, addr_info = sock.recvfrom_into(buffer)
-        packet = IPPacket.from_bytes(buffer)
+        packet = ILNPPacket.from_bytes(buffer)
         logging.debug("Packet from {}-{} to {} {} arrived on interface {}"
                       .format(packet.src_locator, packet.src_identifier,
                               packet.dest_locator, packet.dest_identifier, sock.locator))
