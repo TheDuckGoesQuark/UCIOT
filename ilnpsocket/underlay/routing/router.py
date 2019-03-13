@@ -5,7 +5,7 @@ from queue import Queue
 from struct import unpack
 
 from ilnpsocket.underlay.routing.listeningthread import ListeningThread
-from ilnpsocket.underlay.routing.packet import Packet
+from ilnpsocket.underlay.routing.ippacket import IPPacket
 from ilnpsocket.underlay.sockets.listeningsocket import ListeningSocket
 from ilnpsocket.underlay.sockets.sendingsocket import SendingSocket
 from ilnpsocket.underlay.routing.dsrservice import DSRService
@@ -90,12 +90,12 @@ class Router(threading.Thread):
         :param destination: destination as (locator:identifier) tuple
         :return: Packet from this host to the given destination carrying the given payload
         """
-        if len(payload) > Packet.MAX_PAYLOAD_SIZE:
+        if len(payload) > IPPacket.MAX_PAYLOAD_SIZE:
             raise ValueError("Payload cannot exceed {} bytes. "
-                             "Provided payload size: {} bytes. ".format(Packet.MAX_PAYLOAD_SIZE, len(payload)))
+                             "Provided payload size: {} bytes. ".format(IPPacket.MAX_PAYLOAD_SIZE, len(payload)))
 
-        packet = Packet(self.get_addresses()[0], destination,
-                        payload=payload, payload_length=len(payload), hop_limit=self.hop_limit)
+        packet = IPPacket(self.get_addresses()[0], destination,
+                          payload=payload, payload_length=len(payload), hop_limit=self.hop_limit)
 
         return packet
 
@@ -105,7 +105,7 @@ class Router(threading.Thread):
             logging.debug("Polling for packet...")
             packet, locator_interface = self.__to_be_routed_queue.get(block=True)
 
-            if type(packet) is not Packet:
+            if type(packet) is not IPPacket:
                 continue
 
             if not self.is_from_me(packet):
