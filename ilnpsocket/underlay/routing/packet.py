@@ -1,10 +1,7 @@
 import struct
 
-from ilnpsocket.underlay.routing.icmp.icmpheader import ICMPHeader
-
-NEXT_HEADER_CLASSES = {
-    ICMPHeader.NEXT_HEADER_VALUE, ICMPHeader
-}
+DSR_NEXT_HEADER_VALUE = 48
+NO_NEXT_HEADER_VALUE = 59
 
 
 class Packet:
@@ -54,9 +51,6 @@ class Packet:
     def decrement_hop_limit(self):
         self.hop_limit -= 1
 
-    def is_control_message(self):
-        return self.next_header == ICMPHeader.NEXT_HEADER_VALUE
-
     def __bytes__(self):
         first_octet = self.flow_label | (self.traffic_class << 20) | (self.version << 28)
         header_bytes = struct.pack(self.ILNPv6_HEADER_FORMAT,
@@ -70,8 +64,10 @@ class Packet:
 
     def __str__(self):
         return "+---------------Start------------------+ \n" \
-         "ILNP Source: {}-{}\n" \
-         "ILNP Dest  : {}-{}\n" \
-         "Hop limit  : {}\n" \
-         "Payload    : {}\n" \
-         "+----------------End-------------------+".format(self.src_locator, self.src_identifier, self.dest_locator, self.dest_identifier, self.hop_limit, self.payload)
+               "ILNP Source: {}-{}\n" \
+               "ILNP Dest  : {}-{}\n" \
+               "Hop limit  : {}\n" \
+               "Payload    : {}\n" \
+               "+----------------End-------------------+".format(self.src_locator, self.src_identifier,
+                                                                 self.dest_locator, self.dest_identifier,
+                                                                 self.hop_limit, self.payload)
