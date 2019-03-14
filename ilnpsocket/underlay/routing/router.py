@@ -8,7 +8,7 @@ from experiment.config import Config
 from experiment.tools import Monitor
 from underlay.routing.dsrservice import DSRService
 from underlay.routing.ilnpaddress import ILNPAddress
-from underlay.routing.ilnppacket import ILNPPacket
+from underlay.routing.ilnppacket import ILNPPacket, DSR_NEXT_HEADER_VALUE
 from underlay.routing.listeningthread import ListeningThread
 from underlay.routing.queues import ReceivedQueue, PacketQueue
 from underlay.sockets.listeningsocket import ListeningSocket
@@ -30,6 +30,10 @@ def create_random_id() -> int:
     return unpack("!Q", urandom(8))[0]
 
 
+def is_control_packet(packet: ILNPPacket) -> bool:
+    return packet.next_header == DSR_NEXT_HEADER_VALUE
+
+
 class Router(threading.Thread):
     def __init__(self, conf: Config, received_packets_queue: ReceivedQueue, monitor: Monitor):
 
@@ -40,9 +44,7 @@ class Router(threading.Thread):
 
         # Assign addresses to this node
         self.interfaced_locators: Set[int] = {int(l) for l in conf.locators_to_ipv6}
-        my_id: int = conf.my_id if conf.my_id is not None else create_random_id()
-
-        self.my_address: ILNPAddress = ILNPAddress(my_id, next(iter(self.interfaced_locators)))
+        self.my_id: int = conf.my_id if conf.my_id is not None else create_random_id()
         self.__to_be_routed_queue: PacketQueue = PacketQueue()
         self.__received_packets_queue = received_packets_queue
         self.__sender = SendingSocket(conf.port, conf.locators_to_ipv6, conf.loopback)
@@ -64,30 +66,28 @@ class Router(threading.Thread):
         """Polls for messages."""
         while not self.__stop_event.is_set():
             logging.debug("Polling for packet...")
-            packet, locator_interface = self.__to_be_routed_queue.get(block=True)
 
-            if type(packet) is not ILNPPacket:
-                continue
+            packet: ILNPPacket
+            arriving_loc: int
+            packet, arriving_loc = self.__to_be_routed_queue.get(block=True)
 
-            if not self.is_from_me(packet):
-                self.dsr_service.forwarding_table.record_entry(packet.src_locator, locator_interface,
-                                                               self.hop_limit - packet.hop_limit)
-
-            if packet.is_control_message():
-                self.dsr_service.handle_message(packet, locator_interface)
-            else:
-                logging.debug("Received normal packet from {}-{} for {} {} on interface {}"
-                              .format(packet.src_locator, packet.src_identifier,
-                                      packet.dest_locator, packet.dest_identifier, locator_interface))
-                self.route_packet(packet, locator_interface)
-
+            self.handle_packet(packet, arriving_loc)
             self.__to_be_routed_queue.task_done()
 
-    def is_my_address(self, locator, identifier):
-        return (locator in self.interfaced_locators) and identifier == self.my_id
+    def handle_packet(self, packet: ILNPPacket, arriving_loc: int):
+        if not self.is_from_me(packet.src):
+            self.dsr_service.backwards_learn(packet.src.loc, arriving_loc)
 
-    def is_from_me(self, packet):
-        return self.is_my_address(packet.src_locator, packet.src_identifier)
+        if is_control_packet(packet):
+            self.dsr_service.handle_message(packet, arriving_loc)
+        else:
+            self.route_packet(packet, arriving_loc)
+
+    def is_my_address(self, locator: int, identifier: int) -> bool:
+        return (locator in self.interfaced_locators) and identifier == self.my_address
+
+    def is_from_me(self, src_address: ILNPAddress):
+        return self.is_my_address(src_address.loc, src_address.id)
 
     def is_for_me(self, packet):
         return self.is_my_address(packet.dest_locator, packet.dest_identifier)
@@ -95,7 +95,7 @@ class Router(threading.Thread):
     def interface_exists_for_locator(self, locator):
         return locator in self.interfaced_locators
 
-    def route_packet(self, packet, arriving_interface=None):
+    def route_packet(self, packet: ILNPPacket, arriving_interface: int = None):
         """
         Attempts to either receive packets for this node, or to forward packets to their destination.
 

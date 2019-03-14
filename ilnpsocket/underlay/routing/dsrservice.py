@@ -93,7 +93,7 @@ class DSRService:
         length_of_path = len(locators)
 
         for index, locator in enumerate(locators):
-            self.forwarding_table.record_entry(locator, arriving_locator, length_of_path)
+            self.forwarding_table.add_entry(locator, arriving_locator, length_of_path)
             if index < len(locators) - 1:
                 self.network_graph.add_vertex(locator, locators[index + 1])
 
@@ -144,7 +144,8 @@ class DSRService:
         :param arriving_interface: locator interface that packet arrived on
         :return: list of viable next hops that should lead to the packets destination
         """
-        next_hops = self.forwarding_table.find_next_hops(dest_locator)
+        # TODO
+        next_hops = self.forwarding_table.get_next_hop_list(dest_locator)
 
         if arriving_interface in next_hops:
             next_hops.remove(arriving_interface)
@@ -153,6 +154,9 @@ class DSRService:
             return random.choice(next_hops)
         else:
             return None
+
+    def backwards_learn(self, src_loc: int, arriving_loc: int):
+        pass
 
 
 class NetworkGraph:
