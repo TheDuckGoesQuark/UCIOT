@@ -1,17 +1,56 @@
 import collections
 import logging
 import random
+from typing import List, Dict, Set
 
-from underlay.routing.dsrmessages import RouteRequest, RouteReply, RouteList
-from ilnpsocket.underlay.routing.forwardingtable import ForwardingTable
+from underlay.routing.dsrmessages import RouteRequest, RouteReply
+from underlay.routing.forwardingtable import ForwardingTable
+from underlay.routing.ilnppacket import ILNPPacket
+from underlay.routing.router import Router
+
+
+class DestinationRequests:
+    """
+    list of packets awaiting a route to the same destination, with the time the last request was sent
+    and the number of retries made.
+    """
+
+    def __init__(self):
+        self.packets_for_dest: List[ILNPPacket] = []
+        self.num_attempts: int = 0
+        self.time_until_retry: int = 10
+
+    def __len__(self) -> int:
+        return len(self.packets_for_dest)
+
+    def due_reattempt(self) -> bool:
+        return self.time_until_retry <= 0
+
+    def decrement_time_until_retry(self):
+        self.time_until_retry = self.time_until_retry - 1
+
+    def increment_num_attempts(self):
+        self.num_attempts = self.num_attempts + 1
+
+    def add_packet(self, packet: ILNPPacket):
+        self.packets_for_dest.append(packet)
+
+
+class AwaitingRouteBuffer:
+    def __init__(self):
+        self.dest_requests: Dict[int, DestinationRequests] = []
+        self.request_id_to_dest: Dict[int, int] = {}
+
+    def add(self, packet: ILNPPacket, request_id: int):
+        if packet.dest.loc in self.dest_requests:
+            self.dest_requests[packet.dest.loc].add_packet(packet)
+        else:
+            self.dest_requests[packet.dest.loc]
+            self.request_id_idx[request_id] = len(self.dest_requests.append())
 
 
 class DSRService:
-    """
-    DSR service handles route request and reply messages, and updates the forwarding table with relevant information
-    """
-
-    def __init__(self, router, forwarding_table_refresh_secs):
+    def __init__(self, router: Router, forwarding_table_refresh_secs: int):
         """
         Initializes DSRService with forwarding table which it will maintain with information it gains from routing
         messages.
