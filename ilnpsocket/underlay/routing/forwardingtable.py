@@ -1,5 +1,3 @@
-import threading
-import time
 from typing import Dict, List
 
 
@@ -66,12 +64,8 @@ class ForwardingTable:
 
     DEFAULT_COST = 50
 
-    def __init__(self, refresh_delay_secs: int):
+    def __init__(self):
         self.entries: Dict[int, NextHopList] = {}
-
-        self.refresh_thread: threading.Thread = RefreshTableThread(refresh_delay_secs, self)
-        self.refresh_thread.daemon = True
-        self.refresh_thread.start()
 
     def refresh_entry(self, dest_loc: int, next_hop_loc: int):
         self.entries[dest_loc].refresh_ltl_for_hop(next_hop_loc)
@@ -99,19 +93,3 @@ class ForwardingTable:
             next_hop_list.age_entries()
 
         self.entries[:] = [next_hop_list for next_hop_list in next_hop_lists if len(next_hop_list) > 0]
-
-
-class RefreshTableThread(threading.Thread):
-    def __init__(self, refresh_delay: int, forwarding_table: ForwardingTable):
-        super(RefreshTableThread, self).__init__()
-        self.routing_table: ForwardingTable = forwarding_table
-        self.refresh_delay: int = refresh_delay
-        self.stopped: threading.Event = threading.Event()
-
-    def run(self):
-        while not self.stopped.is_set():
-            self.routing_table.decrement_and_clear()
-            time.sleep(self.refresh_delay)
-
-    def stop(self):
-        self.stopped.set()

@@ -1,12 +1,25 @@
 import collections
 import logging
 import random
-from typing import List, Dict, Set
+import threading
+import time
+from typing import List, Dict, Deque, Tuple, Optional
 
 from underlay.routing.dsrmessages import RouteRequest, RouteReply
 from underlay.routing.forwardingtable import ForwardingTable
 from underlay.routing.ilnppacket import ILNPPacket
 from underlay.routing.router import Router
+
+
+class RecentRequestBuffer:
+    def __init__(self):
+        self.recently_seen: Deque[Tuple[int, int]] = collections.deque(10 * [()])
+
+    def add(self, src_id, request_id):
+        self.recently_seen.appendleft((src_id, request_id))
+
+    def __contains__(self, src_id_request_id: Tuple[int, int]):
+        return src_id_request_id in self.recently_seen
 
 
 class DestinationRequests:
@@ -15,22 +28,20 @@ class DestinationRequests:
     and the number of retries made.
     """
 
-    def __init__(self):
+    def __init__(self, dest_loc: int):
+        self.destination: int = dest_loc
         self.packets_for_dest: List[ILNPPacket] = []
         self.num_attempts: int = 0
-        self.time_until_retry: int = 10
+        self.time_since_last_attempt: int = 0
 
     def __len__(self) -> int:
         return len(self.packets_for_dest)
 
-    def due_reattempt(self) -> bool:
-        return self.time_until_retry <= 0
-
-    def decrement_time_until_retry(self):
-        self.time_until_retry = self.time_until_retry - 1
-
     def increment_num_attempts(self):
         self.num_attempts = self.num_attempts + 1
+
+    def increment_time_since_last_attempt(self):
+        self.time_since_last_attempt = self.time_since_last_attempt + 1
 
     def add_packet(self, packet: ILNPPacket):
         self.packets_for_dest.append(packet)
@@ -41,29 +52,91 @@ class AwaitingRouteBuffer:
         self.dest_requests: Dict[int, DestinationRequests] = []
         self.request_id_to_dest: Dict[int, int] = {}
 
-    def add(self, packet: ILNPPacket, request_id: int):
-        if packet.dest.loc in self.dest_requests:
-            self.dest_requests[packet.dest.loc].add_packet(packet)
-        else:
-            self.dest_requests[packet.dest.loc]
-            self.request_id_idx[request_id] = len(self.dest_requests.append())
+    def add(self, packet: ILNPPacket, request_id: int) -> DestinationRequests:
+        self.__add_to_dest_requests(packet)
+        return self.__swap_or_insert_request_id(request_id, packet.dest.loc)
+
+    def __add_to_dest_requests(self, packet):
+        if packet.dest.loc not in self.dest_requests:
+            self.dest_requests[packet.dest.loc] = DestinationRequests(packet.dest.loc)
+
+        self.dest_requests[packet.dest.loc].add_packet(packet)
+
+    def __swap_or_insert_request_id(self, request_id: int, dest_loc: int) -> DestinationRequests:
+        """
+        Points request id to new destination request it is being used for.
+
+        If a destinationrequest already exists for the request id, it is returned to be retried or discarded.
+
+        :param request_id: request id for route request to destination
+        :param dest_loc: destination request was made for
+        :return: old destination request that request id belonged to
+        """
+        expired_request: DestinationRequests = None
+
+        if request_id in self.request_id_to_dest:
+            old_dest = self.request_id_to_dest[request_id]
+            expired_request = self.dest_requests[old_dest]
+
+        self.request_id_to_dest[request_id] = dest_loc
+
+        return expired_request
+
+    def get_ids_of_expired_requests(self, expiry_time) -> List[int]:
+        return [request_id for request_id, dest_loc in self.request_id_to_dest.items()
+                if self.dest_requests[dest_loc].time_since_last_attempt > expiry_time]
+
+    def pop_packets_by_request_id(self, request_id: int) -> Optional[DestinationRequests]:
+        """
+        Remove and return all packets awaiting the same destination that the request id was used for
+
+        :param request_id: request id used for request for route to destination
+        :return: all packets awaiting the same destination that the request id was used for
+        """
+        dest_loc = self.request_id_to_dest.pop(request_id)
+        try:
+            return self.dest_requests.pop(dest_loc)
+        except KeyError:
+            return None
 
 
-class DSRService:
-    def __init__(self, router: Router, forwarding_table_refresh_secs: int):
+class DSRService(threading.Thread):
+    def __init__(self, router: Router, maintenance_interval_secs: int):
         """
         Initializes DSRService with forwarding table which it will maintain with information it gains from routing
         messages.
-        :param forwarding_table_refresh_secs: time between each forwarding table refresh
+        :param maintenance_interval_secs: time between each forwarding table refresh
         :type router: Router
         :param router: router that can be used to forward any control messages
         """
-        self.awaiting_route = {}
-        self.router = router
-        self.forwarding_table = ForwardingTable(forwarding_table_refresh_secs)
-        # Fixed size list of request ids to track those that have already been seen
-        self.recent_request_ids = collections.deque(5 * [0], 5)
-        self.network_graph = NetworkGraph(self.router.interfaced_locators)
+        super().__init__()
+        self.router: Router = router
+
+        # Buffers
+        self.awaiting_route: AwaitingRouteBuffer = AwaitingRouteBuffer()
+        self.recent_requests: RecentRequestBuffer = RecentRequestBuffer()
+
+        # Network Knowledge
+        self.forwarding_table: ForwardingTable = ForwardingTable()
+        self.network_graph: NetworkGraph = NetworkGraph(self.router.my_locators)
+
+        # Maintenance
+        self.maintenance_interval = maintenance_interval_secs
+        self.stopped: threading.Event = threading.Event()
+        self.daemon = True
+        self.start()
+
+    def run(self):
+        """
+        Repeated maintenance tasks
+        """
+        while not self.stopped.is_set():
+            self.forwarding_table.decrement_and_clear()
+
+            time.sleep(self.maintenance_interval)
+
+    def stop(self):
+        self.stopped.set()
 
     def is_recently_seen_id(self, request_id):
         return request_id in self.recent_request_ids
