@@ -39,3 +39,5 @@ class ListeningThread(threading.Thread):
 
     def stop(self):
         self.__stopped = True
+        for socket in self.__listening_sockets:
+            socket.close()

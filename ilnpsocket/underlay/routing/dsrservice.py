@@ -33,7 +33,7 @@ class DSRService:
         request_id = create_request_id()
         self.awaiting_route[request_id] = packet
         request_packet = self.build_route_request_packet(request_id, (packet.dest_locator, packet.dest_identifier))
-        self.router.flood(request_packet)
+        self.router.flood_to_neighbours(request_packet)
 
     def build_route_request_packet(self, request_id, destination):
         rreq = RouteRequest(0, request_id, [])
@@ -86,7 +86,7 @@ class DSRService:
         logging.debug("Appending arriving locator and forwarding route request")
         packet.payload.body.append_locator(arriving_locator)
         packet.payload_length = packet.payload_length + RouteList.LOCATOR_SIZE
-        self.router.flood(packet, arriving_locator)
+        self.router.flood_to_neighbours(packet, arriving_locator)
 
     def add_path_to_forwarding_table(self, locators, arriving_locator):
         logging.debug("Adding the following path to forwarding table: {}".format(locators))
@@ -156,6 +156,11 @@ class DSRService:
             return None
 
     def backwards_learn(self, src_loc: int, arriving_loc: int):
+        # TODO
+        pass
+
+    def stop(self):
+        # TODO
         pass
 
 

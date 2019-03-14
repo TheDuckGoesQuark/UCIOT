@@ -33,6 +33,9 @@ class ListeningSocket:
 
         return self.__sock.recvfrom_into(buffer, buffer_size)
 
+    def close(self):
+        self.__sock.close()
+
 
 def create_listening_socket(port: int, multicast_address: str) -> socket.socket:
     """

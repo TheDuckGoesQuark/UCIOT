@@ -21,7 +21,7 @@ class ReceivedQueue:
     def __init__(self):
         self.queue = Queue()
 
-    def add(self, payload: memoryview):
+    def add(self, payload):
         self.queue.put(payload)
 
     def get(self, block: bool = True, timeout: int = None) -> bytearray:
