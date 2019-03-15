@@ -149,11 +149,12 @@ class Router(threading.Thread):
         self.__sender.close()
         self.dsr_service.stop()
 
-    def send_from_host(self, payload: bytes, destination: ILNPAddress):
-        packet = ILNPPacket(ILNPAddress(next(x for x in self.my_locators), self.my_id),
-                            destination,
-                            payload=memoryview(payload),
-                            payload_length=len(payload),
-                            hop_limit=self.hop_limit)
+    def construct_host_packet(self, payload: bytes, dest: ILNPAddress) -> ILNPPacket:
+        return ILNPPacket(ILNPAddress(next(x for x in self.my_locators), self.my_id),
+                          dest,
+                          payload=memoryview(payload),
+                          payload_length=len(payload),
+                          hop_limit=self.hop_limit)
 
-        self.__to_be_routed_queue.add(packet)
+    def send_from_host(self, payload: bytes, destination: ILNPAddress):
+        self.__to_be_routed_queue.add(self.construct_host_packet(payload, destination))

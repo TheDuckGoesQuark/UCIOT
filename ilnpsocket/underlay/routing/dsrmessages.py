@@ -1,16 +1,15 @@
 import struct
-from typing import List
+from typing import List, Union
 
 
 class DSRHeader:
     FORMAT = "!BBH"
     SIZE = struct.calcsize(FORMAT)
 
-    def __init__(self, next_header: int, is_flow_state: bool, payload_length: int, options: bytes):
+    def __init__(self, next_header: int, is_flow_state: bool, payload_length: int):
         self.next_header: int = next_header
         self.is_flow_state: bool = is_flow_state
         self.payload_length: int = payload_length
-        self.options: bytes = options
 
     @classmethod
     def from_bytes(cls, raw_bytes: bytes) -> 'DSRHeader':
@@ -22,7 +21,7 @@ class DSRHeader:
         """
         next_header, flow_state, payload_length = struct.unpack(cls.FORMAT, raw_bytes[:cls.SIZE])
         flow_state = flow_state >> 7
-        return DSRHeader(next_header, flow_state, payload_length, raw_bytes[cls.SIZE:payload_length])
+        return DSRHeader(next_header, flow_state, payload_length)
 
     def __len__(self) -> int:
         return self.SIZE + self.payload_length
@@ -90,8 +89,28 @@ class RouteList:
 
 
 class RouteReply(RouteList):
-    TYPE = 163
+    TYPE = 1
 
 
 class RouteRequest(RouteList):
-    TYPE = 162
+    TYPE = 2
+
+
+class RouteError:
+    TYPE = 3
+
+
+class DSRMessage:
+    def __init__(self, header: DSRHeader, messages: List[Union[RouteRequest, RouteReply, RouteError]]):
+        self.header = header
+        self.messages = messages
+
+    @classmethod
+    def from_bytes(cls, raw_bytes: bytes) -> 'DSRMessage':
+        header = DSRHeader.from_bytes(raw_bytes)
+        messages = []
+        offset = header.SIZE
+        while (offset < header.payload_length):
+
+
+        return DSRMessage(header, messages)
