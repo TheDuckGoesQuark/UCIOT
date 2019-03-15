@@ -1,8 +1,11 @@
 import struct
+from functools import reduce
 from typing import List, Union
 
+from underlay.routing.serializable import Serializable
 
-class DSRHeader:
+
+class DSRHeader(Serializable):
     FORMAT = "!BBH"
     SIZE = struct.calcsize(FORMAT)
 
@@ -12,7 +15,7 @@ class DSRHeader:
         self.payload_length: int = payload_length
 
     @classmethod
-    def from_bytes(cls, raw_bytes: bytes) -> 'DSRHeader':
+    def from_bytes(cls, raw_bytes: memoryview) -> 'DSRHeader':
         """
         Creates an instance of DSRHeader from the given bytes object
         :param raw_bytes: bytes containing DSRHeader data
@@ -23,76 +26,41 @@ class DSRHeader:
         flow_state = flow_state >> 7
         return DSRHeader(next_header, flow_state, payload_length)
 
-    def __len__(self) -> int:
-        return self.SIZE + self.payload_length
-
     def __bytes__(self) -> bytes:
-        return struct.pack(self.FORMAT, self.next_header, self.is_flow_state << 7, self.payload_length) + self.options
+        return struct.pack(self.FORMAT, self.next_header, self.is_flow_state << 7, self.payload_length)
+
+    def size_bytes(self):
+        return self.SIZE
 
 
-class RouteList:
-    HEADER_DESCRIPTION_FORMAT: str = "!BB2x"
-    HEADER_DESCRIPTION_SIZE: int = struct.calcsize(HEADER_DESCRIPTION_FORMAT)
-    LOCATOR_FORMAT: str = "!Q"
+class RouteList(Serializable):
+    LOCATOR_FORMAT: str = "!{}Q"
     LOCATOR_SIZE: int = struct.calcsize(LOCATOR_FORMAT)
 
-    def __init__(self, num_of_locs: int, request_id: int, locators: List):
-        """
-        :param num_of_locs: number of locators appended to path so far. Can also be considered the hop count
-        :param request_id: unique identifier used by the requester
-        :param locators: list of locator hops in order of occurrence.
-        """
-        self.num_of_locs: int = num_of_locs
-        self.request_id: int = request_id
-        self.locators: List = locators
+    def __init__(self, locators: List[int]):
+        self.locators: List[int] = locators
 
     @classmethod
-    def from_bytes(cls, packet_bytes: bytes) -> 'RouteList':
-        num_of_locs, request_id = struct.unpack(cls.HEADER_DESCRIPTION_FORMAT,
-                                                packet_bytes[:cls.HEADER_DESCRIPTION_SIZE])
+    def from_bytes(cls, packet_bytes: memoryview) -> 'RouteList':
+        num_locs = len(packet_bytes) / cls.LOCATOR_SIZE
+        locators = list(struct.unpack(cls.LOCATOR_FORMAT.format(num_locs), packet_bytes))
+        return RouteList(locators)
 
-        locator_list = []
-        start = cls.HEADER_DESCRIPTION_SIZE
-        for value in range(num_of_locs):
-            end = start + cls.LOCATOR_SIZE
-            locator_list.append(struct.unpack(cls.LOCATOR_FORMAT, packet_bytes[start:end])[0])
-            start += cls.LOCATOR_SIZE
-
-        return RouteList(num_of_locs, request_id, locator_list)
+    def __len__(self):
+        return len(self.locators)
 
     def __bytes__(self) -> bytes:
-        return struct.pack(self.HEADER_DESCRIPTION_FORMAT, self.num_of_locs, self.request_id) + self.locators_to_bytes()
+        return struct.pack(self.LOCATOR_FORMAT.format(len(self)), *self.locators)
 
-    def locators_to_bytes(self) -> bytes:
-        tuple_bytes = bytearray(self.num_of_locs * self.LOCATOR_SIZE)
-        start = 0
-        for i in range(self.num_of_locs):
-            end = start + self.LOCATOR_SIZE
-            tuple_bytes[start:end] = struct.pack(self.LOCATOR_FORMAT, self.locators[i])
-            start = end
-
-        return tuple_bytes
-
-    def append_locator(self, locator: List) -> None:
-        self.locators.append(locator)
-        self.num_of_locs = self.num_of_locs + 1
-
-    def append_locators(self, locators: List) -> None:
-        self.locators.extend(locators)
-        self.num_of_locs = self.num_of_locs + len(locators)
-
-    def already_in_list(self, locator: List):
-        return locator in self.locators
-
-    def calc_checksum(self) -> int:
-        return 0
+    def size_bytes(self):
+        return len(self) * self.LOCATOR_SIZE
 
 
-class RouteReply(RouteList):
+class RouteRequest(RouteList, Serializable):
     TYPE = 1
 
 
-class RouteRequest(RouteList):
+class RouteReply(RouteList):
     TYPE = 2
 
 
@@ -100,17 +68,47 @@ class RouteError:
     TYPE = 3
 
 
-class DSRMessage:
-    def __init__(self, header: DSRHeader, messages: List[Union[RouteRequest, RouteReply, RouteError]]):
+class PadOne:
+    TYPE = 244
+
+
+MESSAGE_TYPES = {
+    RouteRequest.TYPE: RouteRequest,
+    RouteReply.TYPE: RouteReply,
+    RouteError.TYPE: RouteError,
+    PadOne.TYPE: PadOne
+}
+
+
+class DSRMessage(Serializable):
+    def __init__(self, header: DSRHeader, messages: List[Union[Serializable]]):
         self.header = header
         self.messages = messages
 
     @classmethod
-    def from_bytes(cls, raw_bytes: bytes) -> 'DSRMessage':
+    def from_bytes(cls, raw_bytes: memoryview) -> 'DSRMessage':
         header = DSRHeader.from_bytes(raw_bytes)
-        messages = []
-        offset = header.SIZE
-        while (offset < header.payload_length):
-
-
+        messages = cls.__parse_messages(raw_bytes[header.SIZE:], header.payload_length)
         return DSRMessage(header, messages)
+
+    @classmethod
+    def __parse_type(cls, raw_bytes: memoryview) -> int:
+        return raw_bytes[:1]
+
+    @classmethod
+    def __parse_messages(cls, payload_bytes: memoryview, payload_length: int) -> List[Serializable]:
+        messages = []
+        offset = 0
+        while offset < payload_length:
+            type_val = cls.__parse_type(payload_bytes[offset:])
+            message = MESSAGE_TYPES[type_val].from_bytes(payload_bytes[:offset])
+            offset = offset + message.size_bytes()
+            messages.append(message)
+
+        return messages
+
+    def __bytes__(self):
+        return bytes(self.header) + (reduce((lambda b, m: b + bytes(m)), self.messages, bytes()))
+
+    def size_bytes(self):
+        return reduce((lambda s, m: s + m.size_bytes()), self.messages, self.header.SIZE)

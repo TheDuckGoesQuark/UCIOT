@@ -1,13 +1,13 @@
 import struct
-from typing import Tuple
 
+from underlay.routing import serializable
 from underlay.routing.ilnpaddress import ILNPAddress
 
 DSR_NEXT_HEADER_VALUE = 48
 NO_NEXT_HEADER_VALUE = 59
 
 
-class ILNPPacket:
+class ILNPPacket(serializable.Serializable):
     MAX_PAYLOAD_SIZE: int = 65535
     ILNPv6_HEADER_FORMAT: str = "!IHBB4Q"
     HEADER_SIZE: int = struct.calcsize(ILNPv6_HEADER_FORMAT)
@@ -35,9 +35,8 @@ class ILNPPacket:
         self.payload: bytearray = payload
 
     @classmethod
-    def from_bytes(cls, packet_bytes: bytearray) -> 'ILNPPacket':
-        view = memoryview(packet_bytes)
-        values = struct.unpack(cls.ILNPv6_HEADER_FORMAT, view[:cls.HEADER_SIZE])
+    def from_bytes(cls, packet_bytes: memoryview) -> 'ILNPPacket':
+        values = struct.unpack(cls.ILNPv6_HEADER_FORMAT, packet_bytes[:cls.HEADER_SIZE])
 
         flow_label: int = values[0] & 1048575
         traffic_class: int = (values[0] >> 20 & 255)
@@ -48,7 +47,7 @@ class ILNPPacket:
         src: ILNPAddress = ILNPAddress(values[4], values[5])
         dest: ILNPAddress = ILNPAddress(values[6], values[7])
 
-        payload = view[cls.HEADER_SIZE:payload_length]
+        payload = packet_bytes[cls.HEADER_SIZE:payload_length]
 
         return ILNPPacket(src, dest, next_header, hop_limit, version, traffic_class, flow_label, payload_length,
                           payload)
@@ -64,3 +63,6 @@ class ILNPPacket:
                                    self.src.loc, self.src.id, self.dest.loc, self.dest.id)
 
         return header_bytes + self.payload
+
+    def size_bytes(self):
+        return self.HEADER_SIZE + self.payload_length

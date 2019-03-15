@@ -1,4 +1,3 @@
-import logging
 import threading
 import select
 from typing import List
@@ -30,11 +29,7 @@ class ListeningThread(threading.Thread):
     def read_sock(self, sock: ListeningSocket):
         buffer = bytearray(self.__buffer_size)
         n_bytes_to_read, addr_info = sock.recvfrom_into(buffer)
-        packet = ILNPPacket.from_bytes(buffer)
-        logging.debug("Packet from {}-{} to {} {} arrived on interface {}"
-                      .format(packet.src_locator, packet.src_identifier,
-                              packet.dest_locator, packet.dest_identifier, sock.locator))
-
+        packet = ILNPPacket.from_bytes(memoryview(buffer))
         self.__queue.add(packet, sock.locator)
 
     def stop(self):
