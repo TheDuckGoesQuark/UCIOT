@@ -55,6 +55,8 @@ class RouteList(Serializable):
     def size_bytes(self):
         return len(self) * self.LOCATOR_SIZE
 
+# TODO implement serializable and add new route list impl to route request according to RFC that I can't beleive i only
+# came across now >:(
 
 class RouteRequest(RouteList, Serializable):
     TYPE = 1
