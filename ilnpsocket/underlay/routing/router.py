@@ -79,7 +79,7 @@ class Router(threading.Thread):
             self.dsr_service.backwards_learn(packet.src.loc, arriving_loc)
 
         if is_control_packet(packet):
-            self.dsr_service.handle_message(packet, arriving_loc)
+            self.dsr_service.handle_control_packet(packet, arriving_loc)
         else:
             self.route_packet(packet, arriving_loc)
 

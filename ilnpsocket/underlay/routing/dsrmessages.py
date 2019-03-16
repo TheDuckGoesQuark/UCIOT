@@ -8,6 +8,10 @@ from underlay.routing.serializable import Serializable
 TYPE_VALUE_SIZE: int = struct.calcsize("!BB")
 
 
+def parse_type(raw_bytes: memoryview) -> int:
+    return raw_bytes[:1]
+
+
 class DSRHeader(Serializable):
     FORMAT = "!BBH"
     SIZE = struct.calcsize(FORMAT)
@@ -189,7 +193,7 @@ MESSAGE_TYPES = {
 
 
 class DSRMessage(Serializable):
-    def __init__(self, header: DSRHeader, messages: List[Union[Serializable]]):
+    def __init__(self, header: DSRHeader, messages: List[Serializable]):
         self.header = header
         self.messages = messages
 
@@ -200,15 +204,11 @@ class DSRMessage(Serializable):
         return DSRMessage(header, messages)
 
     @classmethod
-    def __parse_type(cls, raw_bytes: memoryview) -> int:
-        return raw_bytes[:1]
-
-    @classmethod
     def __parse_messages(cls, payload_bytes: memoryview, payload_length: int) -> List[Serializable]:
         messages = []
         offset = 0
         while offset < payload_length:
-            type_val = cls.__parse_type(payload_bytes[offset:])
+            type_val = parse_type(payload_bytes[offset:])
             message = MESSAGE_TYPES[type_val].from_bytes(payload_bytes[:offset])
             offset = offset + message.size_bytes()
             messages.append(message)
