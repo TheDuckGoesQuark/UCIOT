@@ -5,11 +5,12 @@ import threading
 import time
 from typing import List, Dict, Deque, Tuple, Optional, Set
 
-from underlay.routing.dsrmessages import RouteRequest, RouteReply
+from underlay.routing.dsrmessages import RouteRequest, RouteReply, DSRMessage, DSRHeader
 from underlay.routing.forwardingtable import ForwardingTable
 from underlay.routing.ilnpaddress import ILNPAddress
-from underlay.routing.ilnppacket import ILNPPacket
+from underlay.routing.ilnppacket import ILNPPacket, NO_NEXT_HEADER_VALUE
 from underlay.routing.router import Router
+from underlay.routing.serializable import Serializable
 
 NUM_REQUEST_IDS = 256
 
@@ -179,13 +180,18 @@ class DSRService(threading.Thread):
             dest_id = self.destination_queues[dest_loc][0].dest.id
             self.__send_route_request(ILNPAddress(dest_loc, dest_id), request.num_attempts)
 
-    def __create_rreq(self):
+    def __create_rreq(self, dest_loc: int) -> RouteRequest:
         request_id = next(self.request_id_generator)
-        return RouteRequest(0, request_id, [])
+        return RouteRequest.build(request_id, dest_loc)
+
+    def __create_dsr_message(self, message: Serializable) -> DSRMessage:
+        header = DSRHeader.build(message.size_bytes())
+        return DSRMessage(header, [message])
 
     def __send_route_request(self, dest_addr: ILNPAddress, num_attempts: int = 0):
-        rreq = self.__create_rreq()
-        packet = self.router.construct_host_packet(bytes(rreq), dest_addr)
+        rreq = self.__create_rreq(dest_addr.loc)
+        dsr_message = self.__create_dsr_message(rreq)
+        packet = self.router.construct_host_packet(bytes(dsr_message), dest_addr)
         self.router.flood_to_neighbours(packet)
         self.requests_made.add(rreq.request_id, dest_addr.loc, num_attempts + 1)
 
@@ -193,15 +199,9 @@ class DSRService(threading.Thread):
         dest_loc = packet.dest.loc
 
         if dest_loc not in self.destination_queues:
-            new_id = next(self.request_id_generator)
-            self.__send_route_request()
+            self.__send_route_request(packet.dest)
 
         self.destination_queues.add_packet(packet)
-
-        request_id = create_request_id()
-        self.destination_queues[request_id] = packet
-        request_packet = self.build_route_request_packet(request_id, (packet.dest_locator, packet.dest_identifier))
-        self.router.flood_to_neighbours(request_packet)
 
     def build_route_request_packet(self, request_id, destination):
         rreq = RouteRequest(0, request_id, [])
