@@ -4,6 +4,8 @@ from typing import List, Union
 
 from underlay.routing.serializable import Serializable
 
+TYPE_VALUE_SIZE: int = struct.calcsize("!BB")
+
 
 class DSRHeader(Serializable):
     FORMAT = "!BBH"
@@ -42,9 +44,13 @@ class RouteList(Serializable):
 
     @classmethod
     def from_bytes(cls, packet_bytes: memoryview) -> 'RouteList':
-        num_locs = len(packet_bytes) / cls.LOCATOR_SIZE
-        locators = list(struct.unpack(cls.LOCATOR_FORMAT.format(num_locs), packet_bytes))
-        return RouteList(locators)
+        n_bytes_in_list = len(packet_bytes)
+        if n_bytes_in_list == 0:
+            return RouteList([])
+        else:
+            num_locs = n_bytes_in_list / cls.LOCATOR_SIZE
+            locators = list(struct.unpack(cls.LOCATOR_FORMAT.format(num_locs), packet_bytes))
+            return RouteList(locators)
 
     def __len__(self):
         return len(self.locators)
@@ -55,23 +61,106 @@ class RouteList(Serializable):
     def size_bytes(self):
         return len(self) * self.LOCATOR_SIZE
 
-# TODO implement serializable and add new route list impl to route request according to RFC that I can't beleive i only
-# came across now >:(
 
-class RouteRequest(RouteList, Serializable):
+class RouteRequest(Serializable):
     TYPE = 1
+    FORMAT = "!BBHHQ"
+    FIXED_PART_SIZE = struct.calcsize(FORMAT)
+
+    def __init__(self, data_len: int, request_id: int, target_loc: int, route_list: RouteList):
+        self.data_len: int = data_len
+        self.request_id: int = request_id
+        self.target_loc: int = target_loc
+        self.route_list: RouteList = route_list
+
+    def __bytes__(self) -> bytes:
+        return struct.pack(self.FORMAT, self.TYPE, self.data_len, self.request_id, self.target_loc) \
+               + bytes(self.route_list)
+
+    def size_bytes(self) -> int:
+        return self.FIXED_PART_SIZE + self.route_list.size_bytes()
+
+    @classmethod
+    def from_bytes(cls, raw_bytes: memoryview) -> 'RouteRequest':
+        opt_type, data_len, request_id, target_loc = struct.unpack(cls.FORMAT, raw_bytes[:cls.FIXED_PART_SIZE])
+        list_offset = cls.FIXED_PART_SIZE
+        route_list = RouteList.from_bytes(raw_bytes[list_offset:data_len + TYPE_VALUE_SIZE])
+        return RouteRequest(data_len, request_id, target_loc, route_list)
 
 
-class RouteReply(RouteList):
+class RouteReply(Serializable):
     TYPE = 2
+    FORMAT = "!BBB"
+    FIXED_PART_SIZE = struct.calcsize(FORMAT)
+
+    def __init__(self, data_len: int, last_hop_external: bool, route_list: RouteList):
+        self.data_len: int = data_len
+        self.last_hop_external: bool = last_hop_external
+        self.route_list: RouteList = route_list
+
+    def __bytes__(self) -> bytes:
+        return struct.pack(self.FORMAT, self.TYPE, self.data_len, self.last_hop_external << 7) + bytes(self.route_list)
+
+    def size_bytes(self) -> int:
+        return self.FIXED_PART_SIZE + self.route_list.size_bytes()
+
+    @classmethod
+    def from_bytes(cls, raw_bytes: memoryview):
+        opt_type, opt_len, last_hop_external = struct.unpack(cls.FORMAT, raw_bytes[:cls.FIXED_PART_SIZE])
+        last_hop_external = last_hop_external >> 7
+        route_list = RouteList.from_bytes(raw_bytes[cls.FIXED_PART_SIZE:opt_len + TYPE_VALUE_SIZE])
+        return RouteReply(opt_len, last_hop_external, route_list)
 
 
-class RouteError:
+class RouteError(Serializable):
     TYPE = 3
+    FORMAT = "!BBBBQQ"
+    FIXED_PART_SIZE = struct.calcsize(FORMAT)
+    ERROR_TYPES = {
+        1: "NODE_UNREACHABLE",
+        2: "FLOW_STATE_UNSUPPORTED",
+        3: "OPTION_NOT_SUPPORTED"
+    }
+
+    def __init__(self, data_len: int, error_type: int, salvage: int, src_loc: int, dest_loc: int, type_specific_info):
+        self.data_len: int = data_len
+        self.error_type: int = error_type
+        self.salvage: int = salvage
+        self.src_loc: int = src_loc
+        self.dest_loc: int = dest_loc
+        # TODO
+        self.type_specific_info = type_specific_info
+
+    def __bytes__(self) -> bytes:
+        return struct.pack(self.FORMAT, self.TYPE, self.data_len, self.error_type, self.salvage, self.src_loc,
+                           self.dest_loc) + bytes(self.type_specific_info)
+
+    def size_bytes(self) -> int:
+        return self.FIXED_PART_SIZE + self.type_specific_info.size_bytes()
+
+    @classmethod
+    def from_bytes(cls, raw_bytes: memoryview) -> 'RouteError':
+        opt_type, data_len, error_type, salvage, src_loc, dest_loc = struct.unpack(cls.FORMAT,
+                                                                                   raw_bytes[:cls.FIXED_PART_SIZE])
+        # TODO routeerrortypes
+        return RouteError(data_len, error_type, salvage, src_loc, dest_loc, None)
 
 
-class PadOne:
+class PadOne(Serializable):
     TYPE = 244
+    FORMAT = "!x"
+    SIZE = struct.calcsize(FORMAT)
+
+    def __bytes__(self) -> bytes:
+        return struct.pack(self.FORMAT)
+
+    def size_bytes(self) -> int:
+        return self.SIZE
+
+    @classmethod
+    def from_bytes(cls, raw_bytes: memoryview) -> 'PadOne':
+        struct.unpack(cls.FORMAT, raw_bytes[:cls.SIZE])
+        return PadOne()
 
 
 MESSAGE_TYPES = {
@@ -110,7 +199,7 @@ class DSRMessage(Serializable):
         return messages
 
     def __bytes__(self):
-        return bytes(self.header) + (reduce((lambda b, m: b + bytes(m)), self.messages, bytes()))
+        return bytes(self.header) + reduce((lambda b, m: b + bytes(m)), self.messages, bytes())
 
     def size_bytes(self):
         return reduce((lambda s, m: s + m.size_bytes()), self.messages, self.header.SIZE)
