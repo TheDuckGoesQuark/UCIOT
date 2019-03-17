@@ -214,8 +214,13 @@ class DSRService(threading.Thread):
 
         self.requests_made.add(rreq.request_id, dest_addr.loc, num_attempts + 1)
 
-    def __send_route_reply(self, original_packet: ILNPPacket, path: List[int], arrived_from_locator: int):
-        pass  # TODO
+    def __send_route_reply(self, original_packet: ILNPPacket, rreq: RouteRequest, arrived_from_locator: int):
+        rrply = RouteReply.build(rreq, original_packet.src.loc, original_packet.dest.loc)
+        msg = self.__create_dsr_message(rrply)
+
+        packet = self.router.construct_host_packet(bytes(msg), original_packet.src, original_packet.dest)
+
+        self.router.forward_packet_to_addresses(packet, [arrived_from_locator])
 
     def find_route_for_packet(self, packet: ILNPPacket):
         dest_loc = packet.dest.loc
@@ -263,8 +268,25 @@ class DSRService(threading.Thread):
                 self.__send_packets(self.destination_queues.pop_dest_queue(locator), arrived_from_locator)
                 self.requests_made.pop_by_dest(locator)
 
-    def __handle_route_request(self, packet: ILNPPacket, dsr_message: DSRMessage, message: RouteRequest,
+    def __handle_route_request(self, packet: ILNPPacket, dsr_message: DSRMessage, rreq: RouteRequest,
                                arrived_from_locator: int):
+        full_path = [packet.src.loc] + rreq.route_list.locators
+        self.__update_route_cache_and_attempt_send(full_path, arrived_from_locator)
+
+        # Reply if for me
+        if self.router.is_for_me(packet):
+            self.__send_route_reply(packet, rreq, arrived_from_locator)
+        # Discard if seen recently
+        elif (packet.src.id, rreq.request_id) in self.recently_seen_request_ids:
+            return
+        else:
+            # Forward to all adjacent locators its not already been to
+            self.__forward_route_request(packet, dsr_message, rreq, full_path)
+
+        self.recently_seen_request_ids.add(packet.src.id, rreq.request_id)
+
+    def __handle_route_reply(self, packet: ILNPPacket, dsr_message: DSRMessage, message: RouteReply,
+                             arrived_from_locator: int):
         full_path = [packet.src.loc] + message.route_list.locators
         self.__update_route_cache_and_attempt_send(full_path, arrived_from_locator)
 
@@ -279,10 +301,6 @@ class DSRService(threading.Thread):
             self.__forward_route_request(packet, dsr_message, message, full_path)
 
         self.recently_seen_request_ids.add(packet.src.id, message.request_id)
-
-    def __handle_route_reply(self, packet: ILNPPacket, dsr_message: DSRMessage, message: RouteReply,
-                             arrived_from_locator: int):
-        pass
         # Add route to route cache
         # check if route to waiting destination now exists
         # do i know a shorter route? replace

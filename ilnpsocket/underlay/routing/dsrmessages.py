@@ -67,11 +67,20 @@ class RouteList(Serializable):
     def __len__(self):
         return len(self.locators)
 
+    def __getitem__(self, index):
+        return self.locators[index]
+
     def __bytes__(self) -> bytes:
         return struct.pack(self.LOCATOR_FORMAT.format(len(self)), *self.locators)
 
     def size_bytes(self):
         return len(self) * LOCATOR_SIZE
+
+    def prepend(self, loc):
+        self.locators.insert(0, loc)
+
+    def append(self, loc):
+        self.locators.append(loc)
 
 
 class RouteRequest(Serializable):
@@ -111,10 +120,6 @@ class RouteRequest(Serializable):
         route_list = RouteList.from_bytes(raw_bytes[list_offset:data_len + TYPE_VALUE_SIZE])
         return RouteRequest(data_len, request_id, target_loc, route_list)
 
-    def append_locator(self, next_hop: int):
-        self.route_list.locators.append(next_hop)
-        self.data_len = self.data_len + LOCATOR_SIZE
-
 
 class RouteReply(Serializable):
     TYPE = 2
@@ -138,6 +143,19 @@ class RouteReply(Serializable):
         last_hop_external = last_hop_external >> 7
         route_list = RouteList.from_bytes(raw_bytes[cls.FIXED_PART_SIZE:opt_len + TYPE_VALUE_SIZE])
         return RouteReply(opt_len, last_hop_external, route_list)
+
+    @classmethod
+    def build(cls, rreq: RouteRequest, request_src_loc: int, request_dest_loc: int) -> 'RouteReply':
+        route_list = rreq.route_list
+        route_list.prepend(request_src_loc)
+
+        # Only append if the dest was another interface than the requester dest loc
+        if route_list[len(route_list) - 1] != request_dest_loc:
+            route_list.append(request_dest_loc)
+
+        data_len = (cls.FIXED_PART_SIZE - TYPE_VALUE_SIZE) + route_list.size_bytes()
+
+        return RouteReply(data_len, False, route_list)
 
 
 class RouteError(Serializable):

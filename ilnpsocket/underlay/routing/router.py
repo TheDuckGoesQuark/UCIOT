@@ -122,7 +122,7 @@ class Router(threading.Thread):
 
         self.forward_packet_to_addresses(packet, next_hops)
 
-    def forward_packet_to_addresses(self, packet: ILNPPacket, next_hop_locators: Iterable[int], decrement_hop=False):
+    def forward_packet_to_addresses(self, packet: ILNPPacket, next_hop_locators: Iterable[int], decrement_hop=True):
         """
         Forwards packet to locator with given value if hop limit is still greater than 0.
         Decrements hop limit by one before forwarding.
@@ -153,8 +153,11 @@ class Router(threading.Thread):
     def get_random_src_locator(self) -> int:
         return next(x for x in self.my_locators)
 
-    def construct_host_packet(self, payload: bytes, dest: ILNPAddress) -> ILNPPacket:
-        return ILNPPacket(ILNPAddress(self.my_id, self.get_random_src_locator()),
+    def construct_host_packet(self, payload: bytes, dest: ILNPAddress, src: Optional[ILNPAddress] = None) -> ILNPPacket:
+        if src is None:
+            src = ILNPAddress(self.my_id, self.get_random_src_locator())
+
+        return ILNPPacket(src,
                           dest,
                           payload=memoryview(payload),
                           payload_length=len(payload),
