@@ -1,14 +1,12 @@
 import collections
-import logging
-import random
 import threading
 import time
-from typing import List, Dict, Deque, Tuple, Optional, Set
+from typing import List, Dict, Deque, Tuple, Optional
 
-from underlay.routing.dsrmessages import RouteRequest, RouteReply, DSRMessage, DSRHeader, MESSAGE_TYPES, RouteError
+from underlay.routing.dsrmessages import RouteRequest, RouteReply, DSRMessage, DSRHeader, RouteError, LOCATOR_SIZE
 from underlay.routing.forwardingtable import ForwardingTable
 from underlay.routing.ilnpaddress import ILNPAddress
-from underlay.routing.ilnppacket import ILNPPacket, NO_NEXT_HEADER_VALUE, DSR_NEXT_HEADER_VALUE
+from underlay.routing.ilnppacket import ILNPPacket, DSR_NEXT_HEADER_VALUE
 from underlay.routing.router import Router
 from underlay.routing.serializable import Serializable
 
@@ -22,7 +20,7 @@ class RecentRequestBuffer:
     def add(self, src_id, request_id):
         self.recently_seen.appendleft((src_id, request_id))
 
-    def __contains__(self, src_id_request_id: Tuple[int, int]):
+    def __contains__(self, src_id_request_id: Tuple[int, int]) -> bool:
         return src_id_request_id in self.recently_seen
 
 
@@ -53,6 +51,13 @@ class RequestRecords:
         record = self.records[request_id]
         self.records[request_id] = None
         return record
+
+    def pop_by_dest(self, dest_loc: int):
+        requests_for_dest = [request_id for request_id, request in enumerate(self.records)
+                             if request is not None and request.dest_loc == dest_loc]
+
+        for request in requests_for_dest:
+            self.pop(request)
 
     def age_records(self):
         for record in self.records:
@@ -151,9 +156,9 @@ class DSRService(threading.Thread):
         self.start()
 
         self.handler_functions = {
-            RouteRequest.TYPE: self.handle_route_request,
-            RouteReply.TYPE: self.handle_route_reply,
-            RouteError.TYPE: self.handle_route_error,
+            RouteRequest.TYPE: self.__handle_route_request,
+            RouteReply.TYPE: self.__handle_route_reply,
+            RouteError.TYPE: self.__handle_route_error,
         }
 
     def stop(self):
@@ -194,12 +199,23 @@ class DSRService(threading.Thread):
         header = DSRHeader.build(message.size_bytes())
         return DSRMessage(header, [message])
 
-    def __send_route_request(self, dest_addr: ILNPAddress, num_attempts: int = 0):
+    def __send_route_request(self, dest_addr: ILNPAddress, num_attempts: int = 0, arriving_interface: int = None):
         rreq = self.__create_rreq(dest_addr.loc)
         dsr_message = self.__create_dsr_message(rreq)
+
+        next_hops = [x for x in self.router.my_locators]
+        if arriving_interface in next_hops:
+            next_hops.remove(arriving_interface)
+
         packet = self.router.construct_host_packet(bytes(dsr_message), dest_addr)
-        self.router.flood_to_neighbours(packet)
+        for next_hop in next_hops:
+            packet.src.loc = next_hop
+            self.router.forward_packet_to_addresses(packet, [next_hop], False)
+
         self.requests_made.add(rreq.request_id, dest_addr.loc, num_attempts + 1)
+
+    def __send_route_reply(self, original_packet: ILNPPacket, path: List[int], arrived_from_locator: int):
+        pass  # TODO
 
     def find_route_for_packet(self, packet: ILNPPacket):
         dest_loc = packet.dest.loc
@@ -218,32 +234,54 @@ class DSRService(threading.Thread):
         for message in dsr_message.messages:
             self.handler_functions[message.TYPE](packet, dsr_message, message, arrived_from_locator)
 
-    def handle_route_error(self, packet: ILNPPacket, dsr_message: DSRMessage, message: RouteError,
-                           arrived_from_locator: int):
-        pass  # TODO
-
-    def handle_route_request(self, packet: ILNPPacket, dsr_message: DSRMessage, message: RouteError,
+    def __handle_route_error(self, packet: ILNPPacket, dsr_message: DSRMessage, message: RouteError,
                              arrived_from_locator: int):
         pass  # TODO
-        # add existing route to cache
-        # check if route to waiting destination now exists
-        # for me? Route reply, end
-        # else
-        # already in the list of hops? discard
-        # else
-        # seen request id recently from this source? discard
-        # else
-        # record request id
-        # for locator interface thats not arriving interface:
-        #   copy
-        #   append me to hops
-        #   increase opt_len
-        #   route is cached? reply with cached route reply
-        #   else
-        #   flood after jitter
 
-    def handle_route_reply(self, packet: ILNPPacket, dsr_message: DSRMessage, message: RouteError,
-                           arrived_from_locator: int):
+    def __send_packets(self, packets: List[ILNPPacket], next_hop: int):
+        for packet in packets:
+            self.router.forward_packet_to_addresses(packet, [next_hop])
+
+    def __forward_route_request(self, packet: ILNPPacket, dsr_message: DSRMessage, message: RouteRequest,
+                                black_list: List[int]):
+        next_hops = [next_hop for next_hop in self.router.my_locators if next_hop not in black_list]
+        original_list = message.route_list.locators.copy()
+
+        for next_hop in next_hops:
+            message.route_list.locators = original_list + [next_hop]
+
+            message.data_len += LOCATOR_SIZE
+            dsr_message.header.payload_length += LOCATOR_SIZE
+            packet.payload_length += LOCATOR_SIZE
+
+            self.router.forward_packet_to_addresses(packet, [next_hop], False)
+
+    def __update_route_cache_and_attempt_send(self, new_path: List[int], arrived_from_locator: int):
+        self.network_graph.add_path(new_path)
+        for locator in new_path:
+            if locator in self.destination_queues:
+                self.__send_packets(self.destination_queues.pop_dest_queue(locator), arrived_from_locator)
+                self.requests_made.pop_by_dest(locator)
+
+    def __handle_route_request(self, packet: ILNPPacket, dsr_message: DSRMessage, message: RouteRequest,
+                               arrived_from_locator: int):
+        full_path = [packet.src.loc] + message.route_list.locators
+        self.__update_route_cache_and_attempt_send(full_path, arrived_from_locator)
+
+        # Reply if for me
+        if self.router.is_for_me(packet):
+            self.__send_route_reply(packet, full_path, arrived_from_locator)
+        # Disard if seen recently
+        elif (packet.src.id, message.request_id) in self.recently_seen_request_ids:
+            return
+        else:
+            # Forward to all adjacent locators its not already been to
+            self.__forward_route_request(packet, dsr_message, message, full_path)
+
+        self.recently_seen_request_ids.add(packet.src.id, message.request_id)
+
+    def __handle_route_reply(self, packet: ILNPPacket, dsr_message: DSRMessage, message: RouteReply,
+                             arrived_from_locator: int):
         pass
         # Add route to route cache
         # check if route to waiting destination now exists
@@ -313,3 +351,6 @@ class NetworkGraph:
     def remove_vertex(self, start, end):
         if self.node_exists(start) and self.node_exists(end):
             self.nodes[start].remove(end)
+
+    def add_path(self, locators):
+        pass

@@ -2,7 +2,7 @@ import logging
 import threading
 from os import urandom
 from struct import unpack
-from typing import Dict, List, Set, Iterable
+from typing import Dict, List, Set, Iterable, Optional
 
 from experiment.config import Config
 from experiment.tools import Monitor
@@ -36,7 +36,6 @@ def is_control_packet(packet: ILNPPacket) -> bool:
 
 class Router(threading.Thread):
     def __init__(self, conf: Config, received_packets_queue: ReceivedQueue, monitor: Monitor):
-
         super(Router, self).__init__()
 
         self.__stop_event: threading.Event() = threading.Event()
@@ -123,7 +122,7 @@ class Router(threading.Thread):
 
         self.forward_packet_to_addresses(packet, next_hops)
 
-    def forward_packet_to_addresses(self, packet: ILNPPacket, next_hop_locators: Iterable[int]):
+    def forward_packet_to_addresses(self, packet: ILNPPacket, next_hop_locators: Iterable[int], decrement_hop=False):
         """
         Forwards packet to locator with given value if hop limit is still greater than 0.
         Decrements hop limit by one before forwarding.
@@ -133,7 +132,9 @@ class Router(threading.Thread):
         if packet.hop_limit < 0:
             return
 
-        packet.decrement_hop_limit()
+        if decrement_hop:
+            packet.decrement_hop_limit()
+
         from_me = self.is_from_me(packet)
         packet_bytes = bytes(packet)
         for locator in next_hop_locators:
@@ -149,8 +150,11 @@ class Router(threading.Thread):
         self.__sender.close()
         self.dsr_service.stop()
 
+    def get_random_src_locator(self) -> int:
+        return next(x for x in self.my_locators)
+
     def construct_host_packet(self, payload: bytes, dest: ILNPAddress) -> ILNPPacket:
-        return ILNPPacket(ILNPAddress(next(x for x in self.my_locators), self.my_id),
+        return ILNPPacket(ILNPAddress(self.my_id, self.get_random_src_locator()),
                           dest,
                           payload=memoryview(payload),
                           payload_length=len(payload),

@@ -6,6 +6,7 @@ from underlay.routing.ilnppacket import NO_NEXT_HEADER_VALUE
 from underlay.routing.serializable import Serializable
 
 TYPE_VALUE_SIZE: int = struct.calcsize("!BB")
+LOCATOR_SIZE: int = struct.calcsize("!Q")
 
 
 def parse_type(raw_bytes: memoryview) -> int:
@@ -23,7 +24,7 @@ class DSRHeader(Serializable):
 
     @classmethod
     def build(cls, payload_length: int) -> 'DSRHeader':
-        return DSRHeader(NO_NEXT_HEADER_VALUE, False, payload_length)
+        return DSRHeader(NO_NEXT_HEADER_VALUE, True, payload_length)
 
     @classmethod
     def from_bytes(cls, raw_bytes: memoryview) -> 'DSRHeader':
@@ -46,7 +47,6 @@ class DSRHeader(Serializable):
 
 class RouteList(Serializable):
     LOCATOR_FORMAT: str = "!{}Q"
-    LOCATOR_SIZE: int = struct.calcsize(LOCATOR_FORMAT)
 
     def __init__(self, locators: List[int]):
         self.locators: List[int] = locators
@@ -57,9 +57,12 @@ class RouteList(Serializable):
         if n_bytes_in_list == 0:
             return RouteList([])
         else:
-            num_locs = n_bytes_in_list / cls.LOCATOR_SIZE
+            num_locs = n_bytes_in_list / LOCATOR_SIZE
             locators = list(struct.unpack(cls.LOCATOR_FORMAT.format(num_locs), packet_bytes))
             return RouteList(locators)
+
+    def __contains__(self, item: int) -> bool:
+        return item in self.locators
 
     def __len__(self):
         return len(self.locators)
@@ -68,7 +71,7 @@ class RouteList(Serializable):
         return struct.pack(self.LOCATOR_FORMAT.format(len(self)), *self.locators)
 
     def size_bytes(self):
-        return len(self) * self.LOCATOR_SIZE
+        return len(self) * LOCATOR_SIZE
 
 
 class RouteRequest(Serializable):
@@ -107,6 +110,10 @@ class RouteRequest(Serializable):
         list_offset = cls.FIXED_PART_SIZE
         route_list = RouteList.from_bytes(raw_bytes[list_offset:data_len + TYPE_VALUE_SIZE])
         return RouteRequest(data_len, request_id, target_loc, route_list)
+
+    def append_locator(self, next_hop: int):
+        self.route_list.locators.append(next_hop)
+        self.data_len = self.data_len + LOCATOR_SIZE
 
 
 class RouteReply(Serializable):
