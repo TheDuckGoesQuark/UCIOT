@@ -3,7 +3,8 @@ import threading
 import time
 from typing import List, Dict, Deque, Tuple, Optional
 
-from underlay.routing.dsrmessages import RouteRequest, RouteReply, DSRMessage, DSRHeader, RouteError, LOCATOR_SIZE
+from underlay.routing.dsrmessages import RouteRequest, RouteReply, DSRMessage, DSRHeader, RouteError, LOCATOR_SIZE, \
+    RouteList
 from underlay.routing.forwardingtable import ForwardingTable
 from underlay.routing.ilnpaddress import ILNPAddress
 from underlay.routing.ilnppacket import ILNPPacket, DSR_NEXT_HEADER_VALUE
@@ -258,6 +259,7 @@ class DSRService(threading.Thread):
             message.data_len += LOCATOR_SIZE
             dsr_message.header.payload_length += LOCATOR_SIZE
             packet.payload_length += LOCATOR_SIZE
+            packet.payload = bytes(dsr_message)
 
             self.router.forward_packet_to_addresses(packet, [next_hop], False)
 
@@ -285,26 +287,21 @@ class DSRService(threading.Thread):
 
         self.recently_seen_request_ids.add(packet.src.id, rreq.request_id)
 
-    def __handle_route_reply(self, packet: ILNPPacket, dsr_message: DSRMessage, message: RouteReply,
+    def __handle_route_reply(self, packet: ILNPPacket, dsr_message: DSRMessage, rrply: RouteReply,
                              arrived_from_locator: int):
-        full_path = [packet.src.loc] + message.route_list.locators
+        full_path = rrply.route_list.locators
         self.__update_route_cache_and_attempt_send(full_path, arrived_from_locator)
 
-        # Reply if for me
-        if self.router.is_for_me(packet):
-            self.__send_route_reply(packet, full_path, arrived_from_locator)
-        # Disard if seen recently
-        elif (packet.src.id, message.request_id) in self.recently_seen_request_ids:
-            return
-        else:
-            # Forward to all adjacent locators its not already been to
-            self.__forward_route_request(packet, dsr_message, message, full_path)
+        # Attempt to suggest better path before forwarding if not for me
+        if not self.router.is_for_me(packet):
+            better_path = self.network_graph.get_path_between(full_path[0], full_path[len(full_path) - 1])
+            if len(better_path) < len(full_path):
+                rrply.change_route_list(better_path)
+                dsr_message.header.payload_length = rrply.size_bytes()
+                packet.payload_length = dsr_message.size_bytes()
+                packet.payload = bytes(dsr_message)
 
-        self.recently_seen_request_ids.add(packet.src.id, message.request_id)
-        # Add route to route cache
-        # check if route to waiting destination now exists
-        # do i know a shorter route? replace
-        # is not for me? forward to requester
+            self.router.route_packet(packet, arrived_from_locator)
 
     def get_next_hop(self, dest_locator: int, arriving_interface: int) -> Optional[int]:
         """

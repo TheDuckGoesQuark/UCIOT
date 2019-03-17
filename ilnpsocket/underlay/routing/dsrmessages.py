@@ -157,6 +157,10 @@ class RouteReply(Serializable):
 
         return RouteReply(data_len, False, route_list)
 
+    def change_route_list(self, better_path):
+        self.route_list = RouteList(better_path)
+        self.data_len = (self.FIXED_PART_SIZE - TYPE_VALUE_SIZE) + self.route_list.size_bytes()
+
 
 class RouteError(Serializable):
     TYPE = 3
