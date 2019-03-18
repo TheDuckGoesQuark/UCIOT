@@ -3,8 +3,8 @@ import select
 from typing import List
 
 from ilnpsocket.underlay.routing.ilnppacket import ILNPPacket
-from underlay.routing.queues import PacketQueue
-from underlay.sockets.listeningsocket import ListeningSocket
+from ilnpsocket.underlay.routing.queues import PacketQueue
+from ilnpsocket.underlay.sockets.listeningsocket import ListeningSocket
 
 
 class ListeningThread(threading.Thread):

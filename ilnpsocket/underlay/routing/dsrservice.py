@@ -3,8 +3,7 @@ import threading
 import time
 from typing import List, Dict, Deque, Tuple, Optional
 
-from underlay.routing.dsrmessages import RouteRequest, RouteReply, DSRMessage, DSRHeader, RouteError, LOCATOR_SIZE, \
-    RouteList
+from underlay.routing.dsrmessages import RouteRequest, RouteReply, DSRMessage, DSRHeader, RouteError, LOCATOR_SIZE
 from underlay.routing.forwardingtable import ForwardingTable
 from underlay.routing.ilnpaddress import ILNPAddress
 from underlay.routing.ilnppacket import ILNPPacket, DSR_NEXT_HEADER_VALUE

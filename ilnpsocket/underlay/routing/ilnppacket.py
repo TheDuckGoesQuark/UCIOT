@@ -1,7 +1,7 @@
 import struct
 
-from underlay.routing import serializable
-from underlay.routing.ilnpaddress import ILNPAddress
+from ilnpsocket.underlay.routing import serializable
+from ilnpsocket.underlay.routing.ilnpaddress import ILNPAddress
 
 DSR_NEXT_HEADER_VALUE = 48
 NO_NEXT_HEADER_VALUE = 59

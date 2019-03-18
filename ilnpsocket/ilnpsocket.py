@@ -4,8 +4,8 @@ from ilnpsocket.underlay.routing.router import Router
 
 import logging
 
-from underlay.routing.ilnpaddress import ILNPAddress
-from underlay.routing.queues import ReceivedQueue
+from ilnpsocket.underlay.routing.ilnpaddress import ILNPAddress
+from ilnpsocket.underlay.routing.queues import ReceivedQueue
 
 logging.basicConfig(level=logging.DEBUG)
 
