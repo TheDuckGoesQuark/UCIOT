@@ -1,10 +1,16 @@
 import struct
+from typing import Set
 
 from ilnpsocket.underlay.routing import serializable
-from ilnpsocket.underlay.routing.ilnpaddress import ILNPAddress
 
 DSR_NEXT_HEADER_VALUE = 48
 NO_NEXT_HEADER_VALUE = 59
+
+
+class ILNPAddress:
+    def __init__(self, loc: int, id: int):
+        self.loc: int = loc
+        self.id: int = id
 
 
 class ILNPPacket(serializable.Serializable):
@@ -66,3 +72,24 @@ class ILNPPacket(serializable.Serializable):
 
     def size_bytes(self):
         return self.HEADER_SIZE + self.payload_length
+
+
+class AddressHandler:
+    def __init__(self, my_id: int, my_locators: Set[int]):
+        self.my_id = my_id
+        self.my_locators = my_locators
+
+    def is_my_address(self, address: ILNPAddress) -> bool:
+        return (address.loc in self.my_locators) and address.id == self.my_id
+
+    def is_from_me(self, packet: ILNPPacket) -> bool:
+        return self.is_my_address(packet.src)
+
+    def is_for_me(self, packet: ILNPPacket) -> bool:
+        return self.is_my_address(packet.dest)
+
+    def is_my_locator(self, locator: int) -> bool:
+        return locator in self.my_locators
+
+    def get_random_src_locator(self) -> int:
+        return next(x for x in self.my_locators)

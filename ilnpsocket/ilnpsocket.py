@@ -1,11 +1,11 @@
 from experiment.config import Config
 from experiment.tools import Monitor
-from ilnpsocket.underlay.routing.router import Router
+from ilnpsocket.underlay.routing.ilnpnode import ILNPNode
 
 import logging
 
-from ilnpsocket.underlay.routing.ilnpaddress import ILNPAddress
 from ilnpsocket.underlay.routing.queues import ReceivedQueue
+from ilnpsocket.underlay.routing.ilnp import ILNPAddress
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -17,19 +17,19 @@ class ILNPSocket:
         for incoming packets which will then populate the message queue, which can be polled using the receive method.
         """
         self.__received_packets: ReceivedQueue = ReceivedQueue()
-        self.__router: Router = Router(conf, self.__received_packets, monitor)
+        self.__node: ILNPNode = ILNPNode(conf, self.__received_packets, monitor)
 
-        self.__router.daemon = True
-        self.__router.start()
+        self.__node.daemon = True
+        self.__node.start()
 
         logging.debug("ILNPSocket Initialised")
 
     def is_closed(self) -> bool:
-        return self.__router.isAlive()
+        return self.__node.isAlive()
 
     def close(self):
         logging.debug("Closing socket")
-        self.__router.stop()
+        self.__node.stop()
 
     def send(self, payload: bytes, destination: ILNPAddress):
         """
@@ -37,7 +37,7 @@ class ILNPSocket:
         :param payload: data to be sent as bytes object
         :param destination: ILNP address of target
         """
-        self.__router.send_from_host(payload, destination)
+        self.__node.send_from_host(payload, destination)
 
     def receive(self, timeout=None):
         """

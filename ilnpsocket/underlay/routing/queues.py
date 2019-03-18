@@ -1,6 +1,6 @@
 from queue import Queue
 
-from ilnpsocket.underlay.routing.ilnppacket import ILNPPacket
+from ilnpsocket.underlay.routing.ilnp import ILNPPacket
 
 
 class PacketQueue:

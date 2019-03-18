@@ -2,7 +2,7 @@ import threading
 import select
 from typing import List
 
-from ilnpsocket.underlay.routing.ilnppacket import ILNPPacket
+from ilnpsocket.underlay.routing.ilnp import ILNPPacket
 from ilnpsocket.underlay.routing.queues import PacketQueue
 from ilnpsocket.underlay.sockets.listeningsocket import ListeningSocket
 

@@ -2,7 +2,7 @@ import struct
 from functools import reduce
 from typing import List
 
-from ilnpsocket.underlay.routing.ilnppacket import NO_NEXT_HEADER_VALUE
+from ilnpsocket.underlay.routing.ilnp import NO_NEXT_HEADER_VALUE
 from ilnpsocket.underlay.routing.serializable import Serializable
 
 TYPE_VALUE_SIZE: int = struct.calcsize("!BB")
