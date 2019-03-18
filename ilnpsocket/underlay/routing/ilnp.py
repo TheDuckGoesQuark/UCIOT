@@ -93,3 +93,7 @@ class AddressHandler:
 
     def get_random_src_locator(self) -> int:
         return next(x for x in self.my_locators)
+
+
+def is_control_packet(packet: ILNPPacket) -> bool:
+    return packet.next_header == DSR_NEXT_HEADER_VALUE

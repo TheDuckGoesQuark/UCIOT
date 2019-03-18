@@ -108,6 +108,7 @@ class ForwardingTable:
             if original_num_entries != len(next_hop_list):
                 removed = True
 
-        self.entries[:] = [next_hop_list for next_hop_list in next_hop_lists if len(next_hop_list) > 0]
+        self.entries = {dest_loc: next_hop_list for dest_loc, next_hop_list in self.entries.items()
+                        if len(next_hop_list) > 0}
 
         return removed

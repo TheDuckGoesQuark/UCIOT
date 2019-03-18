@@ -7,6 +7,7 @@ import os
 from experiment.config import Config
 from experiment.tools import Monitor, MockDataGenerator, SinkLog, SensorReading
 from ilnpsocket.ilnpsocket import ILNPSocket
+from ilnpsocket.underlay.routing.ilnp import ILNPAddress
 
 
 def run_as_sink(config):
@@ -38,7 +39,7 @@ def run_as_node(config):
     while monitor.max_sends > 0 and killswitch() and sock.is_closed():
         print("{}: {} sends left".format(config.my_id, monitor.max_sends))
         time.sleep(config.send_delay_secs)
-        sock.send(bytes(mock_generator.get_data()), (config.sink_loc, config.sink_id))
+        sock.send(bytes(mock_generator.get_data()), ILNPAddress(config.sink_loc, config.sink_id))
 
     if not sock.is_closed():
         logging.info("Router failed for some reason?")

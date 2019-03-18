@@ -7,6 +7,8 @@ import random
 import struct
 import time
 
+from ilnpsocket.underlay.routing.ilnp import ILNPPacket, is_control_packet
+
 
 class PacketEntry:
     def __init__(self, my_id, sent_at_time, packet_type, forwarded):
@@ -34,8 +36,8 @@ class Monitor:
         self.entries = []
         self.save_file = save_file_loc
 
-    def record_sent_packet(self, packet, forwarded=True):
-        if packet.is_control_message():
+    def record_sent_packet(self, packet: ILNPPacket, forwarded=True):
+        if is_control_packet(packet):
             self.entries.append(PacketEntry(self.node_id, time.time(), "control", forwarded))
         else:
             self.entries.append(PacketEntry(self.node_id, time.time(), "data", forwarded))

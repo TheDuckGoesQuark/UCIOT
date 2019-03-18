@@ -8,7 +8,8 @@ from typing import Dict, List, Iterable, Optional
 
 from experiment.config import Config
 from experiment.tools import Monitor
-from ilnpsocket.underlay.routing.ilnp import ILNPPacket, DSR_NEXT_HEADER_VALUE, AddressHandler, ILNPAddress
+from ilnpsocket.underlay.routing.ilnp import ILNPPacket, DSR_NEXT_HEADER_VALUE, AddressHandler, ILNPAddress, \
+    is_control_packet
 from ilnpsocket.underlay.routing.listeningthread import ListeningThread
 from ilnpsocket.underlay.routing.queues import ReceivedQueue, PacketQueue
 from ilnpsocket.underlay.sockets.listeningsocket import ListeningSocket
@@ -36,8 +37,6 @@ def create_random_id() -> int:
     return unpack("!Q", urandom(8))[0]
 
 
-def is_control_packet(packet: ILNPPacket) -> bool:
-    return packet.next_header == DSR_NEXT_HEADER_VALUE
 
 
 class ILNPNode(threading.Thread):
@@ -59,12 +58,10 @@ class ILNPNode(threading.Thread):
         # Ensures that child threads die with parent
         self.__listening_thread.daemon = True
         self.__listening_thread.start()
-
-        # Configures routing and control plane service
-        self.router = Router(self.address_handler, self.dsr_service, self.__received_packets_queue, conf, self.monitor)
-        self.dsr_service = DSRService(self.address_handler, conf.router_refresh_delay_secs, self.router)
-
         self.monitor = monitor
+
+        # Configures router
+        self.router = Router(self.address_handler, self.__received_packets_queue, conf, monitor)
 
     def run(self):
         """Polls for messages."""
@@ -83,14 +80,14 @@ class ILNPNode(threading.Thread):
         self.__listening_thread.stop()
         self.__listening_thread.join()
         self.router.sender.close()
-        self.dsr_service.stop()
+        self.router.maintenance_thread.stop()
 
     def handle_packet(self, packet: ILNPPacket, arriving_loc: int):
         if not self.address_handler.is_from_me(packet):
-            self.dsr_service.backwards_learn(packet.src.loc, arriving_loc)
+            self.router.backwards_learn(packet.src.loc, arriving_loc)
 
         if is_control_packet(packet):
-            self.dsr_service.handle_control_packet(packet, arriving_loc)
+            self.router.handle_control_packet(packet, arriving_loc)
         else:
             self.router.route_packet(packet, arriving_loc)
 
@@ -99,15 +96,41 @@ class ILNPNode(threading.Thread):
 
 
 class Router:
+    MAX_NUM_RETRIES = 5
+    TIME_BEFORE_RETRY = 10
 
-    def __init__(self, address_handler: AddressHandler, route_provider,
+    def __init__(self, address_handler: AddressHandler,
                  received_packets_queue: ReceivedQueue, conf: Config, monitor: Monitor):
+        # Data Plane Config
         self.address_handler: AddressHandler = address_handler
-        self.route_provider = route_provider
-        self.__received_packets_queue: ReceivedQueue = received_packets_queue
+        self.received_packets_queue: ReceivedQueue = received_packets_queue
         self.sender = SendingSocket(conf.port, conf.locators_to_ipv6, conf.loopback)
-        self.monitor: Monitor = monitor
         self.hop_limit: int = conf.hop_limit
+
+        self.monitor: Monitor = monitor
+
+        # Control Plane Config
+        self.request_id_generator: RequestIdGenerator = RequestIdGenerator()
+
+        # Buffers
+        self.destination_queues: DestinationQueues = DestinationQueues()
+        self.requests_made: RequestRecords = RequestRecords()
+        self.recently_seen_request_ids: RecentRequestBuffer = RecentRequestBuffer()
+
+        # Network Knowledge
+        self.forwarding_table: ForwardingTable = ForwardingTable()
+        self.network_graph: NetworkGraph = self.init_network_graph()
+
+        # Maintenance
+        self.maintenance_thread: MaintenanceThread = MaintenanceThread(self, conf.router_refresh_delay_secs)
+        self.maintenance_thread.daemon = True
+        self.maintenance_thread.start()
+
+        self.handler_functions = {
+            RouteRequest.TYPE: self.__handle_route_request,
+            RouteReply.TYPE: self.__handle_route_reply,
+            RouteError.TYPE: self.__handle_route_error,
+        }
 
     def construct_host_packet(self, payload: bytes, dest: ILNPAddress, src: Optional[ILNPAddress] = None) -> ILNPPacket:
         if src is None:
@@ -126,16 +149,16 @@ class Router:
             self.route_to_remote_node(packet, arriving_interface)
 
     def route_to_remote_node(self, packet: ILNPPacket, arriving_interface: int):
-        next_hop_locator = self.route_provider.get_next_hop(packet.dest.loc, arriving_interface)
+        next_hop_locator = self.get_next_hop(packet.dest.loc, arriving_interface)
 
         if next_hop_locator is None and arriving_interface is None:
-            self.route_provider.find_route_for_packet(packet)
+            self.find_route_for_packet(packet)
         elif next_hop_locator is not None:
             self.forward_packet_to_addresses(packet, [next_hop_locator])
 
     def route_to_adjacent_node(self, packet: ILNPPacket, arriving_interface: int):
         if self.address_handler.is_for_me(packet):
-            self.__received_packets_queue.add(packet.payload)
+            self.received_packets_queue.add(packet.payload)
         elif packet.dest.loc != arriving_interface or arriving_interface is None:
             self.forward_packet_to_addresses(packet, [packet.dest.loc])
 
@@ -171,72 +194,10 @@ class Router:
                 if self.monitor.max_sends <= 0:
                     return
 
-
-def create_dsr_message(message: Serializable) -> DSRMessage:
-    header = DSRHeader.build(message.size_bytes())
-    return DSRMessage(header, [message])
-
-
-class DSRService(threading.Thread):
-    MAX_NUM_RETRIES = 5
-    TIME_BEFORE_RETRY = 10
-
-    def __init__(self, address_handler: AddressHandler, maintenance_interval_secs: int, router: Router):
-        """
-        Initializes DSRService with forwarding table which it will maintain with information it gains from routing
-        messages.
-
-        :param maintenance_interval_secs: time between each forwarding table refresh
-        """
-        super().__init__()
-        self.router: router = router
-        self.address_handler: AddressHandler = address_handler
-        self.request_id_generator: RequestIdGenerator = RequestIdGenerator()
-
-        # Buffers
-        self.destination_queues: DestinationQueues = DestinationQueues()
-        self.requests_made: RequestRecords = RequestRecords()
-        self.recently_seen_request_ids: RecentRequestBuffer = RecentRequestBuffer()
-
-        # Network Knowledge
-        self.forwarding_table: ForwardingTable = ForwardingTable()
-        self.network_graph: NetworkGraph = self.init_network_graph()
-
-        # Maintenance
-        self.maintenance_interval = maintenance_interval_secs
-        self.stopped: threading.Event = threading.Event()
-        self.daemon = True
-        self.start()
-
-        self.handler_functions = {
-            RouteRequest.TYPE: self.__handle_route_request,
-            RouteReply.TYPE: self.__handle_route_reply,
-            RouteError.TYPE: self.__handle_route_error,
-        }
-
     def init_network_graph(self) -> NetworkGraph:
         return NetworkGraph(self.address_handler.my_locators)
 
-    def stop(self):
-        self.stopped.set()
-
-    def run(self):
-        """
-        Repeated maintenance tasks
-        """
-        while not self.stopped.is_set():
-            # Age and clear network graph once unreliable
-            nodes_have_expired = self.forwarding_table.decrement_and_clear()
-            if nodes_have_expired:
-                self.network_graph = self.init_network_graph()
-
-            # Retry and clear buffered packets
-            self.requests_made.age_records()
-            self.__retry_old_requests()
-            # Sleep
-            time.sleep(self.maintenance_interval)
-
-    def __retry_old_requests(self):
+    def retry_old_requests(self):
         to_be_retried = []
         for request in self.requests_made.pop_records_older_than(self.TIME_BEFORE_RETRY):
             if request.num_attempts < self.MAX_NUM_RETRIES:
@@ -264,10 +225,10 @@ class DSRService(threading.Thread):
         if arriving_interface in next_hops:
             next_hops.remove(arriving_interface)
 
-        packet = self.router.construct_host_packet(bytes(dsr_message), dest_addr)
+        packet = self.construct_host_packet(bytes(dsr_message), dest_addr)
         for next_hop in next_hops:
             packet.src.loc = next_hop
-            self.router.forward_packet_to_addresses(packet, [next_hop], False)
+            self.forward_packet_to_addresses(packet, [next_hop], False)
 
         self.requests_made.add(rreq.request_id, dest_addr.loc, num_attempts + 1)
 
@@ -275,9 +236,9 @@ class DSRService(threading.Thread):
         rrply = RouteReply.build(rreq, original_packet.src.loc, original_packet.dest.loc)
         msg = create_dsr_message(rrply)
 
-        packet = self.router.construct_host_packet(bytes(msg), original_packet.src, original_packet.dest)
+        packet = self.construct_host_packet(bytes(msg), original_packet.src, original_packet.dest)
 
-        self.router.forward_packet_to_addresses(packet, [arrived_from_locator])
+        self.forward_packet_to_addresses(packet, [arrived_from_locator])
 
     def find_route_for_packet(self, packet: ILNPPacket):
         dest_loc = packet.dest.loc
@@ -302,7 +263,7 @@ class DSRService(threading.Thread):
 
     def __send_packets(self, packets: List[ILNPPacket], next_hop: int):
         for packet in packets:
-            self.router.forward_packet_to_addresses(packet, [next_hop])
+            self.forward_packet_to_addresses(packet, [next_hop])
 
     def __forward_route_request(self, packet: ILNPPacket, dsr_message: DSRMessage, message: RouteRequest,
                                 black_list: List[int]):
@@ -317,7 +278,7 @@ class DSRService(threading.Thread):
             packet.payload_length += LOCATOR_SIZE
             packet.payload = bytes(dsr_message)
 
-            self.router.forward_packet_to_addresses(packet, [next_hop], False)
+            self.forward_packet_to_addresses(packet, [next_hop], False)
 
     def __update_route_cache_and_attempt_send(self, new_path: List[int], arrived_from_locator: int):
         self.network_graph.add_path(new_path)
@@ -357,7 +318,7 @@ class DSRService(threading.Thread):
                 packet.payload_length = dsr_message.size_bytes()
                 packet.payload = bytes(dsr_message)
 
-            self.router.route_packet(packet, arrived_from_locator)
+            self.route_packet(packet, arrived_from_locator)
 
     def __remove_adjacent_locator_hops(self, existing_route: List[int]):
         my_locs = self.address_handler.my_locators
@@ -397,3 +358,36 @@ class DSRService(threading.Thread):
 
     def backwards_learn(self, src_loc: int, arriving_loc: int):
         self.forwarding_table.add_or_update_entry(src_loc, arriving_loc)
+
+
+class MaintenanceThread(threading.Thread):
+
+    def __init__(self, router: Router, maintenance_interval: int):
+        super().__init__()
+        self.stopped = threading.Event()
+        self.router = router
+        self.maintenance_interval = maintenance_interval
+
+    def stop(self):
+        self.stopped.set()
+
+    def run(self):
+        """
+        Repeated maintenance tasks
+        """
+        while not self.stopped.is_set():
+            # Age and clear network graph once unreliable
+            nodes_have_expired = self.router.forwarding_table.decrement_and_clear()
+            if nodes_have_expired:
+                self.router.network_graph = self.router.init_network_graph()
+
+            # Retry and clear buffered packets
+            self.router.requests_made.age_records()
+            self.router.retry_old_requests()
+            # Sleep
+            time.sleep(self.maintenance_interval)
+
+
+def create_dsr_message(message: Serializable) -> DSRMessage:
+    header = DSRHeader.build(message.size_bytes())
+    return DSRMessage(header, [message])
