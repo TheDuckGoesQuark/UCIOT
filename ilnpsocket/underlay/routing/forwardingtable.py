@@ -2,6 +2,9 @@ from typing import Dict, List
 
 
 class ForwardingEntry:
+    """
+    A record of the cost of a route via the next hop
+    """
     def __init__(self, next_hop_locator: int, cost: int):
         self.cost: int = cost
         self.next_hop_locator: int = next_hop_locator
@@ -22,6 +25,9 @@ class ForwardingEntry:
 
 
 class NextHopList:
+    """
+    A list of possible next hops, which can be aged and removed
+    """
     def __init__(self):
         self.entries: List[ForwardingEntry] = []
 

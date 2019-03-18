@@ -1,7 +1,8 @@
 import collections
+import random
 import threading
 import time
-from typing import List, Dict, Deque, Tuple, Optional
+from typing import List, Dict, Deque, Tuple, Optional, Set
 
 from underlay.routing.dsrmessages import RouteRequest, RouteReply, DSRMessage, DSRHeader, RouteError, LOCATOR_SIZE
 from underlay.routing.forwardingtable import ForwardingTable
@@ -183,7 +184,9 @@ class DSRService(threading.Thread):
             if request.num_attempts < self.MAX_NUM_RETRIES:
                 to_be_retried.append(request)
             else:
+                # Discard and assume loss of connection to locator
                 self.destination_queues.pop_dest_queue(request.dest_loc)
+                self.network_graph.remove_node(request.dest_loc)
 
         for request in to_be_retried:
             # Takes destination ID of first packet for routing, though any node in that locator can reply with path
@@ -293,7 +296,7 @@ class DSRService(threading.Thread):
 
         # Attempt to suggest better path before forwarding if not for me
         if not self.router.is_for_me(packet):
-            better_path = self.network_graph.get_path_between(full_path[0], full_path[len(full_path) - 1])
+            better_path = self.network_graph.get_shortest_path(full_path[0], full_path[len(full_path) - 1])
             if len(better_path) < len(full_path):
                 rrply.change_route_list(better_path)
                 dsr_message.header.payload_length = rrply.size_bytes()
@@ -301,6 +304,18 @@ class DSRService(threading.Thread):
                 packet.payload = bytes(dsr_message)
 
             self.router.route_packet(packet, arrived_from_locator)
+
+    def __remove_adjacent_locator_hops(self, existing_route: List[int]):
+        my_locs = self.router.my_locators
+        if len(existing_route) == 1:
+            return existing_route
+
+        # Remove first hop if directly interfaced with second hop
+        if existing_route[1] in my_locs:
+            existing_route[:] = existing_route[1:]
+            return self.__remove_adjacent_locator_hops(existing_route)
+        else:
+            return existing_route
 
     def get_next_hop(self, dest_locator: int, arriving_interface: int) -> Optional[int]:
         """
@@ -311,8 +326,20 @@ class DSRService(threading.Thread):
         :param arriving_interface: locator interface that packet arrived on
         :return: list of viable next hops that should lead to the packets destination
         """
-        # TODO
-        pass
+        if dest_locator in self.forwarding_table:
+            # Check if next hop in forwarding table
+            next_hops = self.forwarding_table.get_next_hop_list(dest_locator)
+            return random.choice(next_hops.entries)
+        else:
+            # Check if route exists in current route knowledge
+            existing_route = self.network_graph.get_shortest_path(arriving_interface, dest_locator)
+            if existing_route:
+                existing_route = self.__remove_adjacent_locator_hops(existing_route)
+                next_hop = existing_route[0]
+                self.forwarding_table.add_entry(dest_locator, next_hop, len(existing_route))
+                return next_hop
+            else:
+                return None
 
     def backwards_learn(self, src_loc: int, arriving_loc: int):
         # TODO
@@ -320,33 +347,36 @@ class DSRService(threading.Thread):
 
 
 class NetworkGraph:
-    def __init__(self, initial_locators):
-        self.nodes = {}
+    def __init__(self, initial_locators: Set[int]):
+        self.nodes: Dict[int, Set[int]] = {}
 
+        # Connect all initial locators to each other
         for locator in initial_locators:
             self.nodes[locator] = {loc for loc in initial_locators if loc != locator}
 
-    def get_path_between(self, start, end, path=None):
+    def get_shortest_path(self, start: int, end: int, path: Optional[List[int]] = None) -> Optional[List[int]]:
         """Finds a path between the start and end node. Not necessarily the shortest"""
         if path is None:
             path = []
 
-        path.append(start)
+        path = path + [start]
 
         if start == end:
             return path
         if not self.node_exists(start):
             return None
 
+        shortest: Optional[List[int]] = None
         for node in self.nodes[start]:
             if node not in path:
-                new_path = self.get_path_between(node, end, path)
+                new_path = self.get_shortest_path(node, end, path)
                 if new_path:
-                    return new_path
+                    if shortest is None or len(new_path) < len(shortest):
+                        shortest = new_path
 
-        return None
+        return shortest
 
-    def node_exists(self, node):
+    def node_exists(self, node: int) -> bool:
         return node in self.nodes
 
     def add_node(self, node):
@@ -366,5 +396,17 @@ class NetworkGraph:
         if self.node_exists(start) and self.node_exists(end):
             self.nodes[start].remove(end)
 
-    def add_path(self, locators):
-        pass
+    def add_path(self, locators: List[int]):
+        path_length = len(locators)
+        for idx, node in enumerate(locators):
+            if idx != path_length:
+                self.add_vertex(node, locators[idx])
+
+    def remove_node(self, dest_loc):
+        connected_nodes = self.nodes[dest_loc]
+        # Remove all references to this node
+        for node in connected_nodes:
+            self.nodes[node].remove(dest_loc)
+
+        # Remove this node
+        del self.nodes[dest_loc]
