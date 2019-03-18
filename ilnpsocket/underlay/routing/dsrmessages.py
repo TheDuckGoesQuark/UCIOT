@@ -85,7 +85,7 @@ class RouteList(Serializable):
 
 class RouteRequest(Serializable):
     TYPE = 1
-    FORMAT = "!BBHHQ"
+    FORMAT = "!BBHQ"
     FIXED_PART_SIZE = struct.calcsize(FORMAT)
 
     def __init__(self, data_len: int, request_id: int, target_loc: int, route_list: RouteList):

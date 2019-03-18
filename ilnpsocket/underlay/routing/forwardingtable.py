@@ -5,6 +5,7 @@ class ForwardingEntry:
     """
     A record of the cost of a route via the next hop
     """
+
     def __init__(self, next_hop_locator: int, cost: int):
         self.cost: int = cost
         self.next_hop_locator: int = next_hop_locator
@@ -28,6 +29,7 @@ class NextHopList:
     """
     A list of possible next hops, which can be aged and removed
     """
+
     def __init__(self):
         self.entries: List[ForwardingEntry] = []
 
@@ -82,7 +84,7 @@ class ForwardingTable:
     def get_next_hop_list(self, dest_loc: int) -> NextHopList:
         return self.entries[dest_loc]
 
-    def add_entry(self, dest_loc: int, next_hop_loc: int, cost: int = DEFAULT_COST):
+    def add_or_update_entry(self, dest_loc: int, next_hop_loc: int, cost: int = DEFAULT_COST):
         """
         :param dest_loc: destination that can be reached via the next hop
         :param next_hop_loc: next hop locator to reach the destination
@@ -93,9 +95,19 @@ class ForwardingTable:
 
         self.entries[dest_loc].add_or_update(next_hop_loc, cost)
 
-    def decrement_and_clear(self):
+    def decrement_and_clear(self) -> bool:
+        """
+        Ages the contents of the forwarding table, and removes any entries that haven't been proven in a while
+        :return: true if any entries were removed
+        """
+        removed = False
         next_hop_lists = self.entries.values()
         for next_hop_list in next_hop_lists:
+            original_num_entries = len(next_hop_list)
             next_hop_list.age_entries()
+            if original_num_entries != len(next_hop_list):
+                removed = True
 
         self.entries[:] = [next_hop_list for next_hop_list in next_hop_lists if len(next_hop_list) > 0]
+
+        return removed

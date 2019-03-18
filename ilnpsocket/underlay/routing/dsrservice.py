@@ -11,12 +11,78 @@ from underlay.routing.ilnppacket import ILNPPacket, DSR_NEXT_HEADER_VALUE
 from underlay.routing.router import Router
 from underlay.routing.serializable import Serializable
 
-NUM_REQUEST_IDS = 256
+NUM_REQUEST_IDS = 512
+
+
+class NetworkGraph:
+    def __init__(self, initial_locators: Set[int]):
+        self.nodes: Dict[int, Set[int]] = {}
+
+        # Connect all initial locators to each other
+        for locator in initial_locators:
+            self.nodes[locator] = {loc for loc in initial_locators if loc != locator}
+
+    def get_shortest_path(self, start: int, end: int, path: Optional[List[int]] = None) -> Optional[List[int]]:
+        """Finds a path between the start and end node. Not necessarily the shortest"""
+        if path is None:
+            path = []
+
+        path = path + [start]
+
+        if start == end:
+            return path
+        if not self.node_exists(start):
+            return None
+
+        shortest: Optional[List[int]] = None
+        for node in self.nodes[start]:
+            if node not in path:
+                new_path = self.get_shortest_path(node, end, path)
+                if new_path:
+                    if shortest is None or len(new_path) < len(shortest):
+                        shortest = new_path
+
+        return shortest
+
+    def node_exists(self, node: int) -> bool:
+        return node in self.nodes
+
+    def add_node(self, node):
+        self.nodes[node] = set()
+
+    def add_vertex(self, start, end):
+        if not self.node_exists(start):
+            self.add_node(start)
+
+        if not self.node_exists(end):
+            self.add_node(end)
+
+        self.nodes[start].add(end)
+        self.nodes[end].add(start)
+
+    def remove_vertex(self, start, end):
+        if self.node_exists(start) and self.node_exists(end):
+            self.nodes[start].remove(end)
+
+    def add_path(self, locators: List[int]):
+        path_length = len(locators)
+        for idx, node in enumerate(locators):
+            if idx != path_length:
+                self.add_vertex(node, locators[idx])
+
+    def remove_node(self, dest_loc):
+        connected_nodes = self.nodes[dest_loc]
+        # Remove all references to this node
+        for node in connected_nodes:
+            self.nodes[node].remove(dest_loc)
+
+        # Remove this node
+        del self.nodes[dest_loc]
 
 
 class RecentRequestBuffer:
     def __init__(self):
-        self.recently_seen: Deque[Tuple[int, int]] = collections.deque(10 * [()])
+        self.recently_seen: Deque[Tuple[int, int]] = collections.deque(15 * [()])
 
     def add(self, src_id, request_id):
         self.recently_seen.appendleft((src_id, request_id))
@@ -148,7 +214,7 @@ class DSRService(threading.Thread):
 
         # Network Knowledge
         self.forwarding_table: ForwardingTable = ForwardingTable()
-        self.network_graph: NetworkGraph = NetworkGraph(self.router.my_locators)
+        self.network_graph: NetworkGraph = self.init_network_graph()
 
         # Maintenance
         self.maintenance_interval = maintenance_interval_secs
@@ -162,6 +228,9 @@ class DSRService(threading.Thread):
             RouteError.TYPE: self.__handle_route_error,
         }
 
+    def init_network_graph(self) -> NetworkGraph:
+        return NetworkGraph(self.router.my_locators)
+
     def stop(self):
         self.stopped.set()
 
@@ -170,8 +239,11 @@ class DSRService(threading.Thread):
         Repeated maintenance tasks
         """
         while not self.stopped.is_set():
-            # Age
-            self.forwarding_table.decrement_and_clear()
+            # Age and clear network graph once unreliable
+            nodes_have_expired = self.forwarding_table.decrement_and_clear()
+            if nodes_have_expired:
+                self.network_graph = self.init_network_graph()
+
             # Retry and clear buffered packets
             self.requests_made.age_records()
             self.__retry_old_requests()
@@ -331,82 +403,15 @@ class DSRService(threading.Thread):
             next_hops = self.forwarding_table.get_next_hop_list(dest_locator)
             return random.choice(next_hops.entries)
         else:
-            # Check if route exists in current route knowledge
+            # Check if route exists in current route knowledge and add it once known
             existing_route = self.network_graph.get_shortest_path(arriving_interface, dest_locator)
             if existing_route:
                 existing_route = self.__remove_adjacent_locator_hops(existing_route)
                 next_hop = existing_route[0]
-                self.forwarding_table.add_entry(dest_locator, next_hop, len(existing_route))
+                self.forwarding_table.add_or_update_entry(dest_locator, next_hop, len(existing_route))
                 return next_hop
             else:
                 return None
 
     def backwards_learn(self, src_loc: int, arriving_loc: int):
-        # TODO
-        pass
-
-
-class NetworkGraph:
-    def __init__(self, initial_locators: Set[int]):
-        self.nodes: Dict[int, Set[int]] = {}
-
-        # Connect all initial locators to each other
-        for locator in initial_locators:
-            self.nodes[locator] = {loc for loc in initial_locators if loc != locator}
-
-    def get_shortest_path(self, start: int, end: int, path: Optional[List[int]] = None) -> Optional[List[int]]:
-        """Finds a path between the start and end node. Not necessarily the shortest"""
-        if path is None:
-            path = []
-
-        path = path + [start]
-
-        if start == end:
-            return path
-        if not self.node_exists(start):
-            return None
-
-        shortest: Optional[List[int]] = None
-        for node in self.nodes[start]:
-            if node not in path:
-                new_path = self.get_shortest_path(node, end, path)
-                if new_path:
-                    if shortest is None or len(new_path) < len(shortest):
-                        shortest = new_path
-
-        return shortest
-
-    def node_exists(self, node: int) -> bool:
-        return node in self.nodes
-
-    def add_node(self, node):
-        self.nodes[node] = set()
-
-    def add_vertex(self, start, end):
-        if not self.node_exists(start):
-            self.add_node(start)
-
-        if not self.node_exists(end):
-            self.add_node(end)
-
-        self.nodes[start].add(end)
-        self.nodes[end].add(start)
-
-    def remove_vertex(self, start, end):
-        if self.node_exists(start) and self.node_exists(end):
-            self.nodes[start].remove(end)
-
-    def add_path(self, locators: List[int]):
-        path_length = len(locators)
-        for idx, node in enumerate(locators):
-            if idx != path_length:
-                self.add_vertex(node, locators[idx])
-
-    def remove_node(self, dest_loc):
-        connected_nodes = self.nodes[dest_loc]
-        # Remove all references to this node
-        for node in connected_nodes:
-            self.nodes[node].remove(dest_loc)
-
-        # Remove this node
-        del self.nodes[dest_loc]
+        self.forwarding_table.add_or_update_entry(src_loc, arriving_loc)
