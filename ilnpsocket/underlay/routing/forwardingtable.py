@@ -93,7 +93,7 @@ class ForwardingTable:
         :param next_hop_loc: next hop locator to reach the destination
         :param cost: cost of route via the next hop
         """
-        logging.debug("Adding dest %d via next hop %d with cost %d to forwarding table", dest_loc, next_hop_loc, cost)
+        logging.debug("Adding dest %d via next hop %s with cost %d to forwarding table", dest_loc, next_hop_loc, cost)
         if dest_loc not in self:
             self.entries[dest_loc] = NextHopList()
 

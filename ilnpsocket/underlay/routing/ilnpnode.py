@@ -91,7 +91,7 @@ class ILNPNode(threading.Thread):
         self.router.maintenance_thread.stop()
 
     def handle_packet(self, packet: ILNPPacket, arriving_loc: int):
-        if not self.address_handler.is_from_me(packet):
+        if not self.address_handler.is_from_me(packet) and arriving_loc is not None:
             logging.debug("Backwards learning from packet src and arriving loc")
             self.router.backwards_learn(packet.src.loc, arriving_loc)
 
@@ -430,8 +430,8 @@ class Router:
         # Check if next hop in forwarding table
         if dest_locator in self.forwarding_table:
             logging.debug("Destination in forwarding table")
-            next_hops = self.forwarding_table.get_next_hop_list(dest_locator)
-            next_hop = random.choice(next_hops.entries)
+            next_hops = self.forwarding_table.get_next_hop_list(dest_locator).entries
+            next_hop = random.choice(next_hops)
             logging.debug("Random next hop chosen from %s: %d", next_hops, next_hop)
             return next_hop
         else:
