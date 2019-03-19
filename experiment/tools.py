@@ -6,6 +6,7 @@ import os
 import random
 import struct
 import time
+from typing import List
 
 from ilnpsocket.underlay.routing.ilnp import ILNPPacket, is_control_packet
 
@@ -138,7 +139,7 @@ class SensorReading:
 
 class SinkLog:
     def __init__(self, sink_save_file):
-        self.readings = []
+        self.readings: List[SensorReading] = []
         self.sink_save_file = sink_save_file
 
     def record_reading(self, sensor_reading):
@@ -161,7 +162,7 @@ class SinkLog:
 
             writer = csv.writer(csv_file, delimiter=',')
             for sensor_reading in self.readings:
-                writer.writerow([sensor_reading.temperature, sensor_reading.humidy,
+                writer.writerow([sensor_reading.temperature, sensor_reading.humidity,
                                  sensor_reading.pressure, sensor_reading.uv_index])
 
             # Unlock

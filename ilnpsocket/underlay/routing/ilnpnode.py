@@ -212,7 +212,7 @@ class Router:
             logging.debug("TTL decremented")
             packet.decrement_hop_limit()
 
-        from_me = self.address_handler.is_from_me(packet)
+        forwarded = not self.address_handler.is_from_me(packet)
         packet_bytes = bytes(packet)
         for locator in next_hop_locators:
             logging.debug("Forwarding to %d", locator)
@@ -220,7 +220,7 @@ class Router:
 
             if self.monitor:
                 logging.debug("Recording sent packet")
-                self.monitor.record_sent_packet(packet, from_me)
+                self.monitor.record_sent_packet(packet, forwarded)
                 if self.monitor.max_sends <= 0:
                     logging.debug("Max sends reached")
                     return
