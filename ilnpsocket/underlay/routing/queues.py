@@ -1,3 +1,4 @@
+import logging
 from queue import Queue
 
 from ilnpsocket.underlay.routing.ilnp import ILNPPacket
@@ -8,6 +9,8 @@ class PacketQueue:
         self.queue = Queue()
 
     def add(self, packet_to_route: ILNPPacket, arriving_locator: int = None):
+        logging.debug("Adding packet with src %s dest %s arriving on %s to queue.", packet_to_route.src,
+                      packet_to_route.dest, arriving_locator)
         self.queue.put((packet_to_route, arriving_locator))
 
     def get(self, block: bool) -> (ILNPPacket, int):

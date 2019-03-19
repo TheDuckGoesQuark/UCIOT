@@ -12,6 +12,9 @@ class ILNPAddress:
         self.loc: int = loc
         self.id: int = id
 
+    def __str__(self):
+        return "{}:{}".format(self.loc, self.id)
+
 
 class ILNPPacket(serializable.Serializable):
     MAX_PAYLOAD_SIZE: int = 65535

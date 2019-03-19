@@ -1,3 +1,4 @@
+import logging
 import struct
 from functools import reduce
 from typing import List
@@ -24,7 +25,7 @@ class DSRHeader(Serializable):
 
     @classmethod
     def build(cls, payload_length: int) -> 'DSRHeader':
-        return DSRHeader(NO_NEXT_HEADER_VALUE, True, payload_length)
+        return DSRHeader(NO_NEXT_HEADER_VALUE, False, payload_length)
 
     @classmethod
     def from_bytes(cls, raw_bytes: memoryview) -> 'DSRHeader':
@@ -105,6 +106,9 @@ class RouteRequest(Serializable):
         return struct.pack(self.FORMAT, self.TYPE, self.data_len, self.request_id, self.target_loc) \
                + bytes(self.route_list)
 
+    def refresh_data_len(self):
+        self.data_len = (self.FIXED_PART_SIZE - TYPE_VALUE_SIZE) + self.route_list.size_bytes()
+
     @classmethod
     def build(cls, request_id: int, target_loc: int) -> 'RouteRequest':
         data_len = cls.FIXED_PART_SIZE - TYPE_VALUE_SIZE
@@ -146,10 +150,21 @@ class RouteReply(Serializable):
 
     @classmethod
     def build(cls, rreq: RouteRequest, request_src_loc: int, request_dest_loc: int) -> 'RouteReply':
+        """
+        Builds route reply from path in rreq. Prepends src_loc to route reply list, and appends dest_loc if not already
+        at end of list
+        :param rreq: rreq being replied to
+        :param request_src_loc: src locator of rreq
+        :param request_dest_loc: dest locator of rreq
+        :return: route reply
+        """
         route_list = rreq.route_list
         route_list.prepend(request_src_loc)
 
         # Only append if the dest was another interface than the requester dest loc
+        # i.e. (ID1)> (L1) <(ID2)> (L2)
+        # ID1 sends to L2ID2, ID2 replies when receiving on L1, so needs to append L2 to path
+        # ID1 sends to L1ID2, ID2 replies when receiving on L1, L1 already at end of path so shouldn't be added.
         if route_list[len(route_list) - 1] != request_dest_loc:
             route_list.append(request_dest_loc)
 

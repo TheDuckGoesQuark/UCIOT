@@ -21,6 +21,7 @@ class SendingSocket:
         """
         try:
             ipv6_addr = self.translate_locator_to_ipv6(next_hop_locator)
+            logging.debug("Sending '%s' to %s (%s)", packet_bytes, next_hop_locator, ipv6_addr)
             return self.__sock.sendto(packet_bytes, (ipv6_addr, self.__port))
         except KeyError:
             logging.error("Unable to send to locator {}".format(next_hop_locator))
@@ -29,6 +30,7 @@ class SendingSocket:
         return self.__sock.getsockname()
 
     def close(self):
+        logging.debug("Closing sending socket")
         self.__sock.close()
 
 

@@ -57,6 +57,7 @@ if __name__ == "__main__":
     section = args.section
     logging.info("Running config file {} section {}".format(config_file, section))
     configuration = Config(config_file, section)
+    logging.debug("Config: %s", configuration)
 
     # Run node
     if not configuration.is_sink:

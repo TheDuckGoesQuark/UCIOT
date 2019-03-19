@@ -1,3 +1,4 @@
+import logging
 import threading
 import select
 from typing import List
@@ -17,6 +18,7 @@ class ListeningThread(threading.Thread):
         self.__timeout: int = timeout
         self.__buffer_size: int = buffer_size_bytes
         self.__queue: PacketQueue = inbound_queue
+        logging.debug("Listening thread initialized.")
 
     def run(self):
         """Continuously checks for incoming packets on each listening socket and
@@ -30,6 +32,7 @@ class ListeningThread(threading.Thread):
         buffer = bytearray(self.__buffer_size)
         n_bytes_to_read, addr_info = sock.recvfrom_into(buffer)
         packet = ILNPPacket.from_bytes(memoryview(buffer))
+        logging.debug("Packet parsed from socket")
         self.__queue.add(packet, sock.locator)
 
     def stop(self):

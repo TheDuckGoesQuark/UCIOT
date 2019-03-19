@@ -1,3 +1,4 @@
+import logging
 import os
 from configparser import ConfigParser
 from typing import Set, Dict
@@ -35,7 +36,9 @@ class Config:
             self.port: int = fields.getint('port', 8080)
             self.packet_buffer_size_bytes: int = fields.getint('packet_buffer_size_bytes', 512)
             self.loopback: bool = fields.getboolean("loopback", True)
-            uid: str = fields.get('unique_identifier', get_default_id())
+            uid: str = fields.get('unique_identifier', None)
+            if not uid:
+                uid = get_default_id()
 
             # ILNP Conf
             self.my_id: int = fields.getint('my_id', 1)
@@ -58,3 +61,21 @@ class Config:
 
         else:
             raise FileNotFoundError("No config file could be found at {}".format(config_file))
+
+    def __str__(self):
+        return str({
+            'port': self.port,
+            'packet_buffer_size_bytes': self.packet_buffer_size_bytes,
+            'loopback?': self.loopback,
+            'my_id': self.my_id,
+            'hop_limit': self.hop_limit,
+            'loc_ipv6': self.locators_to_ipv6,
+            'router refresh delay sec': self.router_refresh_delay_secs,
+            'max sends': self.max_sends,
+            'save file loc': self.save_file_loc,
+            'is sink?': self.is_sink,
+            'send delay secs': self.send_delay_secs,
+            'sink loc': self.sink_loc,
+            'sink id': self.sink_id,
+            'sink save file': self.sink_save_file
+        })

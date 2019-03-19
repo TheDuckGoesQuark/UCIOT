@@ -16,10 +16,11 @@ class ILNPSocket:
         Creates an io instance able to send and receive ILNP packets. A thread will be created for listening
         for incoming packets which will then populate the message queue, which can be polled using the receive method.
         """
-        logging.debug("")
+        logging.debug("Beginning setup")
         self.__received_packets: ReceivedQueue = ReceivedQueue()
         self.__node: ILNPNode = ILNPNode(conf, self.__received_packets, monitor)
 
+        logging.debug("Starting node thread")
         self.__node.daemon = True
         self.__node.start()
 
@@ -38,6 +39,7 @@ class ILNPSocket:
         :param payload: data to be sent as bytes object
         :param destination: ILNP address of target
         """
+        logging.debug("Sending '%s' to %s", payload, destination)
         self.__node.send_from_host(payload, destination)
 
     def receive(self, timeout=None):
@@ -47,5 +49,6 @@ class ILNPSocket:
         :return: bytes of message
         """
         payload = self.__received_packets.get(block=True, timeout=timeout)
+        logging.debug("Received '%s'", payload)
         self.__received_packets.task_done()
         return payload

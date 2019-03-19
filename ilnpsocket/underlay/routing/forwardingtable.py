@@ -1,3 +1,4 @@
+import logging
 from typing import Dict, List
 
 
@@ -74,9 +75,11 @@ class ForwardingTable:
 
     def __init__(self):
         self.entries: Dict[int, NextHopList] = {}
+        logging.debug("Forwarding table initialized")
 
     def refresh_entry(self, dest_loc: int, next_hop_loc: int):
         self.entries[dest_loc].refresh_ltl_for_hop(next_hop_loc)
+        logging.debug("Finished refreshing forwarding table entries")
 
     def __contains__(self, locator: int) -> bool:
         return locator in self.entries and len(self.entries[locator]) > 0
@@ -90,6 +93,7 @@ class ForwardingTable:
         :param next_hop_loc: next hop locator to reach the destination
         :param cost: cost of route via the next hop
         """
+        logging.debug("Adding dest %d via next hop %d with cost %d to forwarding table", dest_loc, next_hop_loc, cost)
         if dest_loc not in self:
             self.entries[dest_loc] = NextHopList()
 
@@ -100,6 +104,7 @@ class ForwardingTable:
         Ages the contents of the forwarding table, and removes any entries that haven't been proven in a while
         :return: true if any entries were removed
         """
+        logging.debug("Aging entries and removing expired")
         removed = False
         next_hop_lists = self.entries.values()
         for next_hop_list in next_hop_lists:
