@@ -31,7 +31,7 @@ class ListeningThread(threading.Thread):
     def read_sock(self, sock: ListeningSocket):
         buffer = bytearray(self.__buffer_size)
         n_bytes_to_read, addr_info = sock.recvfrom_into(buffer)
-        packet = ILNPPacket.from_bytes(memoryview(buffer))
+        packet = ILNPPacket.from_bytes(buffer)
         logging.debug("Packet parsed from socket")
         self.__queue.add(packet, sock.locator)
 

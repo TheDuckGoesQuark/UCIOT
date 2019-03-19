@@ -1,5 +1,5 @@
 import struct
-from typing import Set
+from typing import Set, Union
 
 from ilnpsocket.underlay.routing import serializable
 
@@ -24,7 +24,7 @@ class ILNPPacket(serializable.Serializable):
     def __init__(self, src: ILNPAddress, dest: ILNPAddress, next_header: int = 0,
                  hop_limit: int = 32, version: int = 6, traffic_class: int = 0,
                  flow_label: int = 0, payload_length: int = 0,
-                 payload: memoryview = None):
+                 payload: Union[bytearray, bytes] = None):
         # First octet
         self.version: int = version
         self.traffic_class: int = traffic_class
@@ -43,8 +43,19 @@ class ILNPPacket(serializable.Serializable):
 
         self.payload: bytearray = payload
 
+    def __str__(self):
+        barrier = ("-" * 21) + "\n"
+        row_format = "{:>15}|{:<15}\n"
+        field_dic = vars(self)
+        view = "\n" + barrier
+        for name, value in field_dic.items():
+            view += row_format.format(name, str(value))
+
+        view += barrier
+        return view
+
     @classmethod
-    def from_bytes(cls, packet_bytes: memoryview) -> 'ILNPPacket':
+    def from_bytes(cls, packet_bytes: bytearray) -> 'ILNPPacket':
         values = struct.unpack(cls.ILNPv6_HEADER_FORMAT, packet_bytes[:cls.HEADER_SIZE])
 
         flow_label: int = values[0] & 1048575
@@ -56,7 +67,7 @@ class ILNPPacket(serializable.Serializable):
         src: ILNPAddress = ILNPAddress(values[4], values[5])
         dest: ILNPAddress = ILNPAddress(values[6], values[7])
 
-        payload = packet_bytes[cls.HEADER_SIZE:payload_length]
+        payload = packet_bytes[cls.HEADER_SIZE:cls.HEADER_SIZE + payload_length]
 
         return ILNPPacket(src, dest, next_header, hop_limit, version, traffic_class, flow_label, payload_length,
                           payload)

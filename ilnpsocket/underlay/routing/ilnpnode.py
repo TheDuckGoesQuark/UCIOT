@@ -73,7 +73,8 @@ class ILNPNode(threading.Thread):
             arriving_loc: int
             packet, arriving_loc = self.__to_be_routed_queue.get(block=True)
 
-            logging.debug("Processing received packet: src:%s dest:%s arr:%s", packet.src, packet.dest, arriving_loc)
+            logging.debug("from %s, packet arrived: %s", arriving_loc, packet)
+
             self.handle_packet(packet, arriving_loc)
             self.__to_be_routed_queue.task_done()
 
@@ -149,7 +150,7 @@ class Router:
 
         return ILNPPacket(src,
                           dest,
-                          payload=memoryview(payload),
+                          payload=payload,
                           payload_length=len(payload),
                           hop_limit=self.hop_limit)
 

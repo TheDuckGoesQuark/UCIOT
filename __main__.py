@@ -17,6 +17,7 @@ def run_as_sink(config):
     while not timed_out:
         try:
             reading = sock.receive(120)
+            logging.debug("Received payload len %d", len(reading))
             sink_log.record_reading(SensorReading.from_bytes(reading))
         except Empty:
             timed_out = True
@@ -28,7 +29,7 @@ killswitch_dir = os.path.expanduser("~/killswitch")
 
 
 def killswitch():
-    return not os.path.isdir(killswitch_dir)
+    return os.path.isdir(killswitch_dir)
 
 
 def run_as_node(config):
@@ -36,13 +37,13 @@ def run_as_node(config):
     sock = ILNPSocket(config, monitor)
     mock_generator = MockDataGenerator()
 
-    while monitor.max_sends > 0 and killswitch() and sock.is_closed():
-        print("{}: {} sends left".format(config.my_id, monitor.max_sends))
+    while monitor.max_sends > 0 and not killswitch() and not sock.is_closed():
+        print("{} sends left".format(monitor.max_sends))
         time.sleep(config.send_delay_secs)
         sock.send(bytes(mock_generator.get_data()), ILNPAddress(config.sink_loc, config.sink_id))
 
-    if not sock.is_closed():
-        logging.info("Router failed for some reason?")
+    if sock.is_closed():
+        logging.info("Router terminated. Checks logs for more details")
 
     monitor.save()
 

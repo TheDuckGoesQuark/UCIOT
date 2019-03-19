@@ -7,7 +7,7 @@ import logging
 from ilnpsocket.underlay.routing.queues import ReceivedQueue
 from ilnpsocket.underlay.routing.ilnp import ILNPAddress
 
-logging.basicConfig(level=logging.DEBUG, format='%(name)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.DEBUG, format='%(process)d - %(name)s - %(levelname)s - %(message)s')
 
 
 class ILNPSocket:
@@ -27,7 +27,7 @@ class ILNPSocket:
         logging.debug("ILNPSocket Initialised")
 
     def is_closed(self) -> bool:
-        return self.__node.isAlive()
+        return not self.__node.isAlive()
 
     def close(self):
         logging.debug("Closing socket")
