@@ -134,7 +134,7 @@ class SensorReading:
     @classmethod
     def from_bytes(cls, payload):
         (temperature, humidity, pressure, uv_index) = struct.unpack(cls.struct_format, payload)
-        return SensorReading(temperature, humidity, payload, uv_index)
+        return SensorReading(temperature, humidity, pressure, uv_index)
 
 
 class SinkLog:
