@@ -2,28 +2,29 @@
 
 if [[ "$1" -eq "-h" ]]; then
     me=`basename $0`
-    echo "Usage: ./${me} list_file_path sink_id sink_loc"
+    echo "Usage: ./${me} list_file_path sink_loc sink_id"
     exit 1
 fi
 
-list_file=$1
-sink_id=$2
-sink_locator=$3
 
+list_file=$1
 if [[ -z "${list_file}" ]] || [[ ! -f "${list_file}" ]]; then
     echo "List file missing or doesn't exist: ${list_file}"
     exit 1
 fi
 
-if [[ -z "${sink_id}" ]]; then
-    echo "No sink Id supplied as second argument"
-    exit 1
-fi
-
+sink_locator=$2
 if [[ -z "${sink_locator}" ]]; then
     echo "No sink locator supplied as second argument"
     exit 1
 fi
+
+sink_id=$3
+if [[ -z "${sink_id}" ]]; then
+    echo "No sink Id supplied as third argument"
+    exit 1
+fi
+
 
 target_file=${list_file/_list.txt/.ini}
 

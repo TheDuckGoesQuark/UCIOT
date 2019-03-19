@@ -263,6 +263,7 @@ class Router:
             next_hops.remove(arriving_interface)
 
         packet = self.construct_host_packet(bytes(dsr_message), dest_addr)
+        packet.next_header = DSR_NEXT_HEADER_VALUE
         for next_hop in next_hops:
             packet.src.loc = next_hop
             self.forward_packet_to_addresses(packet, [next_hop], False)
@@ -275,6 +276,7 @@ class Router:
         msg = create_dsr_message(rrply)
 
         packet = self.construct_host_packet(bytes(msg), original_packet.src, original_packet.dest)
+        packet.next_header = DSR_NEXT_HEADER_VALUE
 
         self.forward_packet_to_addresses(packet, [arrived_from_locator])
 

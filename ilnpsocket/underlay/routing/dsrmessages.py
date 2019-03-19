@@ -11,7 +11,7 @@ LOCATOR_SIZE: int = struct.calcsize("!Q")
 
 
 def parse_type(raw_bytes: memoryview) -> int:
-    return raw_bytes[:1]
+    return int(raw_bytes[0])
 
 
 class DSRHeader(Serializable):
@@ -22,6 +22,9 @@ class DSRHeader(Serializable):
         self.next_header: int = next_header
         self.is_flow_state: bool = is_flow_state
         self.payload_length: int = payload_length
+
+    def __str__(self):
+        return str(vars(self))
 
     @classmethod
     def build(cls, payload_length: int) -> 'DSRHeader':
@@ -56,14 +59,21 @@ class RouteList(Serializable):
     def from_bytes(cls, packet_bytes: memoryview) -> 'RouteList':
         n_bytes_in_list = len(packet_bytes)
         if n_bytes_in_list == 0:
+            logging.debug("Empty route list read")
             return RouteList([])
         else:
-            num_locs = n_bytes_in_list / LOCATOR_SIZE
-            locators = list(struct.unpack(cls.LOCATOR_FORMAT.format(num_locs), packet_bytes))
+            num_locs = n_bytes_in_list // LOCATOR_SIZE
+            logging.debug("Expecting %d locators", num_locs)
+            list_format = cls.LOCATOR_FORMAT.format(num_locs)
+            logging.debug("Format string: %s", list_format)
+            locators = list(struct.unpack(list_format, packet_bytes))
             return RouteList(locators)
 
     def __contains__(self, item: int) -> bool:
         return item in self.locators
+
+    def __str__(self):
+        return str(vars(self))
 
     def __len__(self):
         return len(self.locators)
@@ -106,13 +116,16 @@ class RouteRequest(Serializable):
         return struct.pack(self.FORMAT, self.TYPE, self.data_len, self.request_id, self.target_loc) \
                + bytes(self.route_list)
 
+    def __str__(self):
+        return str(vars(self))
+
     def refresh_data_len(self):
         self.data_len = (self.FIXED_PART_SIZE - TYPE_VALUE_SIZE) + self.route_list.size_bytes()
 
     @classmethod
     def build(cls, request_id: int, target_loc: int) -> 'RouteRequest':
         data_len = cls.FIXED_PART_SIZE - TYPE_VALUE_SIZE
-        return RouteRequest(data_len, request_id, target_loc, [])
+        return RouteRequest(data_len, request_id, target_loc, RouteList([]))
 
     def size_bytes(self) -> int:
         return self.FIXED_PART_SIZE + self.route_list.size_bytes()
@@ -137,6 +150,9 @@ class RouteReply(Serializable):
 
     def __bytes__(self) -> bytes:
         return struct.pack(self.FORMAT, self.TYPE, self.data_len, self.last_hop_external << 7) + bytes(self.route_list)
+
+    def __str__(self):
+        return str(vars(self))
 
     def size_bytes(self) -> int:
         return self.FIXED_PART_SIZE + self.route_list.size_bytes()
@@ -203,6 +219,9 @@ class RouteError(Serializable):
     def size_bytes(self) -> int:
         return self.FIXED_PART_SIZE + self.type_specific_info.size_bytes()
 
+    def __str__(self):
+        return str(vars(self))
+
     @classmethod
     def from_bytes(cls, raw_bytes: memoryview) -> 'RouteError':
         opt_type, data_len, error_type, salvage, src_loc, dest_loc = struct.unpack(cls.FORMAT,
@@ -218,6 +237,9 @@ class PadOne(Serializable):
 
     def __bytes__(self) -> bytes:
         return struct.pack(self.FORMAT)
+
+    def __str__(self):
+        return str(vars(self))
 
     def size_bytes(self) -> int:
         return self.SIZE
@@ -253,7 +275,9 @@ class DSRMessage(Serializable):
         offset = 0
         while offset < payload_length:
             type_val = parse_type(payload_bytes[offset:])
-            message = MESSAGE_TYPES[type_val].from_bytes(payload_bytes[:offset])
+            logging.debug("Message type: %d", type_val)
+            message = MESSAGE_TYPES[type_val].from_bytes(payload_bytes[offset:])
+            logging.debug("Message received: %s", message)
             offset = offset + message.size_bytes()
             messages.append(message)
 
