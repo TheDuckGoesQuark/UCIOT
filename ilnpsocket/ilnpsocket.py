@@ -7,7 +7,7 @@ import logging
 from ilnpsocket.underlay.routing.queues import ReceivedQueue
 from ilnpsocket.underlay.routing.ilnp import ILNPAddress
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.DEBUG, format='%(name)s - %(levelname)s - %(message)s')
 
 
 class ILNPSocket:
@@ -16,6 +16,7 @@ class ILNPSocket:
         Creates an io instance able to send and receive ILNP packets. A thread will be created for listening
         for incoming packets which will then populate the message queue, which can be polled using the receive method.
         """
+        logging.debug("")
         self.__received_packets: ReceivedQueue = ReceivedQueue()
         self.__node: ILNPNode = ILNPNode(conf, self.__received_packets, monitor)
 

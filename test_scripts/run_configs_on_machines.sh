@@ -1,8 +1,5 @@
 #!/usr/bin/env bash
 
-# Example usage:
-# /cs/home/jm354/Documents/FourthYear/SH/UCIOT/test_scripts/run_with_config.sh /cs/home/jm354/Documents/FourthYear/SH/UCIOT/test_scripts/configs/grid/grid_config.ini LOC_8_ID_9 /cs/home/jm354/Documents/FourthYear/SH/UCIOT/__main__.py
-
 config_list_file=$1
 config_file=${config_list_file/_list.txt/.ini}
 machine_list_file="up_machines.txt"
@@ -28,7 +25,7 @@ if [[ ${nMachines} -lt ${nConfigs} ]]; then
     exit 1
 fi
 
-project_path="/cs/home/jm354/Documents/FourthYear/SH/UCIOT"
+project_path="/cs/home/jm354/Documents/Uni/Y4/SH/UCIOT"
 run_script="${project_path}/test_scripts/run_with_config.sh"
 main="${project_path}/__main__.py"
 
