@@ -131,7 +131,8 @@ class SensorReading:
         self.uv_index = uv_index
 
     def __bytes__(self):
-        return struct.pack(self.struct_format, self.origin_id, self.temperature, self.humidity, self.pressure, self.uv_index)
+        return struct.pack(self.struct_format, self.origin_id, self.temperature, self.humidity, self.pressure,
+                           self.uv_index)
 
     @classmethod
     def from_bytes(cls, payload):

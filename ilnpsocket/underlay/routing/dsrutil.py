@@ -82,6 +82,9 @@ class RecentRequestBuffer:
     def __init__(self):
         self.recently_seen: Deque[Tuple[int, int]] = collections.deque(15 * [()])
 
+    def __str__(self):
+        return str([str(x) for x in self.recently_seen])
+
     def add(self, src_id, request_id):
         self.recently_seen.appendleft((src_id, request_id))
 

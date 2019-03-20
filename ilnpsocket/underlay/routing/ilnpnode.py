@@ -5,7 +5,7 @@ import threading
 import time
 from os import urandom
 from struct import unpack
-from typing import Dict, List, Iterable, Optional
+from typing import Dict, List, Iterable, Optional, Tuple
 
 from experiment.config import Config
 from experiment.tools import Monitor
@@ -13,7 +13,7 @@ from ilnpsocket.underlay.routing.dsrmessages import DSRHeader, DSRMessage, LOCAT
     RouteError
 from ilnpsocket.underlay.routing.dsrutil import NetworkGraph, RequestRecords, RecentRequestBuffer, DestinationQueues, \
     RequestIdGenerator
-from ilnpsocket.underlay.routing.forwardingtable import ForwardingTable, NextHopList, ForwardingEntry
+from ilnpsocket.underlay.routing.forwardingtable import ForwardingTable, ForwardingEntry
 from ilnpsocket.underlay.routing.ilnp import ILNPPacket, DSR_NEXT_HEADER_VALUE, AddressHandler, ILNPAddress, \
     is_control_packet
 from ilnpsocket.underlay.routing.listeningthread import ListeningThread
@@ -424,6 +424,26 @@ class Router:
             logging.debug("Finished simplifying route")
             return existing_route
 
+    def __choose_next_hop_from_options(self, next_hops: Dict[int, ForwardingEntry], arriving_interface: int) -> int:
+        if len(next_hops) > 1:
+            logging.debug("Removing arriving interface from potential options")
+            # Remove arriving interface
+            next_hops: Dict[int, ForwardingEntry] = {next_hop: entry for next_hop, entry in next_hops if
+                                                     next_hop != arriving_interface}
+
+        # If still more than one option remains, choose randomly from best two
+        if len(next_hops) > 1:
+            logging.debug("Sorting options")
+            # Sort by cost
+            sorted_by_cost: List[Tuple[int, ForwardingEntry]] = sorted(next_hops.items(), key=lambda kv: kv[1].cost)
+            # Choose from first two
+            sorted_by_cost = sorted_by_cost[:2]
+            # TODO SOMETHINGS FUCKY
+            logging.debug("Two to be chosen from: %s", [hop, entry.cost for hop, entry in sorted_by_cost.])
+            return random.choice(sorted_by_cost)[0]
+        else:
+            return next(x for x in next_hops.values()).next_hop_locator
+
     def get_next_hop(self, dest_locator: int, arriving_interface: int) -> Optional[int]:
         """
         Provides a set of next hops to send the packet to get it to its destination. The arriving interface if provided
@@ -437,9 +457,7 @@ class Router:
         if dest_locator in self.forwarding_table:
             logging.debug("Destination in forwarding table")
             next_hops: Dict[int, ForwardingEntry] = self.forwarding_table.get_next_hop_list(dest_locator).entries
-            next_hop: int = random.choice(list(next_hops.values())).next_hop_locator
-            logging.debug("Random next hop chosen from %s: %d", next_hops.values(), next_hop)
-            return next_hop
+            return self.__choose_next_hop_from_options(next_hops, arriving_interface)
         else:
             # Check if route exists in current network topology knowledge
             logging.debug("Checking if route can be found from known topology")
@@ -448,11 +466,11 @@ class Router:
                 logging.debug("Found route in cache!: %s", existing_route)
                 existing_route = self.__simplify_path(existing_route)
                 logging.debug("Route simplified to %s", existing_route)
-                next_hop = existing_route[0]
+                shortest: int = existing_route[0]
                 # Add missing entry to forwarding table
-                self.forwarding_table.add_or_update_entry(dest_locator, next_hop, len(existing_route))
-                logging.debug("Next hop: %d", next_hop)
-                return next_hop
+                self.forwarding_table.add_or_update_entry(dest_locator, shortest, len(existing_route))
+                logging.debug("Next hop: %d", shortest)
+                return shortest
             else:
                 logging.debug("Unable to determine next hop")
                 return None
@@ -489,6 +507,8 @@ class MaintenanceThread(threading.Thread):
             logging.debug(str(self.router.destination_queues))
             logging.debug("Requests made:")
             logging.debug(str(self.router.requests_made))
+            logging.debug("Recently seen requests")
+            logging.debug(str(self.router.recently_seen_request_ids))
             logging.debug("End of current status")
 
             # Age and clear network graph once unreliable
