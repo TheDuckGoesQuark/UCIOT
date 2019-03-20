@@ -35,7 +35,7 @@ def killswitch():
 def run_as_node(config):
     monitor = Monitor(config.max_sends, config.my_id, config.save_file_loc)
     sock = ILNPSocket(config, monitor)
-    mock_generator = MockDataGenerator()
+    mock_generator = MockDataGenerator(config.my_id)
 
     while monitor.max_sends > 0 and not killswitch() and not sock.is_closed():
         print("{} sends left".format(monitor.max_sends))

@@ -74,11 +74,12 @@ class Monitor:
 
 class MockDataGenerator:
 
-    def __init__(self):
-        self.last_reading = SensorReading(273.15, 50, 900, 2)
+    def __init__(self, my_id: int):
+        self.last_reading = SensorReading(my_id, 273.15, 50, 900, 2)
 
     def get_data(self):
         self.last_reading = SensorReading(
+            self.last_reading.origin_id,
             self.generate_temperature(),
             self.generate_humidity(),
             self.generate_presssure(),
@@ -120,9 +121,10 @@ class MockDataGenerator:
 
 
 class SensorReading:
-    struct_format = "!fBHB"
+    struct_format = "!QfBHB"
 
-    def __init__(self, temperature_kelvin, humidity_percentage, pressure_hpa, uv_index):
+    def __init__(self, origin_id, temperature_kelvin, humidity_percentage, pressure_hpa, uv_index):
+        self.origin_id = origin_id
         self.temperature = temperature_kelvin
         self.humidity = humidity_percentage
         self.pressure = pressure_hpa
@@ -133,8 +135,8 @@ class SensorReading:
 
     @classmethod
     def from_bytes(cls, payload):
-        (temperature, humidity, pressure, uv_index) = struct.unpack(cls.struct_format, payload)
-        return SensorReading(temperature, humidity, pressure, uv_index)
+        (origin_id, temperature, humidity, pressure, uv_index) = struct.unpack(cls.struct_format, payload)
+        return SensorReading(origin_id, temperature, humidity, pressure, uv_index)
 
 
 class SinkLog:
@@ -161,8 +163,12 @@ class SinkLog:
                         time.sleep(0.1)
 
             writer = csv.writer(csv_file, delimiter=',')
+            if os.path.getsize(self.sink_save_file) is 0:
+                writer.writerow(["origin_id", "temperature", "humidity", "pressure", "uv_index"])
+
+            writer = csv.writer(csv_file, delimiter=',')
             for sensor_reading in self.readings:
-                writer.writerow([sensor_reading.temperature, sensor_reading.humidity,
+                writer.writerow([sensor_reading.origin_id, sensor_reading.temperature, sensor_reading.humidity,
                                  sensor_reading.pressure, sensor_reading.uv_index])
 
             # Unlock
