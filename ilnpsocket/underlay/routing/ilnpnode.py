@@ -71,7 +71,7 @@ class ILNPNode(threading.Thread):
 
             packet: ILNPPacket
             arriving_loc: int
-            packet, arriving_loc = self.__to_be_routed_queue.get(block=True)
+            packet, arriving_loc = self.__to_be_routed_queue.get(block=True, timeout=10)
 
             logging.debug("from %s, packet arrived: %s", arriving_loc, packet)
 
@@ -147,7 +147,7 @@ class Router:
 
     def construct_host_packet(self, payload: bytes, dest: ILNPAddress, src: Optional[ILNPAddress] = None) -> ILNPPacket:
         if src is None:
-            src = ILNPAddress(self.address_handler.my_id, self.address_handler.get_random_src_locator())
+            src = ILNPAddress(self.address_handler.get_random_src_locator(), self.address_handler.my_id)
 
         return ILNPPacket(src,
                           dest,

@@ -13,8 +13,8 @@ class PacketQueue:
                       packet_to_route.dest, arriving_locator)
         self.queue.put((packet_to_route, arriving_locator))
 
-    def get(self, block: bool) -> (ILNPPacket, int):
-        return self.queue.get(block)
+    def get(self, block: bool, timeout: int = None) -> (ILNPPacket, int):
+        return self.queue.get(block, timeout)
 
     def task_done(self):
         self.queue.task_done()
