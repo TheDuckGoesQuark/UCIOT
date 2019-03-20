@@ -19,7 +19,7 @@ from ilnpsocket.underlay.routing.dsrmessages import DSRHeader, DSRMessage, LOCAT
 from ilnpsocket.underlay.routing.serializable import Serializable
 from ilnpsocket.underlay.routing.dsrutil import NetworkGraph, RequestRecords, RecentRequestBuffer, DestinationQueues, \
     RequestIdGenerator
-from ilnpsocket.underlay.routing.forwardingtable import ForwardingTable
+from ilnpsocket.underlay.routing.forwardingtable import ForwardingTable, ForwardingEntry
 
 
 def create_receivers(locators_to_ipv6: Dict[int, str], port_number: int) -> List[ListeningSocket]:
@@ -164,14 +164,14 @@ class Router:
 
     def route_to_remote_node(self, packet: ILNPPacket, arriving_interface: int):
         logging.debug("Routing packet to remove node")
-        next_hop_locator = self.get_next_hop(packet.dest.loc, arriving_interface)
+        next_hop_locator: int = self.get_next_hop(packet.dest.loc, arriving_interface)
 
-        if next_hop_locator is None and arriving_interface is None:
-            logging.debug("No route found, sourcing route.")
-            self.find_route_for_packet(packet)
-        elif next_hop_locator is not None:
+        if next_hop_locator is not None:
             logging.debug("Forwarding packet to %d.", next_hop_locator)
             self.forward_packet_to_addresses(packet, [next_hop_locator])
+        if arriving_interface is None:
+            logging.debug("No route found, sourcing route.")
+            self.find_route_for_packet(packet)
         else:
             logging.debug("No route found: Packet discarded.")
 
@@ -431,7 +431,7 @@ class Router:
         if dest_locator in self.forwarding_table:
             logging.debug("Destination in forwarding table")
             next_hops = self.forwarding_table.get_next_hop_list(dest_locator).entries
-            next_hop = random.choice(next_hops)
+            next_hop: int = random.choice(next_hops).next_hop_locator
             logging.debug("Random next hop chosen from %s: %d", next_hops, next_hop)
             return next_hop
         else:
