@@ -1,4 +1,5 @@
 import logging
+import queue
 import random
 import threading
 import time
@@ -66,17 +67,19 @@ class ILNPNode(threading.Thread):
 
     def run(self):
         """Polls for messages."""
+        timeout = 10
         while not self.__stop_event.is_set() and (self.monitor is None or self.monitor.max_sends > 0):
             try:
                 logging.debug("Polling for packet...")
                 packet: ILNPPacket
                 arriving_loc: int
-                packet, arriving_loc = self.__to_be_routed_queue.get(block=True, timeout=10)
+                logging.debug("Unfinished tasks: %d", self.__to_be_routed_queue.unfinished_tasks())
+                packet, arriving_loc = self.__to_be_routed_queue.get(block=True, timeout=timeout)
                 logging.debug("from %s, packet arrived: %s", arriving_loc, packet)
 
                 self.handle_packet(packet, arriving_loc)
                 self.__to_be_routed_queue.task_done()
-            except:
+            except queue.Empty:
                 logging.debug("Timeout reached, router stopping.")
                 self.stop()
 

@@ -66,6 +66,9 @@ class NetworkGraph:
                 self.add_vertex(node, locators[idx + 1])
 
     def remove_node(self, dest_loc):
+        if not self.node_exists(dest_loc):
+            return
+
         connected_nodes: Set = self.nodes[dest_loc]
         # Remove all references to this node
         for node in connected_nodes:

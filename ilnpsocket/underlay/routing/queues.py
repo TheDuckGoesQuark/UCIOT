@@ -14,10 +14,14 @@ class PacketQueue:
         self.queue.put((packet_to_route, arriving_locator))
 
     def get(self, block: bool, timeout: int = None) -> (ILNPPacket, int):
+        logging.debug("Waiting %d secs before timeout: %s", timeout, block)
         return self.queue.get(block, timeout)
 
     def task_done(self):
         self.queue.task_done()
+
+    def unfinished_tasks(self):
+        return self.queue.unfinished_tasks
 
 
 class ReceivedQueue:
