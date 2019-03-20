@@ -16,7 +16,7 @@ def run_as_sink(config):
     timed_out = False
     while not timed_out:
         try:
-            reading = sock.receive(120)
+            reading = sock.receive(10)
             logging.debug("Received payload len %d", len(reading))
             sink_log.record_reading(SensorReading.from_bytes(reading))
         except Empty:

@@ -14,6 +14,9 @@ class NetworkGraph:
         for locator in initial_locators:
             self.nodes[locator] = {loc for loc in initial_locators if loc != locator}
 
+    def __str__(self):
+        return str(self.nodes)
+
     def get_shortest_path(self, start: int, end: int, path: Optional[List[int]] = None) -> Optional[List[int]]:
         """Finds a path between the start and end node. Not necessarily the shortest"""
         if path is None:
@@ -59,11 +62,11 @@ class NetworkGraph:
     def add_path(self, locators: List[int]):
         path_length = len(locators)
         for idx, node in enumerate(locators):
-            if idx != path_length:
-                self.add_vertex(node, locators[idx])
+            if idx != path_length - 1:
+                self.add_vertex(node, locators[idx + 1])
 
     def remove_node(self, dest_loc):
-        connected_nodes = self.nodes[dest_loc]
+        connected_nodes: Set = self.nodes[dest_loc]
         # Remove all references to this node
         for node in connected_nodes:
             self.nodes[node].remove(dest_loc)
@@ -99,6 +102,9 @@ class RequestRecord:
 class RequestRecords:
     def __init__(self):
         self.records: List[Optional[RequestRecord]] = [None] * NUM_REQUEST_IDS
+
+    def __str__(self):
+        return str([str(record) for record in self.records])
 
     def __contains__(self, request_id: int) -> bool:
         return self.records[request_id] is not None
@@ -149,6 +155,9 @@ class DestinationQueues:
 
     def __getitem__(self, dest_loc: int) -> List[ILNPPacket]:
         return self.dest_queues[dest_loc]
+
+    def __str__(self):
+        return str({dest: [str(packet) for packet in queue] for dest, queue in self.dest_queues.items()})
 
     def add_packet(self, packet: ILNPPacket):
         """

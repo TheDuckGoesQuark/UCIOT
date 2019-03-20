@@ -12,6 +12,9 @@ class ForwardingEntry:
         self.next_hop_locator: int = next_hop_locator
         self.left_to_live: int = 10
 
+    def __str__(self):
+        return str(vars(self))
+
     def should_be_replaced_by(self, route_cost: int) -> bool:
         """A lower cost, or  equally good but more recent route cost will be preferred."""
         if self.left_to_live == 0:
@@ -32,7 +35,7 @@ class NextHopList:
     """
 
     def __init__(self):
-        self.entries: List[ForwardingEntry] = []
+        self.entries: Dict[int, ForwardingEntry] = {}
 
     def __contains__(self, next_hop_loc: int) -> bool:
         return next_hop_loc in self.entries
@@ -40,29 +43,31 @@ class NextHopList:
     def __len__(self) -> int:
         return len(self.entries)
 
+    def __str__(self):
+        return str([str(entry) for entry in self.entries])
+
     def add_or_update(self, next_hop_loc: int, cost: int):
         if next_hop_loc in self:
-            entry = self.get_entry_for_next_hop(next_hop_loc)
+            entry: ForwardingEntry = self.get_entry_for_next_hop(next_hop_loc)
             entry.cost = cost
             entry.reset_ltl()
         else:
-            self.entries.append(ForwardingEntry(next_hop_loc, cost))
+            self.entries[next_hop_loc] = ForwardingEntry(next_hop_loc, cost)
 
     def get_entry_for_next_hop(self, next_hop_loc: int) -> ForwardingEntry:
-        for entry in self.entries:
-            if entry.next_hop_locator == next_hop_loc:
-                return entry
-
-        raise ValueError("No entry for %d" % next_hop_loc)
+        try:
+            return self.entries[next_hop_loc]
+        except KeyError:
+            raise ValueError("No entry for %d" % next_hop_loc)
 
     def refresh_ltl_for_hop(self, next_hop_loc: int):
         self.get_entry_for_next_hop(next_hop_loc).reset_ltl()
 
     def age_entries(self):
-        for entry in self.entries:
+        for entry in self.entries.values():
             entry.decrement_ltl()
 
-        self.entries[:] = [entry for entry in self.entries if entry.left_to_live > 0]
+        self.entries = {loc: entry for loc, entry in self.entries.items() if entry.left_to_live > 0}
 
 
 class ForwardingTable:
@@ -83,6 +88,13 @@ class ForwardingTable:
 
     def __contains__(self, locator: int) -> bool:
         return locator in self.entries and len(self.entries[locator]) > 0
+
+    def __str__(self):
+        val = ""
+        for name, value in self.entries.items():
+            val += "{:>15} | {:<15}\n".format(name, str(value))
+
+        return val
 
     def get_next_hop_list(self, dest_loc: int) -> NextHopList:
         return self.entries[dest_loc]

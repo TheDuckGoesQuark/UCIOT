@@ -8,18 +8,18 @@ from typing import Dict, List, Iterable, Optional
 
 from experiment.config import Config
 from experiment.tools import Monitor
+from ilnpsocket.underlay.routing.dsrmessages import DSRHeader, DSRMessage, LOCATOR_SIZE, RouteRequest, RouteReply, \
+    RouteError
+from ilnpsocket.underlay.routing.dsrutil import NetworkGraph, RequestRecords, RecentRequestBuffer, DestinationQueues, \
+    RequestIdGenerator
+from ilnpsocket.underlay.routing.forwardingtable import ForwardingTable, NextHopList, ForwardingEntry
 from ilnpsocket.underlay.routing.ilnp import ILNPPacket, DSR_NEXT_HEADER_VALUE, AddressHandler, ILNPAddress, \
     is_control_packet
 from ilnpsocket.underlay.routing.listeningthread import ListeningThread
 from ilnpsocket.underlay.routing.queues import ReceivedQueue, PacketQueue
+from ilnpsocket.underlay.routing.serializable import Serializable
 from ilnpsocket.underlay.sockets.listeningsocket import ListeningSocket
 from ilnpsocket.underlay.sockets.sendingsocket import SendingSocket
-from ilnpsocket.underlay.routing.dsrmessages import DSRHeader, DSRMessage, LOCATOR_SIZE, RouteRequest, RouteReply, \
-    RouteError, TYPE_VALUE_SIZE
-from ilnpsocket.underlay.routing.serializable import Serializable
-from ilnpsocket.underlay.routing.dsrutil import NetworkGraph, RequestRecords, RecentRequestBuffer, DestinationQueues, \
-    RequestIdGenerator
-from ilnpsocket.underlay.routing.forwardingtable import ForwardingTable, ForwardingEntry
 
 
 def create_receivers(locators_to_ipv6: Dict[int, str], port_number: int) -> List[ListeningSocket]:
@@ -131,6 +131,7 @@ class Router:
         # Network Knowledge
         self.forwarding_table: ForwardingTable = ForwardingTable()
         self.network_graph: NetworkGraph = self.init_network_graph()
+        logging.debug("Initial network graph: %s", str(self.network_graph))
 
         # Maintenance
         logging.debug("Initializing and starting router maintenance thread")
@@ -430,9 +431,9 @@ class Router:
         # Check if next hop in forwarding table
         if dest_locator in self.forwarding_table:
             logging.debug("Destination in forwarding table")
-            next_hops = self.forwarding_table.get_next_hop_list(dest_locator).entries
-            next_hop: int = random.choice(next_hops).next_hop_locator
-            logging.debug("Random next hop chosen from %s: %d", next_hops, next_hop)
+            next_hops: Dict[int, ForwardingEntry] = self.forwarding_table.get_next_hop_list(dest_locator).entries
+            next_hop: int = random.choice(list(next_hops.values())).next_hop_locator
+            logging.debug("Random next hop chosen from %s: %d", next_hops.values(), next_hop)
             return next_hop
         else:
             # Check if route exists in current network topology knowledge
@@ -473,6 +474,18 @@ class MaintenanceThread(threading.Thread):
         """
         while not self.stopped.is_set():
             logging.debug("Maintenance thread woke")
+            # Log current status
+            logging.debug("Current status:")
+            logging.debug("Forwarding table:")
+            logging.debug(str(self.router.forwarding_table))
+            logging.debug("Network graph:")
+            logging.debug(str(self.router.network_graph))
+            logging.debug("Destination queues:")
+            logging.debug(str(self.router.destination_queues))
+            logging.debug("Requests made:")
+            logging.debug(str(self.router.requests_made))
+            logging.debug("End of current status")
+
             # Age and clear network graph once unreliable
             logging.debug("Aging forwarding table")
             nodes_have_expired = self.router.forwarding_table.decrement_and_clear()
@@ -484,6 +497,7 @@ class MaintenanceThread(threading.Thread):
             self.router.requests_made.age_records()
             logging.debug("Attemtping to retry requests")
             self.router.retry_old_requests()
+
             # Sleep
             logging.debug("Maintenance thread sleeping")
             time.sleep(self.maintenance_interval)
