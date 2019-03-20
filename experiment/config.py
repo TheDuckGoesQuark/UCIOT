@@ -53,12 +53,12 @@ class Config:
             # Experiment config
             self.max_sends: int = fields.getint("max_sends", 100)
             self.save_file_loc: str = fields.get("save_file_loc", "test_log.csv")
-            self.is_sink: bool = fields.getboolean("is_sink", False)
             self.send_delay_secs: int = fields.getint("send_delay_secs", 10)
             self.sink_loc: int = fields.getint("sink_loc", 1)
             self.sink_id: int = fields.getint("sink_id", 1)
             self.sink_save_file: str = fields.get("sink_save_file", "sink_log.csv")
 
+            self.is_sink = self.my_id is self.sink_id
         else:
             raise FileNotFoundError("No config file could be found at {}".format(config_file))
 
