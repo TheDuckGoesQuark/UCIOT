@@ -33,6 +33,7 @@ if [[ ! -d "${project_path}/logs" ]]; then
     mkdir "${project_path}/logs"
 fi
 
+pids=()
 for i in "${!configs[@]}"; do
     config="${configs[$i]}"
     machine="${machines[$i]}"
@@ -45,8 +46,15 @@ for i in "${!configs[@]}"; do
     number=$((i + 1))
     echo "$number/$nConfigs: Running config ${config} on machine ${machine}"
     ssh -o ConnectTimeout=3 ${machine} "cd ${project_path}; source venv/bin/activate; ${run_script} ${config_path} ${config} ${main} ${logfile}" &
-    echo "Status code: $?"
+    pid=$!
+    exit_code=$?
+    pids+="${pid} "
+    echo "Status code: $exit_code Process id: $pid"
 done
 
-wait
+for pid in ${pids[@]}; do
+    echo "Waiting on $pid"
+    wait ${pid}
+done
+
 
