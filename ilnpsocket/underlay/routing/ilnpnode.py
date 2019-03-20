@@ -205,7 +205,7 @@ class Router:
             logging.debug("Max sends reached. Cannot send.")
             return
 
-        if packet.hop_limit < 0:
+        if packet.hop_limit <= 0:
             logging.debug("TTL expired: packet discarded")
             return
 
