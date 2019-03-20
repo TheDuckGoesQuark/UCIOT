@@ -28,6 +28,10 @@ fi
 
 target_file=${list_file/_list.txt/.ini}
 
+if [[ -e ${target_file} ]]; then
+    > "${target_file}"
+fi
+
 read -r -d '' TEMPLATE << EOM
 [NAME]
 group_ids = LOCS

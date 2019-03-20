@@ -67,16 +67,18 @@ class ILNPNode(threading.Thread):
     def run(self):
         """Polls for messages."""
         while not self.__stop_event.is_set() and (self.monitor is None or self.monitor.max_sends > 0):
-            logging.debug("Polling for packet...")
+            try:
+                logging.debug("Polling for packet...")
+                packet: ILNPPacket
+                arriving_loc: int
+                packet, arriving_loc = self.__to_be_routed_queue.get(block=True, timeout=10)
+                logging.debug("from %s, packet arrived: %s", arriving_loc, packet)
 
-            packet: ILNPPacket
-            arriving_loc: int
-            packet, arriving_loc = self.__to_be_routed_queue.get(block=True, timeout=10)
-
-            logging.debug("from %s, packet arrived: %s", arriving_loc, packet)
-
-            self.handle_packet(packet, arriving_loc)
-            self.__to_be_routed_queue.task_done()
+                self.handle_packet(packet, arriving_loc)
+                self.__to_be_routed_queue.task_done()
+            except:
+                logging.debug("Timeout reached, router stopping.")
+                self.stop()
 
     def stop(self):
         logging.debug("Terminating")
