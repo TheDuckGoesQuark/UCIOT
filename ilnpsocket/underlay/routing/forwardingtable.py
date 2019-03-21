@@ -91,8 +91,8 @@ class ForwardingTable:
 
     def __str__(self):
         val = ""
-        for name, value in self.entries.items():
-            val += "{:>15} | {:<15}\n".format(name, str(value))
+        for name, next_hop_list in self.entries.items():
+            val += "{:>15} | {:<15}\n".format(name, str(next_hop_list))
 
         return val
 

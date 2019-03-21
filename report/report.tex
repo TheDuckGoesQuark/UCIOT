@@ -129,13 +129,16 @@ Despite the imminent exhaustion of IPv4 addresses \cite{ripe_labs}, IPv6 is stil
 
 IP addresses are used both to identify a system and to determine its topological location. \cite{briancarpenter2014} lists several of the downsides to this overloading of IP addresses, and why the protocol was still used despite these concerns. 
 
-Since each interface on a host requires its own IP address, support for mobility and multi-homing is limited. The separation of concerns that should be achieved by a layered model is also not possible, since the IP address is used at both the network layer and transport layer. 
 
-The issues with IP are not just semantic. Due to the overloading of the IP address and the rapid increase in internet connected devices \cite{iot_stat}, the scalability of the system is being challenged. Implementations of multipath routing with the intention of balancing load and improving reliability are improving network performance for the operators that use them, but with IP it places greater stress on the default-free zone (DFZ) routing information base (RIB). An IAB workshop \cite{rfc4984} detailed how the DFZ RIB databases are growing in size exponentially due to the increasing number of devices and an inability to aggregate address prefixes. With IPv6 allowing for an even larger address space, this problem will only get worse. 
+The separation of concerns that should be achieved by a layered model is not possible, since the IP address is used at both the network layer and transport layer. 
 
-Due to the growing number of Internet of Things (IoT) devices, features such as mobility and multi-homing are becoming more essential. 
+The issues with IP are not just semantic. Due to the overloading of the IP address and the rapid increase in internet connected devices \cite{iot_stat}, the scalability of the system is being challenged. Implementations of multipath routing with the intention of balancing load is improving network performance for the operators that use them, but with IP it places greater stress on the default-free zone (DFZ) routing information base (RIB). Multihoming is also being used increasingly to improve reliability, but with IP this requires routing entries to store multiple addresses for one host. An IAB workshop \cite{rfc4984} detailed how the DFZ RIB databases are growing in size exponentially due to the increasing number of devices and an inability to aggregate address prefixes. With IPv6 allowing for an even larger address space, this problem will only get worse. 
+
+Due to the growing number of Internet of Things (IoT) devices, mobility is also a necessary feature for a networking protocol. Mobile IP currently requires another entity (a home agent) to track and proxy packets to the mobile host as it changes networks. 
 
 \subsection{ILNP}
+
+Both multihoming and mobility are far simpler to implement and maintain if the identity and topological locator of a host are separated, and this is how the Identifier-Locator Network Protocol functions.2
 
 \subsection{Goal}
 

@@ -337,7 +337,11 @@ class Router:
     def __update_route_cache_and_attempt_send(self, new_path: List[int], arrived_from_locator: int):
         logging.debug("Updating route cache using path %s arriving from %d", new_path, arrived_from_locator)
         self.network_graph.add_path(new_path)
+        cost = 0
         for locator in new_path:
+            # Add to forwarding table
+            self.forwarding_table.add_or_update_entry(locator, arrived_from_locator, cost)
+            cost += 1
             if locator in self.destination_queues:
                 logging.debug("Path found to %d: Sending waiting packets on interface %d", locator,
                               arrived_from_locator)
@@ -425,10 +429,10 @@ class Router:
             return existing_route
 
     def __choose_next_hop_from_options(self, next_hops: Dict[int, ForwardingEntry], arriving_interface: int) -> int:
-        if len(next_hops) > 1:
+        if len(next_hops) > 1 and arriving_interface is not None:
             logging.debug("Removing arriving interface from potential options")
             # Remove arriving interface
-            next_hops = {next_hop: entry for next_hop, entry in next_hops if next_hop != arriving_interface}
+            next_hops = {next_hop: entry for next_hop, entry in next_hops.items() if next_hop != arriving_interface}
 
         # If still more than one option remains, choose randomly from best two
         if len(next_hops) > 1:
@@ -452,10 +456,13 @@ class Router:
         :param arriving_interface: locator interface that packet arrived on
         :return: list of viable next hops that should lead to the packets destination
         """
+        logging.debug("Current forwarding table:")
+        logging.debug(str(self.forwarding_table))
         # Check if next hop in forwarding table
         if dest_locator in self.forwarding_table:
             logging.debug("Destination in forwarding table")
             next_hops: Dict[int, ForwardingEntry] = self.forwarding_table.get_next_hop_list(dest_locator).entries
+            logging.debug("Possible next hops: %s", str([(i, str(x)) for i, x in next_hops.items()]))
             return self.__choose_next_hop_from_options(next_hops, arriving_interface)
         else:
             # Check if route exists in current network topology knowledge
