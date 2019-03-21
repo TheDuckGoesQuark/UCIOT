@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.14159265-2.6-1.40.19 (TeX Live 2018) (preloaded format=pdflatex 2019.2.20)  21 MAR 2019 14:48
+This is pdfTeX, Version 3.14159265-2.6-1.40.19 (TeX Live 2018) (preloaded format=pdflatex 2019.2.20)  21 MAR 2019 15:19
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -738,7 +738,7 @@ andrewslogo.png>] [1] (./report.toc)
 \openout4 = `report.toc'.
 
  [2] [1]
-Overfull \hbox (15.56662pt too wide) in paragraph at lines 163--164
+Overfull \hbox (15.56662pt too wide) in paragraph at lines 164--165
 []\OT1/cmr/m/n/12 Component struc-ture (socket in-ter-face, router/d-srser-vice
 /-for-ward-ingtable,
  []
@@ -757,10 +757,10 @@ ng -[] ipv4 -[]
 
 [3]) [4] (./report.aux) ) 
 Here is how much of TeX's memory you used:
- 17708 strings out of 492701
- 328163 string characters out of 6134504
- 507411 words of memory out of 5000000
- 21230 multiletter control sequences out of 15000+600000
+ 17711 strings out of 492701
+ 328208 string characters out of 6134504
+ 507426 words of memory out of 5000000
+ 21233 multiletter control sequences out of 15000+600000
  11241 words of font info for 40 fonts, out of 8000000 for 9000
  1137 hyphenation exceptions out of 8191
  62i,5n,96p,894b,288s stack positions out of 5000i,500n,10000p,200000b,80000s
@@ -769,7 +769,7 @@ onts/cm/cmbx12.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/c
 m/cmcsc10.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmr
 12.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmti12.pfb
 ></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmtt12.pfb>
-Output written on report.pdf (7 pages, 118571 bytes).
+Output written on report.pdf (7 pages, 121029 bytes).
 PDF statistics:
  54 PDF objects out of 1000 (max. 8388607)
  37 compressed objects within 1 object stream

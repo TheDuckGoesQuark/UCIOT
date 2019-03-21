@@ -1,12 +1,12 @@
 \babel@toc {english}{}
 \contentsline {section}{\numberline {1}Introduction}{1}
 \contentsline {subsection}{\numberline {1.1}Issues with IP}{1}
-\contentsline {subsection}{\numberline {1.2}ILNP}{1}
+\contentsline {subsection}{\numberline {1.2}ILNP}{2}
 \contentsline {subsection}{\numberline {1.3}Goal}{2}
 \contentsline {section}{\numberline {2}Context Survey}{2}
 \contentsline {section}{\numberline {3}Requirements Specification}{2}
 \contentsline {section}{\numberline {4}Design}{2}
-\contentsline {section}{\numberline {5}Experiment}{2}
+\contentsline {section}{\numberline {5}Experiment}{3}
 \contentsline {section}{\numberline {6}Results and Discussion}{3}
 \contentsline {section}{\numberline {7}Conclusions}{3}
 \contentsline {section}{\numberline {8}Appendix}{3}

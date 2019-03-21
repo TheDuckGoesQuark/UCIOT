@@ -28,4 +28,10 @@ Ed~D.~Meyer, Ed. L.~Zhang, and Ed~K.~Fall.
 \newblock {Report from the IAB Workshop on Routing and Addressing}.
 \newblock {RFC} 4984, {RFC Editor}, September 2007.
 
+\bibitem{5586444}
+R.~{Atkinson}, S.~{Bhatti}, and S.~{Hailes}.
+\newblock Evolving the internet architecture through naming.
+\newblock {\em IEEE Journal on Selected Areas in Communications},
+  28(8):1319--1325, October 2010.
+
 \end{thebibliography}
