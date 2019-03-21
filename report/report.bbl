@@ -1,9 +1,31 @@
 \begin{thebibliography}{1}
 
-\bibitem{cfc}
-Canonical Ltd.
-\newblock sched - overview of cpu scheduling.
-\newblock \url{http://manpages.ubuntu.com/manpages/cosmic/man7/sched.7.html}.
-\newblock Accessed: 2019-03-01.
+\bibitem{ripe_labs}
+RIPE NCC.
+\newblock Number of {R}emaining {I}{P}v4 {A}ddresses.
+\newblock
+  \url{https://labs.ripe.net/statistics/number-of-remaining-ipv4-addresses-daily}.
+
+\bibitem{google_ipv6}
+Google.
+\newblock Ipv6 adoption.
+\newblock \url{https://www.google.com/intl/en/ipv6/statistics.html}.
+
+\bibitem{briancarpenter2014}
+Brian~E. Carpenter.
+\newblock Ip addresses considered harmful.
+\newblock {\em SIGCOMM Comput. Commun. Rev.}, 44(2):65--69, apr 2014.
+
+\bibitem{iot_stat}
+Statista.
+\newblock Number of connected devices worldwide in 2014 and 2020, by device (in
+  millions).
+\newblock
+  \url{https://www.statista.com/statistics/512650/worldwide-connected-devices-amount/}.
+
+\bibitem{rfc4984}
+Ed~D.~Meyer, Ed. L.~Zhang, and Ed~K.~Fall.
+\newblock {Report from the IAB Workshop on Routing and Addressing}.
+\newblock {RFC} 4984, {RFC Editor}, September 2007.
 
 \end{thebibliography}

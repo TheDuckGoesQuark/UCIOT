@@ -428,8 +428,7 @@ class Router:
         if len(next_hops) > 1:
             logging.debug("Removing arriving interface from potential options")
             # Remove arriving interface
-            next_hops: Dict[int, ForwardingEntry] = {next_hop: entry for next_hop, entry in next_hops if
-                                                     next_hop != arriving_interface}
+            next_hops = {next_hop: entry for next_hop, entry in next_hops if next_hop != arriving_interface}
 
         # If still more than one option remains, choose randomly from best two
         if len(next_hops) > 1:
@@ -438,10 +437,10 @@ class Router:
             sorted_by_cost: List[Tuple[int, ForwardingEntry]] = sorted(next_hops.items(), key=lambda kv: kv[1].cost)
             # Choose from first two
             sorted_by_cost = sorted_by_cost[:2]
-            # TODO SOMETHINGS FUCKY
-            logging.debug("Two to be chosen from: %s", [hop, entry.cost for hop, entry in sorted_by_cost.])
+            logging.debug("Two to be chosen from: %s", str([(tupl[0], tupl[1].cost) for tupl in sorted_by_cost]))
             return random.choice(sorted_by_cost)[0]
         else:
+            logging.debug("Only one hop available.")
             return next(x for x in next_hops.values()).next_hop_locator
 
     def get_next_hop(self, dest_locator: int, arriving_interface: int) -> Optional[int]:

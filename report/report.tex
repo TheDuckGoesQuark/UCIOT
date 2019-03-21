@@ -29,7 +29,7 @@
 \usepackage{tabu}
 \tabulinesep=1.2mm
 \usepackage[explicit]{titlesec}
-\usepackage{url}
+\usepackage[hyphens,spaces,obeyspaces]{url}
 \usepackage{subfig}
 \usepackage{graphicx}
 \usepackage{grffile}
@@ -92,7 +92,26 @@
 
 \section*{Abstract}
 
+
+
 \section*{Declaration}
+I declare that the material submitted for
+assessment is my own work except where credit is
+explicitly given to others by citation or
+acknowledgement. This work was performed during
+the current academic year except where otherwise
+stated.
+The main text of this project report is \#TODO NN,NNN
+words long, including project specification and plan.
+In submitting this project report to the University of
+St Andrews, I give permission for it to be made
+available for use in accordance with the regulations of
+the University Library. I also give permission for
+the title and abstract to be published and for copies of
+the report to be made and supplied at cost to any bona
+fide library or research worker, and to be made
+available on the World Wide Web. I retain the
+copyright in this work.
 
 \newpage
 
@@ -104,11 +123,22 @@
 
 \section{Introduction}
 
-\begin{enumerate}
-\item Explain current issues with IP
-\item Explain ILNP, and how it addresses these issues
-\item Explain how this project plans to exemplify the benefits of ILNP 
-\end{enumerate}
+Despite the imminent exhaustion of IPv4 addresses \cite{ripe_labs}, IPv6 is still being adopted slowly \cite{google_ipv6}. Brittle solutions such as NAT are being used to temporarily expand the IP address space , and to avoid the transition costs involved in upgrading to IPv6. Whilst IPv6 does expand the address space greatly and introduces functionality such as multicast, the internet protocol itself suffers from many issues. 
+
+\subsection{Issues with IP}
+
+IP addresses are used both to identify a system and to determine its topological location. \cite{briancarpenter2014} lists several of the downsides to this overloading of IP addresses, and why the protocol was still used despite these concerns. 
+
+Since each interface on a host requires its own IP address, support for mobility and multi-homing is limited. The separation of concerns that should be achieved by a layered model is also not possible, since the IP address is used at both the network layer and transport layer. 
+
+The issues with IP are not just semantic. Due to the overloading of the IP address and the rapid increase in internet connected devices \cite{iot_stat}, the scalability of the system is being challenged. Implementations of multipath routing with the intention of balancing load and improving reliability are improving network performance for the operators that use them, but with IP it places greater stress on the default-free zone (DFZ) routing information base (RIB). An IAB workshop \cite{rfc4984} detailed how the DFZ RIB databases are growing in size exponentially due to the increasing number of devices and an inability to aggregate address prefixes. With IPv6 allowing for an even larger address space, this problem will only get worse. 
+
+Due to the growing number of Internet of Things (IoT) devices, features such as mobility and multi-homing are becoming more essential. 
+
+\subsection{ILNP}
+
+\subsection{Goal}
+
 
 \section{Context Survey}
 
@@ -162,8 +192,6 @@
 \begin{enumerate}
 \item Instructions on installing, and executing and using the python module, and how to configure the experiments.
 \end{enumerate}
-
-\citep{cfc}
 
 \bibliographystyle{unsrt}
 \bibliography{mybib}
