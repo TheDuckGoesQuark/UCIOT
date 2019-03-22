@@ -276,8 +276,36 @@ class Router:
 
         self.requests_made.add(rreq.request_id, dest_addr.loc, num_attempts + 1)
 
+    def __get_remaining_hops(self, path: List[int]) -> int:
+        n_hops = 0
+        for idx, loc in enumerate(path):
+            if self.address_handler.is_my_locator(loc):
+                return idx
+            else:
+                n_hops += 1
+
+        return n_hops
+
+    def __calc_jitter_time(self, path: List[int]):
+        # the length in number of network hops for the route to be returned
+        h = self.__get_remaining_hops(path)
+        # One millisecond small constant delay to emulate wireless propogation delay
+        H = 0.001
+        # Random floating number between 0 and 1
+        r = random.random()
+
+        return H * (h - 1 + r)
+
     def __send_route_reply(self, original_packet: ILNPPacket, rreq: RouteRequest, arrived_from_locator: int):
+        # Build route reply
         rrply = RouteReply.build(rreq, original_packet.src.loc, original_packet.dest.loc)
+
+        # Wait jittered time and check if reply already sent
+        time.sleep(self.__calc_jitter_time(rrply.route_list.locators))
+
+        # TODO Check if reply already sent, or packet overheard being sent by src to dest
+        # TODO Fix multiple packet forwarding?
+
         logging.debug("rrply built with path: %s", rrply.route_list.locators)
         msg = create_dsr_message(rrply)
 

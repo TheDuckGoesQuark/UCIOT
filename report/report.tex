@@ -90,6 +90,20 @@
 
 \pagenumbering{gobble}
 
+\section{NOTES}
+
+\subsection{Fixing overhead}
+
+https://ieeexplore.ieee.org/document/7993954 to fix route reply storm issue: add jitter before responding with route reply and listen for other replies
+
+On receiving route request, spawn cache reply thread and return
+CacheReplyThread: wait jitter time, check if reply recently seen in queue, discard if seen, otherwise send.
+Need RecentRouteReplies: Fixed size FIFO buffer of (dest, last_hop)
+
+
+
+Stopping duplication of packets on forwarding though?
+
 \section*{Abstract}
 
 
