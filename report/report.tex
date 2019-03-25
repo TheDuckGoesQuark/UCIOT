@@ -93,8 +93,6 @@ On receiving route request, spawn cache reply thread and return
 CacheReplyThread: wait jitter time, check if reply recently seen in queue, discard if seen, otherwise send.
 Need RecentRouteReplies: Fixed size FIFO buffer of (dest, last_hop)
 
-
-
 Stopping duplication of packets on forwarding though?
 
 \section*{Abstract}
@@ -159,6 +157,7 @@ The benefits of ILNP are clear for the entire internet infrastructure. The nativ
 These devices are often restricted by limited battery life, memory, and computational capabilities. Most routing protocols focus on finding the shortest route between a source and destination, which often results in a small number of paths being heavily used and so some nodes are especially drained due to processing and forwarding of packets. This can result in a network partion once crucial nodes fail (due to loss of battery), rendering a section of still operational nodes useless. By reducing the networking overhead and attempting to balance traffic across several paths, the network can remain operational for longer.
 
 \section{Context Survey}
+
 
 
 \begin{enumerate}
