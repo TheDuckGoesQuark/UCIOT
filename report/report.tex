@@ -166,11 +166,21 @@ Another possible alternative is Routing Architecture for the Next Generation Int
 
 \subsection{Energy Effecient Routing Protocols}
 
+Wireless sensor networks (WSNs) are typically very mobile with limited memory and power, and so require optimised routing protocols. Due to the myriad of situations that IoT devices are used, there is no one-size-fits-all solution. 
 
+\cite{hassan} classifies differeent routing protocols and provides a survey of protocols for each class. Routing protocols are either:
+\begin{enumerate}
+    \item \textbf{Proactive}, where each node maintains a routing table through knowledge sharing with adjacent nodes. Typically involves high overhead due to regular flooding, but simpler to implement.
+        Examples include AODV \cite{aodv} and DSR \cite{dsr}.
+
+    \item \textbf{Reactive}, where nodes only seek out routes to remote nodes when one is required. Choosing the expiration timeout for how long a route should be used results in a tradeoff between reliability and overhead, but can be very effective if a good balance is found.
+        Examples include OLSR \cite{olsr}.
+    \item \textbf{Hybrid}, where features of both proactive and reactive protocols are used.
+\end{enumerate}
 
 \subsection{IoT in Agriculture}
 
-The sensitivity of crops to changes in climate and agricultures crucial role on national economies has naturally resulted in large amounts of research and development. \cite{agrisensor} describe how sensor technology is being used to monitor conditions in greenhouses, fields, and bodies of water. In order to make accessing this data more convenient and to help automate processes, they implemented a wireless sensor network (WSN) of enviromental sensors. These sensors communicate data to a gateway node which makes the data accessible via the cloud for visualisation and actuation. 
+The sensitivity of crops to changes in climate and agricultures crucial role on national economies has naturally resulted in large amounts of research and development. \cite{agrisensor} describe how sensor technology is being used to monitor conditions in greenhouses, fields, and bodies of water. In order to make accessing this data more convenient and to help automate processes, they implemented a wireless network of enviromental sensors. These sensors communicate data to a gateway node which makes the data accessible via the cloud for visualisation and actuation. 
 
 \cite{indoor} propose enviromental sensors but for urban environments with access to the cloud. By providing cheap montoring and actuating sensors to the general public, they hope to encourage healthier eating habits, as people would be able to grow their own vegetables effectively. 
 
