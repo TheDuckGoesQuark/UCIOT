@@ -184,15 +184,11 @@ The sensitivity of crops to changes in climate and agricultures crucial role on 
 
 \cite{indoor} propose enviromental sensors but for urban environments with access to the cloud. By providing cheap montoring and actuating sensors to the general public, they hope to encourage healthier eating habits, as people would be able to grow their own vegetables effectively. 
 
-\section{Requirements Specification}
+\section{ILNP Testbed Implementation}
 
+Due to the recency of ILNPv6, there does not currently exist software for emulating ILNP networks as there is for the variations IP, therefore a custom testbed had to be implemented. This was achieved by building an ILNP overlay network using UDP with multicast. 
 
-
-\begin{enumerate}
-\item Describe requirements of resulting python library
-\end{enumerate}
-
-\section{Design}
+\subsection{Design}
 
 \begin{enumerate}
 \item Component structure (socket interface, router/dsrservice/forwardingtable, raw sockets)
