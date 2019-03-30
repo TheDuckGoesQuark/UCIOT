@@ -3,7 +3,6 @@ from typing import Set, Union
 
 from ilnpsocket.serializable import Serializable
 
-DSR_NEXT_HEADER_VALUE = 48
 NO_NEXT_HEADER_VALUE = 59
 
 
@@ -25,6 +24,7 @@ class ILNPPacket(Serializable):
                  hop_limit: int = 32, version: int = 6, traffic_class: int = 0,
                  flow_label: int = 0, payload_length: int = 0,
                  payload: Union[bytearray, bytes] = None):
+
         # First octet
         self.version: int = version
         self.traffic_class: int = traffic_class
@@ -109,5 +109,3 @@ class AddressHandler:
         return next(x for x in self.my_locators)
 
 
-def is_control_packet(packet: ILNPPacket) -> bool:
-    return packet.next_header == DSR_NEXT_HEADER_VALUE
