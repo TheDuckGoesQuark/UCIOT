@@ -14,6 +14,8 @@ class Sensor:
 
     def start(self):
         logger.info("Starting")
+        while (True):
+            self.net_interface.send(bytes("abc", "utf-8"))
 
     def stop(self):
         self.net_interface.close()
