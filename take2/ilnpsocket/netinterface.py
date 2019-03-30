@@ -24,7 +24,7 @@ def get_interface_index() -> int:
                 raise err
 
 
-def create_socket(port: int, multicast_address: str) -> socket.socket:
+def create_socket(port: int, multicast_address: str, loopback: bool) -> socket.socket:
     """
     Creates a UDP datagram socket bound to listen for traffic from the given
     multicast address.
@@ -37,6 +37,7 @@ def create_socket(port: int, multicast_address: str) -> socket.socket:
 
     # Stops address from being reused
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 0)
+    sock.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_MULTICAST_LOOP, loopback)
 
     # Get interface to use
     interface_index = get_interface_index()
@@ -54,12 +55,16 @@ def create_socket(port: int, multicast_address: str) -> socket.socket:
     return sock
 
 
+def create_sock_dict(config: Configuration) -> Dict[Tuple[str, int], socket.socket]:
+    return {(addr, config.port): create_socket(config.port, addr, config.loopback) for
+            addr in
+            config.mcast_groups}
+
+
 class NetworkInterface(threading.Thread):
     def __init__(self, config: Configuration):
         super().__init__()
-        self.sockets: Dict[Tuple[str, int], socket.socket] = {(addr, config.port): create_socket(config.port, addr) for
-                                                              addr in
-                                                              config.mcast_groups}
+        self.sockets: Dict[Tuple[str, int], socket.socket] = create_sock_dict(config)
         self.buffer: Queue[bytes] = Queue()
         self.closed = False
         self.buffer_size = config.packet_buffer_size_bytes
