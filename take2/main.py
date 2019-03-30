@@ -2,8 +2,8 @@ import logging
 from argparse import ArgumentParser
 from typing import Dict
 
-from ilnpsocket.config import Configuration
-from ilnpsocket.sensor import Sensor
+from sensor.config import Configuration
+from sensor.sensor import Sensor
 
 CONFIG_FILE_PATH_OPT = "config_file_path"
 CONFIG_HEADER_OPT = "configuration_header"

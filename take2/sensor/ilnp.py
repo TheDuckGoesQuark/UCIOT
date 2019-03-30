@@ -1,7 +1,9 @@
 import struct
 from typing import Set, Union
 
-from ilnpsocket.serializable import Serializable
+from sensor.config import Configuration
+from sensor.netinterface import NetworkInterface
+from sensor.serializable import Serializable
 
 NO_NEXT_HEADER_VALUE = 59
 
@@ -24,7 +26,6 @@ class ILNPPacket(Serializable):
                  hop_limit: int = 32, version: int = 6, traffic_class: int = 0,
                  flow_label: int = 0, payload_length: int = 0,
                  payload: Union[bytearray, bytes] = None):
-
         # First octet
         self.version: int = version
         self.traffic_class: int = traffic_class
@@ -109,3 +110,30 @@ class AddressHandler:
         return next(x for x in self.my_locators)
 
 
+class ILNPSocket:
+    def __init__(self, config: Configuration):
+        self.config: Configuration = config
+        self.sends_left = config.max_sends
+        self.net_interface: NetworkInterface = NetworkInterface(config)
+
+        self.start_net_interface_daemon()
+
+    def start_net_interface_daemon(self):
+        self.net_interface.daemon = True
+        self.net_interface.start()
+
+    def close(self):
+        self.net_interface.close()
+        self.net_interface.join()
+
+    def send(self, data):
+        if self.sends_left <= 0:
+            self.close()
+            raise IOError("Battery low: socket closing")
+        elif self.isClosed():
+            raise IOError("Socket is closed.")
+        else:
+            self.net_interface.send(data)
+
+    def isClosed(self):
+        self.net_interface.is_alive()

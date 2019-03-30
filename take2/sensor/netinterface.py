@@ -6,7 +6,7 @@ import threading
 from multiprocessing import Queue
 from typing import Dict, Tuple
 
-from ilnpsocket.config import Configuration
+from sensor.config import Configuration
 
 logger = logging.getLogger(name=__name__)
 

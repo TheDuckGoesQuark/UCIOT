@@ -1,6 +1,6 @@
 import struct
 
-from ilnpsocket.serializable import Serializable
+from sensor.serializable import Serializable
 
 DATA_TYPE = 0
 CONTROL_TYPE = 1

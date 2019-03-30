@@ -2,6 +2,8 @@ import os
 from configparser import ConfigParser
 from typing import List
 
+from sensor.ilnp import ILNPAddress
+
 LINK_LOCAL_MULTICAST = "FF02"
 
 
@@ -37,6 +39,10 @@ class Configuration:
         # ILNP Conf
         self.my_id: int = fields.getint('my_id')
         self.my_locator: int = fields.getint('my_locator')
+
+        # Experiment Conf
+        self.max_sends = fields.getint('max_packet_sends')
+        self.sink_addr = ILNPAddress(fields.getint('sink_loc'), fields.getint('sink_id'))
 
     def __str__(self) -> str:
         return str(vars(self))

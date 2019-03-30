@@ -1,6 +1,6 @@
 import struct
 
-from ilnpsocket.serializable import Serializable
+from sensor.serializable import Serializable
 
 # Joining
 HELLO_GROUP_TYPE = 0
