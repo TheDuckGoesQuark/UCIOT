@@ -56,7 +56,7 @@ def create_socket(port: int, multicast_address: str) -> socket.socket:
 class NetworkInterface(threading.Thread):
     def __init__(self, config: Configuration):
         super().__init__()
-        self.sockets: Dict[Tuple[str, int], socket.socket] = {addr: create_socket(config.port, addr) for addr in
+        self.sockets: Dict[Tuple[str, int], socket.socket] = {(addr, config.port): create_socket(config.port, addr) for addr in
                                                               config.mcast_groups}
         self.buffer: Queue[bytes] = Queue()
         self.closed = False
@@ -73,6 +73,7 @@ class NetworkInterface(threading.Thread):
         :param bytes_to_send: bytes to be sent
         """
         for addr, mcast_socket in self.sockets.items():
+            logger.info("Sending to {}".format(addr))
             mcast_socket.sendto(bytes_to_send, addr)
 
     def receive(self, block=True, timeout=None):
