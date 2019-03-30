@@ -1,4 +1,5 @@
 import logging
+import time
 
 from ilnpsocket.config import Configuration
 from ilnpsocket.netinterface import NetworkInterface
@@ -16,6 +17,7 @@ class Sensor:
         logger.info("Starting")
         while (True):
             self.net_interface.send(bytes("abc", "utf-8"))
+            time.sleep(1)
 
     def stop(self):
         self.net_interface.close()
