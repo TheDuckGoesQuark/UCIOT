@@ -1,4 +1,5 @@
 import logging
+import select
 import socket
 import struct
 import threading
@@ -56,16 +57,28 @@ def create_socket(port: int, multicast_address: str) -> socket.socket:
 class NetworkInterface(threading.Thread):
     def __init__(self, config: Configuration):
         super().__init__()
-        self.sockets: Dict[Tuple[str, int], socket.socket] = {(addr, config.port): create_socket(config.port, addr) for addr in
+        self.sockets: Dict[Tuple[str, int], socket.socket] = {(addr, config.port): create_socket(config.port, addr) for
+                                                              addr in
                                                               config.mcast_groups}
         self.buffer: Queue[bytes] = Queue()
         self.closed = False
+        self.buffer_size = config.packet_buffer_size_bytes
 
     def run(self) -> None:
+        """Continuously checks for incoming packets on each listening socket and
+        adds new packets to the message queue"""
         logger.info("Running network interface listening thread")
         while not self.closed:
-            self.buffer.put(self.receive())
-            logger.info("Bytes received")
+            ready_socks, _, _ = select.select(self.sockets.values(), [], [])
+            for sock in ready_socks:
+                self.read_sock(sock)
+
+    def read_sock(self, sock: socket.socket):
+        buffer = bytearray(self.buffer_size)
+        n_bytes_read, addr_info = sock.recvfrom_into(buffer, len(buffer))
+
+        logging.debug("Packet parsed from socket: {}".format(buffer.decode("utf-8")))
+        self.buffer.put(buffer[:n_bytes_read])
 
     def send(self, bytes_to_send):
         """
