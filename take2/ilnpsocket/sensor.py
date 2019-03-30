@@ -13,8 +13,12 @@ class Sensor:
         self.net_interface: NetworkInterface = NetworkInterface(config)
         self.net_interface.start()
 
+    def joinOrStartGroup(self):
+        pass
+
     def start(self):
         logger.info("Starting")
+        self.joinOrStartGroup()
         while (True):
             self.net_interface.send(bytes("abc", "utf-8"))
             time.sleep(1)
