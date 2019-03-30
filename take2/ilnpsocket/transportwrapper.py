@@ -16,7 +16,10 @@ class TransportWrapper(Serializable):
         self.payload = payload
 
     def __bytes__(self):
-        return struct.pack(self.FORMAT, self.payload_type, self.payload_len) + bytes(self.payload)
+        if self.payload is not None:
+            return struct.pack(self.FORMAT, self.payload_type, self.payload_len) + bytes(self.payload)
+        else:
+            return struct.pack(self.FORMAT, self.payload_type, self.payload_len)
 
     def size_bytes(self):
         return self.SIZE + self.payload_len
@@ -24,4 +27,8 @@ class TransportWrapper(Serializable):
     @classmethod
     def from_bytes(cls, raw_bytes):
         payload_type, payload_len = struct.unpack(cls.FORMAT, raw_bytes[cls.SIZE:])
-        return TransportWrapper(payload_len, payload_type, raw_bytes[cls.SIZE:cls.SIZE + payload_len])
+
+        if payload_len != 0:
+            return TransportWrapper(payload_len, payload_type, raw_bytes[cls.SIZE:cls.SIZE + payload_len])
+        else:
+            return TransportWrapper(payload_len, payload_type, None)
