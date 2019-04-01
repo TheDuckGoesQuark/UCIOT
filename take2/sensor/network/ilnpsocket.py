@@ -24,7 +24,7 @@ class ILNPSocket:
 
     def close(self):
         """Close this thread and terminate the routing thread"""
-        self.router_thread.join()
+        self.router_thread.close()
 
     def send(self, data, dest_id):
         """

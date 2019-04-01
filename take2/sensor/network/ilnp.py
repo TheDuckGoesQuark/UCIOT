@@ -1,13 +1,14 @@
 import struct
-from typing import Union
+from typing import Union, Optional
 
 from sensor.network.serializable import Serializable
+from sensor.network.transportwrapper import TransportWrapper
 
 
 class ILNPAddress:
-    def __init__(self, loc: int, id: int):
-        self.loc: int = loc
-        self.id: int = id
+    def __init__(self, locator: Optional[int], identifier: int):
+        self.loc: int = locator
+        self.id: int = identifier
 
     def __str__(self):
         return "{}:{}".format(self.loc, self.id)
@@ -21,7 +22,7 @@ class ILNPPacket(Serializable):
     def __init__(self, src: ILNPAddress, dest: ILNPAddress, next_header: int = 0,
                  hop_limit: int = 32, version: int = 6, traffic_class: int = 0,
                  flow_label: int = 0, payload_length: int = 0,
-                 payload: Union[bytearray, bytes] = None):
+                 payload: Optional[Union[bytes, bytearray, TransportWrapper]] = None):
         # First octet
         self.version: int = version
         self.traffic_class: int = traffic_class
@@ -38,7 +39,7 @@ class ILNPPacket(Serializable):
         # Fourth Octet
         self.dest: ILNPAddress = dest
 
-        self.payload: bytearray = payload
+        self.payload: Optional[Union[bytes, bytearray, TransportWrapper]] = payload
 
     def __str__(self):
         barrier = ("-" * 21) + "\n"
@@ -80,8 +81,7 @@ class ILNPPacket(Serializable):
                                    self.src.loc, self.src.id,
                                    self.dest.loc, self.dest.id)
 
-        return header_bytes + self.payload
+        return header_bytes + bytes(self.payload)
 
     def size_bytes(self):
         return self.HEADER_SIZE + self.payload_length
-

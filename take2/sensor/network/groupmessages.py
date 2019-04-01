@@ -1,4 +1,6 @@
 import struct
+from abc import ABC
+from typing import Union
 
 from sensor.network.serializable import Serializable
 
@@ -26,7 +28,19 @@ SENSOR_DISCONNECT_TYPE = 9
 SENSOR_DISCONNECT_ACK_TYPE = 10
 
 
-class HelloGroup(Serializable):
+class GroupMessage(Serializable, ABC):
+    """
+    Base class for all group messages.
+
+    First byte signifies group message type and so can be used for further parsing
+    """
+
+    @classmethod
+    def parse_type(cls, message_bytes: Union[bytearray, bytes]) -> int:
+        return message_bytes[0]
+
+
+class HelloGroup(GroupMessage):
     """
     Sent by node on startup to either join group or determine if it should start its own group.
 
@@ -46,7 +60,7 @@ class HelloGroup(Serializable):
         return HelloGroup()
 
 
-class HelloGroupAck(Serializable):
+class HelloGroupAck(GroupMessage):
     """
     Sent by neighbours of new node after HelloGroup for it to determine which group to join based on lambda values.
 
@@ -69,7 +83,7 @@ class HelloGroupAck(Serializable):
         return HelloGroupAck(struct.unpack(cls.FORMAT, raw_bytes)[1])
 
 
-class OKGroup(Serializable):
+class OKGroup(GroupMessage):
     """
     Confirmation message sent by node to tell neighbours which group it joined
 
@@ -89,7 +103,7 @@ class OKGroup(Serializable):
         return OKGroup()
 
 
-class OKGroupAck(Serializable):
+class OKGroupAck(GroupMessage):
     """
     Confirmation message sent to newly joined node informing it who is the current central node.
     """
@@ -110,7 +124,7 @@ class OKGroupAck(Serializable):
         return OKGroupAck(struct.unpack(cls.FORMAT, raw_bytes)[1])
 
 
-class KeepAlive(Serializable):
+class KeepAlive(GroupMessage):
     """
     Periodic message informing neighbours that this node is still live
     """
@@ -128,7 +142,7 @@ class KeepAlive(Serializable):
         return KeepAlive()
 
 
-class ChangeCentral(Serializable):
+class ChangeCentral(GroupMessage):
     """
     Sent by central node to inform all other nodes who the new central node is.
     """
@@ -149,7 +163,7 @@ class ChangeCentral(Serializable):
         return ChangeCentral(struct.unpack(cls.FORMAT, raw_bytes)[1])
 
 
-class ChangeCentralAck(Serializable):
+class ChangeCentralAck(GroupMessage):
     """
     Acknowledgement of new central node change.
     """
@@ -167,7 +181,7 @@ class ChangeCentralAck(Serializable):
         return ChangeCentralAck()
 
 
-class SensorDisconnect(Serializable):
+class SensorDisconnect(GroupMessage):
     """
     Sent by node about to leave network, or by neighbours of node that hasn't sent keepalive in a while
 
@@ -187,7 +201,7 @@ class SensorDisconnect(Serializable):
         return SensorDisconnect()
 
 
-class SensorDisconnectAck(Serializable):
+class SensorDisconnectAck(GroupMessage):
     """
     Acknowledgement of a sensor disconnect sent to node that is disconnecting in case it has further processing to do
     """
