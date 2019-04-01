@@ -1,4 +1,5 @@
 import logging
+from time import sleep
 
 from sensor.battery import Battery
 from sensor.config import Configuration
@@ -23,6 +24,7 @@ class Sensor:
         logger.info("Starting")
 
         while self.running and not self.socket.is_closed():
+            sleep(2)
             try:
                 reading = self.take_reading()
                 self.socket.send(bytes(reading), self.sink_id)

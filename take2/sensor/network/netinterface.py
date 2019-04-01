@@ -103,8 +103,8 @@ class NetworkInterface:
         """
         buffer = bytearray(self.buffer_size)
 
-        logger.info("Waiting for data to arrive")
-        ready, _, _ = select.select([self.sock.recvfrom_into(buffer, len(buffer))], [], [], timeout)
+        logger.info("Waiting for data to arrive. Timeout: {}".format(timeout))
+        ready, _, _ = select.select([self.sock], [], [], timeout)
 
         if len(ready) == 0:
             return None

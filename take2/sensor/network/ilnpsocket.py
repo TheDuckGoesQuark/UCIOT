@@ -18,13 +18,13 @@ class ILNPSocket:
         :param battery: the sensors battery
         """
         self.battery = battery
-        self.router_thread = Router(config)
+        self.router_thread = Router(config, self.battery)
         self.router_thread.daemon = True
         self.router_thread.start()
 
     def close(self):
         """Close this thread and terminate the routing thread"""
-        self.router_thread.close()
+        self.router_thread.join()
 
     def send(self, data, dest_id):
         """
