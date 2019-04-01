@@ -63,6 +63,7 @@ class NetworkInterface:
         Sends the supplied bytes to only the specified node id
         :param bytes_to_send: bytes to be sent
         :param next_hop_id: id of node to be sent to
+        :raises KeyError if next hop id is not known on this link
         """
         ip_next_hop = self.id_to_ipv6[next_hop_id]
 

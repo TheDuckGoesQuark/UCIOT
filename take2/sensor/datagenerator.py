@@ -1,7 +1,7 @@
 import random
 import struct
 
-from sensor.serializable import Serializable
+from sensor.network.serializable import Serializable
 
 
 class MockDataGenerator:

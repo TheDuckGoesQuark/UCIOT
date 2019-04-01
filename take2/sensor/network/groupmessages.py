@@ -1,6 +1,6 @@
 import struct
 
-from sensor.serializable import Serializable
+from sensor.network.serializable import Serializable
 
 # Joining
 HELLO_GROUP_TYPE = 0

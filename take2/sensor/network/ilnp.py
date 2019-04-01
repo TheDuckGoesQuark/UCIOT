@@ -1,7 +1,7 @@
 import struct
 from typing import Union
 
-from sensor.serializable import Serializable
+from sensor.network.serializable import Serializable
 
 
 class ILNPAddress:

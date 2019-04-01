@@ -1,6 +1,6 @@
 import struct
 
-from sensor.serializable import Serializable
+from sensor.network.serializable import Serializable
 
 DATA_TYPE = 0
 CONTROL_TYPE = 1

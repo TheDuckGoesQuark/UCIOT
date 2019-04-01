@@ -3,7 +3,7 @@ import logging
 from sensor.battery import Battery
 from sensor.config import Configuration
 from sensor.datagenerator import MockDataGenerator
-from sensor.ilnpsocket import ILNPSocket
+from sensor.network.ilnpsocket import ILNPSocket
 
 logger = logging.getLogger(name=__name__)
 
