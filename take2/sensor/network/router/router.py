@@ -6,9 +6,11 @@ from typing import Tuple, List
 
 from sensor.battery import Battery
 from sensor.config import Configuration
-from sensor.network.groupmessages import GroupMessage, HELLO_GROUP_TYPE, HELLO_GROUP_ACK_TYPE
+from sensor.network.groupmessages import GroupMessage, HELLO_GROUP_TYPE, HELLO_GROUP_ACK_TYPE, HelloGroup
 from sensor.network.ilnp import ILNPPacket, ILNPAddress
 from sensor.network.netinterface import NetworkInterface
+from sensor.network.router.control import RouterControlPlane
+from sensor.network.router.data import RouterDataPlane
 from sensor.network.transportwrapper import build_data_wrapper, TransportWrapper
 
 logger = logging.getLogger(__name__)
@@ -75,31 +77,6 @@ class IncomingMessageParserThread(threading.Thread):
             else:
                 logger.info("Received data packet from {} ({})".format(packet.src.id, ipv6_addr))
                 self.data_packet_queue.put(packet)
-
-
-class RouterControlPlane:
-    def __init__(self, net_interface: NetworkInterface, control_packet_queue: Queue):
-        self.net_interface = net_interface
-        self.control_packet_queue = control_packet_queue
-
-    def initialize_locator(self) -> int:
-        """
-        Broadcast node arrival and try to join/start group
-        :returns this nodes locator
-        """
-        pass
-
-    def handle_packet(self, param):
-        pass
-
-
-class RouterDataPlane:
-    def __init__(self, net_interface: NetworkInterface, data_packet_queue: Queue):
-        self.net_interface = net_interface
-        self.data_packet_queue = data_packet_queue
-
-    def handle_packet(self, param):
-        pass
 
 
 class Router(threading.Thread):
