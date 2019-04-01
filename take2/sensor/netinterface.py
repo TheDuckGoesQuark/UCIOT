@@ -2,10 +2,9 @@ import logging
 import select
 import socket
 import struct
-from typing import Dict, Tuple, List
+from typing import Dict, Tuple, List, Optional
 
 from sensor.config import Configuration
-from sensor.router import Router
 
 logger = logging.getLogger(name=__name__)
 
@@ -55,22 +54,21 @@ class NetworkInterface:
         self.id_to_ipv6: Dict[int:str] = {}
         self.ipv6_groups = config.mcast_groups
         self.port = config.port
-        self.socket = create_mcast_socket(config.port, self.ipv6_groups, config.loopback)
+        self.sock = create_mcast_socket(config.port, self.ipv6_groups, config.loopback)
         self.buffer_size: int = config.packet_buffer_size_bytes
-        self.router: Router = Router()
+        self.closed = False
 
-    def send(self, bytes_to_send: bytes, dest_id: int):
+    def send(self, bytes_to_send: bytes, next_hop_id: int):
         """
         Sends the supplied bytes to only the specified node id
         :param bytes_to_send: bytes to be sent
-        :param dest_id: id of node to be sent to
+        :param next_hop_id: id of node to be sent to
         """
-        next_hop = self.router.get_next_hop(dest_id)
-        ip_next_hop = self.id_to_ipv6[next_hop]
+        ip_next_hop = self.id_to_ipv6[next_hop_id]
 
-        logger.info("Sending to {} ({})".format(next_hop, ip_next_hop))
+        logger.info("Sending to {} ({})".format(next_hop_id, ip_next_hop))
 
-        self.socket.sendto(bytes_to_send, ip_next_hop)
+        self.sock.sendto(bytes_to_send, (ip_next_hop, self.port))
 
     def broadcast(self, bytes_to_send: bytes):
         """
@@ -80,27 +78,51 @@ class NetworkInterface:
         logger.info("Broadcasting message")
         for addr in self.ipv6_groups:
             logger.info("Sending to {}".format(addr))
-            self.socket.sendto(bytes_to_send, (addr, self.port))
+            self.sock.sendto(bytes_to_send, (addr, self.port))
 
         logger.info("Finished broadcasting message")
 
-    def receive(self, timeout=None) -> Tuple[bytearray, str]:
+    def add_id_ipv6_mapping(self, identifier: int, ipv6: str):
+        """
+        Registers this given identifer to the given ipv6 address.
+        Emulates neighbour discovery and layer 2 addresses
+        :param identifier: identifier of node
+        :param ipv6: ipv6 address of node
+        """
+        self.id_to_ipv6[identifier] = ipv6
+
+    def receive(self, timeout=None) -> Optional[Tuple[bytearray, str]]:
+        """
+        Receive bytes from the interface. Blocks until available unless timeout is set.
+
+        If timeout is set and no data is available within the timeout, then None is returned
+        :param timeout: n seconds to block.
+        :return: received bytes and origin ipv6 address as two element tuple
+        :raises TimeoutError
+        """
         buffer = bytearray(self.buffer_size)
 
-        n_bytes_read, addr_info = sock.recvfrom_into(buffer, len(buffer))
+        logger.info("Waiting for data to arrive")
+        ready, _, _ = select.select([self.sock.recvfrom_into(buffer, len(buffer))], [], [], timeout)
+
+        if len(ready) == 0:
+            return None
+
+        n_bytes_read, addr_info = self.sock.recvfrom_into(buffer, len(buffer))
         src_ipv6_addr = addr_info[0]
+        logger.info("Data arrived from {}".format(src_ipv6_addr))
 
         return buffer[:n_bytes_read], src_ipv6_addr
 
     def close(self):
-        """Close all sockets"""
-        for addr, mcast_socket in self.sockets.items():
-            logger.info("Closing network interface")
-            mcast_socket.close()
+        """Closes underlying socket"""
+        logger.info("Closing network interface")
+        self.sock.close()
 
         logger.info("Finish closing underlying sockets")
         self.closed = True
 
-# recv_from returns ip address of origin node, treat that like MAC address
+    def is_closed(self) -> bool:
+        """Checks if the underlyin sockets are closed"""
+        return self.closed
 
-# Receiving packet maps src IP address to identifier, allowing directed sending (like MAC address in 802.11).
