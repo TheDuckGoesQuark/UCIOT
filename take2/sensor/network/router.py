@@ -1,7 +1,8 @@
 import logging
+import select
 import threading
 from multiprocessing import Queue
-from typing import Tuple, Optional
+from typing import Tuple, List
 
 from sensor.battery import Battery
 from sensor.config import Configuration
@@ -11,6 +12,8 @@ from sensor.network.netinterface import NetworkInterface
 from sensor.network.transportwrapper import build_data_wrapper, TransportWrapper
 
 logger = logging.getLogger(__name__)
+
+SECONDS_BETWEEN_SHUTDOWN_CHECKS = 3
 
 
 def parse_packet(data) -> ILNPPacket:
@@ -30,12 +33,11 @@ class IncomingMessageParserThread(threading.Thread):
     Also provides ID <-> IPv6 address mapping as HelloGroup messages will only arrive from one hop neighbours
     """
 
-    SECONDS_BETWEEN_SHUTDOWN_CHECKS = 3
-
-    def __init__(self, net_interface: NetworkInterface, packet_queue: Queue):
+    def __init__(self, net_interface: NetworkInterface, control_packet_queue: Queue, data_packet_queue: Queue):
         super().__init__()
         self.net_interface: NetworkInterface = net_interface
-        self.packet_queue: Queue = packet_queue
+        self.control_packet_queue: Queue = control_packet_queue
+        self.data_packet_queue: Queue = data_packet_queue
         self.stopped: bool = False
 
     def join(self, timeout=None) -> None:
@@ -43,7 +45,6 @@ class IncomingMessageParserThread(threading.Thread):
         self.stopped = True
         super().join(timeout)
         logger.info("Finished terminating network interface polling thread")
-
 
     def add_link_knowledge(self, packet: ILNPPacket, ipv6_addr: str):
         """If packet is one-hop type, it can provide a mapping for sending directly to neighbour links"""
@@ -56,10 +57,10 @@ class IncomingMessageParserThread(threading.Thread):
     def run(self):
         while not self.stopped:
             logger.info("Checking for packets from interface")
-            received = self.net_interface.receive(self.SECONDS_BETWEEN_SHUTDOWN_CHECKS)
+            received = self.net_interface.receive(SECONDS_BETWEEN_SHUTDOWN_CHECKS)
 
             if received is None:
-                logger.info("No packets arrived in the last {} seconds".format(self.SECONDS_BETWEEN_SHUTDOWN_CHECKS))
+                logger.info("No packets arrived in the last {} seconds".format(SECONDS_BETWEEN_SHUTDOWN_CHECKS))
                 continue
 
             data = received[0]
@@ -70,10 +71,35 @@ class IncomingMessageParserThread(threading.Thread):
             if packet.payload.is_control_packet():
                 logger.info("Received control packet from {} ({})".format(packet.src.id, ipv6_addr))
                 self.add_link_knowledge(packet, ipv6_addr)
+                self.control_packet_queue.put(packet)
             else:
                 logger.info("Received data packet from {} ({})".format(packet.src.id, ipv6_addr))
+                self.data_packet_queue.put(packet)
 
-            self.packet_queue.put(packet)
+
+class RouterControlPlane:
+    def __init__(self, net_interface: NetworkInterface, control_packet_queue: Queue):
+        self.net_interface = net_interface
+        self.control_packet_queue = control_packet_queue
+
+    def initialize_locator(self) -> int:
+        """
+        Broadcast node arrival and try to join/start group
+        :returns this nodes locator
+        """
+        pass
+
+    def handle_packet(self, param):
+        pass
+
+
+class RouterDataPlane:
+    def __init__(self, net_interface: NetworkInterface, data_packet_queue: Queue):
+        self.net_interface = net_interface
+        self.data_packet_queue = data_packet_queue
+
+    def handle_packet(self, param):
+        pass
 
 
 class Router(threading.Thread):
@@ -83,25 +109,32 @@ class Router(threading.Thread):
 
     def __init__(self, config: Configuration, battery: Battery):
         super().__init__()
-        self.my_id = config.my_id
-        self.my_locator = config.my_locator
-        self.battery = battery
+        self.my_address = ILNPAddress(config.my_locator, config.my_id)
 
         # Data for this ID, with the ID that sent it
         self.arrived_data_queue: Queue[Tuple[bytes, int]] = Queue()
-
         # Interface for sending data
-        self.net_interface: NetworkInterface = NetworkInterface(config)
+        self.net_interface: NetworkInterface = NetworkInterface(config, battery)
         # Data received from net interface needing processed
-        self.awaiting_processing_queue: Queue[ILNPPacket] = Queue()
+        self.control_packet_queue: Queue[ILNPPacket] = Queue()
+        self.data_packet_queue: Queue[ILNPPacket] = Queue()
+        # Control packet handler
+        self.control_plane = RouterControlPlane(self.net_interface, self.control_packet_queue)
+        # Data packet handler
+        self.data_plane = RouterDataPlane(self.net_interface, self.data_packet_queue)
         # Thread for continuous polling of network interface for packets
-        self.incoming_message_thread = IncomingMessageParserThread(self.net_interface, self.awaiting_processing_queue)
+        self.incoming_message_thread = IncomingMessageParserThread(
+            self.net_interface, self.control_packet_queue, self.data_packet_queue)
+
         self.incoming_message_thread.daemon = True
         self.incoming_message_thread.start()
+
+        self.running = True
 
     def join(self, **kwargs):
         """Terminates this thread, and cleans up any resources or threads it has open"""
         logger.info("Terminating routing thread")
+        self.running = False
         logger.info("Waiting on network interface to close")
         self.net_interface.close()
         logger.info("Waiting on incoming message thread to terminate")
@@ -109,11 +142,6 @@ class Router(threading.Thread):
         logger.info("Joining router thread")
         super().join()
         logger.info("Finished terminating routing thread")
-
-    def get_next_hop(self, dest_id) -> int:
-        """Get the ID of the next hop in order to reach the node with the given destination ID"""
-        # TODO
-        return dest_id
 
     def send(self, data, dest_id):
         """
@@ -125,13 +153,40 @@ class Router(threading.Thread):
         logger.info("Wrapping data to be sent")
         t_wrap = build_data_wrapper(data)
 
-        src_addr = ILNPAddress(self.my_locator, self.my_id)
+        # Locator can't be assigned immediately, since it could change before packet gets processed
+        src_addr = ILNPAddress(None, self.my_address.id)
         dest_addr = ILNPAddress(None, dest_id)
         packet = ILNPPacket(src_addr, dest_addr, payload=t_wrap, payload_length=t_wrap.size_bytes())
 
         logger.info("Adding data packet to queue for processing")
-        self.awaiting_processing_queue.put(packet)
+        self.data_packet_queue.put(packet)
 
     def receive_from(self, blocking=True, timeout=None) -> Tuple[bytes, int]:
         logger.info("Polling arrived data queue...")
         return self.arrived_data_queue.get(blocking, timeout)
+
+    def run(self) -> None:
+        """Initializes locator then begins regular processing"""
+        logger.info("Router thread starting")
+        # Initialize locator
+        self.my_address.loc = self.control_plane.initialize_locator()
+
+        # Begin processing
+        logger.info("Beginning regular processing")
+        while self.running:
+            logger.info("Polling incoming packet queues")
+            queues_available, _, _ = select.select([self.data_packet_queue, self.control_packet_queue], [], [],
+                                                   SECONDS_BETWEEN_SHUTDOWN_CHECKS)
+            if len(queues_available > 0):
+                logger.info("Data has arrived on one of the queues")
+                self.handle_available_packets(queues_available)
+            else:
+                logger.info("No packets have arrived in the past {} seconds".format(SECONDS_BETWEEN_SHUTDOWN_CHECKS))
+
+    def handle_available_packets(self, queues_available: List[Queue]):
+        """Passes the first packet from each of the queues to the relevant handler"""
+        for queue in queues_available:
+            if queue is self.control_packet_queue:
+                self.control_plane.handle_packet(queue.get())
+            else:
+                self.data_plane.handle_packet(queue.get())

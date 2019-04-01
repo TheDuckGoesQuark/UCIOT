@@ -41,6 +41,7 @@ class Configuration:
         # Experiment Conf
         self.max_sends = fields.getint('max_packet_sends')
         self.sink_id = fields.getint('sink_id')
+        self.interval = fields.getint('interval')
 
     def __str__(self) -> str:
         return str(vars(self))

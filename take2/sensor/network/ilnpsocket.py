@@ -49,4 +49,4 @@ class ILNPSocket:
         return self.router_thread.receive_from(timeout)
 
     def is_closed(self) -> bool:
-        return self.router_thread.is_alive()
+        return not self.router_thread.running

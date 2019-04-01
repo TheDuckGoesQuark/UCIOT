@@ -12,6 +12,7 @@ logger = logging.getLogger(name=__name__)
 class Sensor:
     def __init__(self, config: Configuration):
         self.socket = ILNPSocket(config, Battery(config.max_sends))
+        self.interval = config.interval
         self.sink_id = config.sink_id
         self.mock_gen = MockDataGenerator(config.my_id)
         self.running = True
@@ -24,7 +25,7 @@ class Sensor:
         logger.info("Starting")
 
         while self.running and not self.socket.is_closed():
-            sleep(2)
+            sleep(self.interval)
             try:
                 reading = self.take_reading()
                 self.socket.send(bytes(reading), self.sink_id)

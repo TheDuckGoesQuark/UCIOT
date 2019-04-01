@@ -4,6 +4,7 @@ import socket
 import struct
 from typing import Dict, Tuple, List, Optional
 
+from sensor.battery import Battery
 from sensor.config import Configuration
 
 logger = logging.getLogger(name=__name__)
@@ -48,10 +49,13 @@ def create_mcast_socket(port: int, multicast_addresses: List[str], loopback: boo
     return sock
 
 
+
+
 class NetworkInterface:
-    def __init__(self, config: Configuration):
+    def __init__(self, config: Configuration, battery: Battery):
         super().__init__()
         self.id_to_ipv6: Dict[int:str] = {}
+        self.battery = battery
         self.ipv6_groups = config.mcast_groups
         self.port = config.port
         self.sock = create_mcast_socket(config.port, self.ipv6_groups, config.loopback)
@@ -65,22 +69,30 @@ class NetworkInterface:
         :param next_hop_id: id of node to be sent to
         :raises KeyError if next hop id is not known on this link
         """
+        if self.battery.remaining() <= 0:
+            raise IOError("Not enough battery to send packets")
+
         ip_next_hop = self.id_to_ipv6[next_hop_id]
 
         logger.info("Sending to {} ({})".format(next_hop_id, ip_next_hop))
 
         self.sock.sendto(bytes_to_send, (ip_next_hop, self.port))
+        self.battery.decrement()
 
     def broadcast(self, bytes_to_send: bytes):
         """
         Sends the supplied bytes to all multicast groups this node belong to
         :param bytes_to_send: bytes to be sent
         """
+        if self.battery.remaining() <= 0:
+            raise IOError("Not enough battery to send packets")
+
         logger.info("Broadcasting message")
         for addr in self.ipv6_groups:
             logger.info("Sending to {}".format(addr))
             self.sock.sendto(bytes_to_send, (addr, self.port))
 
+        self.battery.decrement()
         logger.info("Finished broadcasting message")
 
     def add_id_ipv6_mapping(self, identifier: int, ipv6: str):
@@ -126,4 +138,3 @@ class NetworkInterface:
     def is_closed(self) -> bool:
         """Checks if the underlyin sockets are closed"""
         return self.closed
-
