@@ -1,11 +1,7 @@
 import struct
-from typing import Set, Union
+from typing import Union
 
-from sensor.config import Configuration
-from sensor.netinterface import NetworkInterface
 from sensor.serializable import Serializable
-
-NO_NEXT_HEADER_VALUE = 59
 
 
 class ILNPAddress:
@@ -81,59 +77,11 @@ class ILNPPacket(Serializable):
         header_bytes = struct.pack(self.ILNPv6_HEADER_FORMAT,
                                    first_octet,
                                    self.payload_length, self.next_header, self.hop_limit,
-                                   self.src.loc, self.src.id, self.dest.loc, self.dest.id)
+                                   self.src.loc, self.src.id,
+                                   self.dest.loc, self.dest.id)
 
         return header_bytes + self.payload
 
     def size_bytes(self):
         return self.HEADER_SIZE + self.payload_length
 
-
-class AddressHandler:
-    def __init__(self, my_id: int, my_locators: Set[int]):
-        self.my_id = my_id
-        self.my_locators = my_locators
-
-    def is_my_address(self, address: ILNPAddress) -> bool:
-        return (address.loc in self.my_locators) and address.id == self.my_id
-
-    def is_from_me(self, packet: ILNPPacket) -> bool:
-        return self.is_my_address(packet.src)
-
-    def is_for_me(self, packet: ILNPPacket) -> bool:
-        return self.is_my_address(packet.dest)
-
-    def is_my_locator(self, locator: int) -> bool:
-        return locator in self.my_locators
-
-    def get_random_src_locator(self) -> int:
-        return next(x for x in self.my_locators)
-
-
-class ILNPSocket:
-    def __init__(self, config: Configuration):
-        self.config: Configuration = config
-        self.sends_left = config.max_sends
-        self.net_interface: NetworkInterface = NetworkInterface(config)
-
-        self.start_net_interface_daemon()
-
-    def start_net_interface_daemon(self):
-        self.net_interface.daemon = True
-        self.net_interface.start()
-
-    def close(self):
-        self.net_interface.close()
-        self.net_interface.join()
-
-    def send(self, data):
-        if self.sends_left <= 0:
-            self.close()
-            raise IOError("Battery low: socket closing")
-        elif self.isClosed():
-            raise IOError("Socket is closed.")
-        else:
-            self.net_interface.send(data)
-
-    def isClosed(self):
-        self.net_interface.is_alive()

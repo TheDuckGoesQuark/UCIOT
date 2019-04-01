@@ -1,16 +1,17 @@
 import logging
 
+from sensor.battery import Battery
 from sensor.config import Configuration
 from sensor.datagenerator import MockDataGenerator
-from sensor.ilnp import ILNPSocket
+from sensor.ilnpsocket import ILNPSocket
 
 logger = logging.getLogger(name=__name__)
 
 
 class Sensor:
     def __init__(self, config: Configuration):
-        self.socket = ILNPSocket(config)
-        self.sink_addr = config.sink_addr
+        self.socket = ILNPSocket(config, Battery(config.max_sends))
+        self.sink_id = config.sink_id
         self.mock_gen = MockDataGenerator(config.my_id)
         self.running = True
 
@@ -21,10 +22,10 @@ class Sensor:
     def start(self):
         logger.info("Starting")
 
-        while self.running and not self.socket.isClosed():
+        while self.running and not self.socket.is_closed():
             try:
                 reading = self.take_reading()
-                self.socket.send(bytes(reading))
+                self.socket.send(bytes(reading), self.sink_id)
             except IOError as e:
                 logger.warn("Terminating: " + e)
 

@@ -2,107 +2,105 @@ import logging
 import select
 import socket
 import struct
-import threading
-from multiprocessing import Queue
-from typing import Dict, Tuple
+from typing import Dict, Tuple, List
 
 from sensor.config import Configuration
+from sensor.router import Router
 
 logger = logging.getLogger(name=__name__)
 
 
-def get_interface_index() -> int:
-    known_names = ["enp4s0", "enp2s0"]
-    for idx, name in enumerate(known_names):
-        try:
-            index = socket.if_nametoindex(name)
-            logger.debug("socket %s chosen", name)
-            return index
-        except OSError as err:
-            # If no more left to try, die
-            if idx == (len(known_names) - 1):
-                raise err
+def add_group_to_socket(sock: socket.socket, group: str):
+    # Look up multicast group address in name server and find out IP version
+    addrinfo = socket.getaddrinfo(group, None)[0]
+    group_bin = socket.inet_pton(addrinfo[0], addrinfo[4][0])
+    mreq = group_bin + struct.pack('@I', 0)
+    sock.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_JOIN_GROUP, mreq)
 
 
-def create_socket(port: int, multicast_address: str, loopback: bool) -> socket.socket:
+def create_mcast_socket(port: int, multicast_addresses: List[str], loopback: bool) -> socket.socket:
     """
     Creates a UDP datagram socket bound to listen for traffic from the given
     multicast address.
     :param port: port number to bind to
-    :param multicast_address: multicast address to join
+    :param multicast_addresses:
+    :param loopback: if messages sent to the multicast group should be returned to this socket
     :return: configured UDP socket
     """
-    # Initialise socket for IPv6 datagrams
-    sock = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+    # Get multicast group address in name server
+    addrinfo = socket.getaddrinfo(multicast_addresses[0], None)[0]
 
-    # Stops address from being reused
-    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 0)
+    # Initialise socket for IPv6 datagrams
+    sock = socket.socket(addrinfo[0], socket.SOCK_DGRAM)
+
+    # Allow multiple instances of socket on machine
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+
+    # Sets loopback
     sock.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_MULTICAST_LOOP, loopback)
 
-    # Get interface to use
-    interface_index = get_interface_index()
+    # Bind to all interfaces on this port
+    sock.bind(('', port))
 
-    # Bind to the one interface on the given port
-    logger.debug("Binding listening socket to addr %s port %d, interface_idx %d", multicast_address, port,
-                 interface_index)
-    sock.bind((multicast_address, port, 0, interface_index))
-
-    # Construct message for joining multicast group
-    multicast_request = struct.pack("16s15s".encode('utf-8'), socket.inet_pton(socket.AF_INET6, multicast_address),
-                                    (chr(0) * 16).encode('utf-8'))
-    sock.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_JOIN_GROUP, multicast_request)
+    # Join groups
+    for group in multicast_addresses:
+        add_group_to_socket(sock, group)
 
     return sock
 
 
-def create_sock_dict(config: Configuration) -> Dict[Tuple[str, int], socket.socket]:
-    return {(addr, config.port): create_socket(config.port, addr, config.loopback) for
-            addr in
-            config.mcast_groups}
-
-
-class NetworkInterface(threading.Thread):
+class NetworkInterface:
     def __init__(self, config: Configuration):
         super().__init__()
-        self.sockets: Dict[Tuple[str, int], socket.socket] = create_sock_dict(config)
-        self.buffer: Queue[bytes] = Queue()
-        self.closed = False
-        self.buffer_size = config.packet_buffer_size_bytes
+        self.id_to_ipv6: Dict[int:str] = {}
+        self.ipv6_groups = config.mcast_groups
+        self.port = config.port
+        self.socket = create_mcast_socket(config.port, self.ipv6_groups, config.loopback)
+        self.buffer_size: int = config.packet_buffer_size_bytes
+        self.router: Router = Router()
 
-    def run(self) -> None:
-        """Continuously checks for incoming packets on each listening socket and
-        adds new packets to the message queue"""
-        logger.info("Running network interface listening thread")
-        while not self.closed:
-            ready_socks, _, _ = select.select(self.sockets.values(), [], [])
-            for sock in ready_socks:
-                self.read_sock(sock)
+    def send(self, bytes_to_send: bytes, dest_id: int):
+        """
+        Sends the supplied bytes to only the specified node id
+        :param bytes_to_send: bytes to be sent
+        :param dest_id: id of node to be sent to
+        """
+        next_hop = self.router.get_next_hop(dest_id)
+        ip_next_hop = self.id_to_ipv6[next_hop]
 
-    def read_sock(self, sock: socket.socket):
-        buffer = bytearray(self.buffer_size)
-        n_bytes_read, addr_info = sock.recvfrom_into(buffer, len(buffer))
+        logger.info("Sending to {} ({})".format(next_hop, ip_next_hop))
 
-        logging.debug("Packet parsed from socket: {}".format(buffer.decode("utf-8")))
-        self.buffer.put(buffer[:n_bytes_read])
+        self.socket.sendto(bytes_to_send, ip_next_hop)
 
-    def send(self, bytes_to_send):
+    def broadcast(self, bytes_to_send: bytes):
         """
         Sends the supplied bytes to all multicast groups this node belong to
         :param bytes_to_send: bytes to be sent
         """
-        for addr, mcast_socket in self.sockets.items():
+        logger.info("Broadcasting message")
+        for addr in self.ipv6_groups:
             logger.info("Sending to {}".format(addr))
-            mcast_socket.sendto(bytes_to_send, addr)
+            self.socket.sendto(bytes_to_send, (addr, self.port))
 
-    def receive(self, block=True, timeout=None):
-        """Poll for bytes arriving on any interface"""
-        return self.buffer.get(block, timeout)
+        logger.info("Finished broadcasting message")
+
+    def receive(self, timeout=None) -> Tuple[bytearray, str]:
+        buffer = bytearray(self.buffer_size)
+
+        n_bytes_read, addr_info = sock.recvfrom_into(buffer, len(buffer))
+        src_ipv6_addr = addr_info[0]
+
+        return buffer[:n_bytes_read], src_ipv6_addr
 
     def close(self):
         """Close all sockets"""
-        logger.info("Closing network interface")
         for addr, mcast_socket in self.sockets.items():
+            logger.info("Closing network interface")
             mcast_socket.close()
 
         logger.info("Finish closing underlying sockets")
         self.closed = True
+
+# recv_from returns ip address of origin node, treat that like MAC address
+
+# Receiving packet maps src IP address to identifier, allowing directed sending (like MAC address in 802.11).
