@@ -3,7 +3,7 @@ from typing import Tuple
 
 from sensor.battery import Battery
 from sensor.config import Configuration
-from sensor.network.router import Router
+from sensor.network.router.router import Router
 
 logger = logging.getLogger(__name__)
 

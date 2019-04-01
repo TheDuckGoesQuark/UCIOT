@@ -96,9 +96,9 @@ class Router(threading.Thread):
         self.control_packet_queue: Queue[ILNPPacket] = Queue()
         self.data_packet_queue: Queue[ILNPPacket] = Queue()
         # Control packet handler
-        self.control_plane = RouterControlPlane(self.net_interface, self.control_packet_queue)
+        self.control_plane = RouterControlPlane(self.net_interface, self.control_packet_queue, self.my_address)
         # Data packet handler
-        self.data_plane = RouterDataPlane(self.net_interface, self.data_packet_queue)
+        self.data_plane = RouterDataPlane(self.net_interface, self.data_packet_queue, self.arrived_data_queue)
         # Thread for continuous polling of network interface for packets
         self.incoming_message_thread = IncomingMessageParserThread(
             self.net_interface, self.control_packet_queue, self.data_packet_queue)
@@ -145,16 +145,15 @@ class Router(threading.Thread):
     def run(self) -> None:
         """Initializes locator then begins regular processing"""
         logger.info("Router thread starting")
-        # Initialize locator
-        self.my_address.loc = self.control_plane.initialize_locator()
+        self.control_plane.initialize_locator()
 
         # Begin processing
         logger.info("Beginning regular processing")
         while self.running:
             logger.info("Polling incoming packet queues")
-            queues_available, _, _ = select.select([self.data_packet_queue, self.control_packet_queue], [], [],
+            queues_available, _, _ = select.select([self.data_packet_queue._reader, self.control_packet_queue._reader], [], [],
                                                    SECONDS_BETWEEN_SHUTDOWN_CHECKS)
-            if len(queues_available > 0):
+            if len(queues_available) > 0:
                 logger.info("Data has arrived on one of the queues")
                 self.handle_available_packets(queues_available)
             else:
@@ -163,7 +162,7 @@ class Router(threading.Thread):
     def handle_available_packets(self, queues_available: List[Queue]):
         """Passes the first packet from each of the queues to the relevant handler"""
         for queue in queues_available:
-            if queue is self.control_packet_queue:
-                self.control_plane.handle_packet(queue.get())
+            if queue is self.control_packet_queue._reader:
+                self.control_plane.handle_packet(self.control_packet_queue.get())
             else:
-                self.data_plane.handle_packet(queue.get())
+                self.data_plane.handle_packet(self.data_packet_queue.get())
