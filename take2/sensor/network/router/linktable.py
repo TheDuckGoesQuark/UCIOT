@@ -1,4 +1,7 @@
-from typing import Dict
+import logging
+from typing import Dict, List
+
+logger = logging.getLogger(__name__)
 
 
 class LinkTableEntry:
@@ -10,8 +13,9 @@ class LinkTableEntry:
 
 class LinkTable:
     def __init__(self):
-        self.link_entries: Dict[int, LinkTableEntry] = []
+        self.link_entries: List[LinkTableEntry] = []
 
     def add_entry(self, dest_id, next_hop, cost):
-        self.link_entries[dest_id] = LinkTableEntry(dest_id, next_hop, cost)
+        logger.info("Adding ID:{}, NH:{}, CT:{} to table".format(dest_id, next_hop, cost))
+        self.link_entries.append(LinkTableEntry(dest_id, next_hop, cost))
 

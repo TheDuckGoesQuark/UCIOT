@@ -93,19 +93,19 @@ class OKGroup(GroupMessage):
     FORMAT = "!BxH"
     SIZE = struct.calcsize(FORMAT)
 
-    def __init__(self, lambda_val):
-        self.lambda_val = lambda_val
+    def __init__(self, cost):
+        self.cost = cost
 
     def __bytes__(self):
-        return struct.pack(self.FORMAT, OK_GROUP_TYPE, self.lambda_val)
+        return struct.pack(self.FORMAT, OK_GROUP_TYPE, self.cost)
 
     def size_bytes(self):
         return self.SIZE
 
     @classmethod
     def from_bytes(cls, raw_bytes):
-        type_val, lambda_val = struct.unpack(cls.FORMAT, raw_bytes)
-        return OKGroup(lambda_val)
+        type_val, cost = struct.unpack(cls.FORMAT, raw_bytes)
+        return OKGroup(cost)
 
 
 class Link(Serializable):
