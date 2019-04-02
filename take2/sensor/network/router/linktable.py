@@ -14,3 +14,4 @@ class LinkTable:
 
     def add_entry(self, dest_id, next_hop, cost):
         self.link_entries[dest_id] = LinkTableEntry(dest_id, next_hop, cost)
+

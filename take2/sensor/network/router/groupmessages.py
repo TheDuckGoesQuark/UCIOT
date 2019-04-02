@@ -2,8 +2,7 @@ import struct
 from abc import ABC
 from typing import Union
 
-from sensor.network.router.linktable import LinkTableEntry
-from sensor.network.serializable import Serializable
+from sensor.network.router.serializable import Serializable
 
 # Joining
 HELLO_GROUP_TYPE = 0
@@ -86,22 +85,27 @@ class HelloGroupAck(GroupMessage):
 
 class OKGroup(GroupMessage):
     """
-    Confirmation message sent by node to tell neighbours which group it joined
+    Confirmation message sent by node to tell neighbours which group it joined,
+    with it's calculated cost metric for the new neighbours to advertise
 
     Src Locator will be the joined group
     """
-    FORMAT = "!B3x"
+    FORMAT = "!BxH"
     SIZE = struct.calcsize(FORMAT)
 
+    def __init__(self, lambda_val):
+        self.lambda_val = lambda_val
+
     def __bytes__(self):
-        return struct.pack(self.FORMAT, OK_GROUP_TYPE)
+        return struct.pack(self.FORMAT, OK_GROUP_TYPE, self.lambda_val)
 
     def size_bytes(self):
         return self.SIZE
 
     @classmethod
     def from_bytes(cls, raw_bytes):
-        return OKGroup()
+        type_val, lambda_val = struct.unpack(cls.FORMAT, raw_bytes)
+        return OKGroup(lambda_val)
 
 
 class Link(Serializable):
@@ -153,7 +157,7 @@ class OKGroupAck(GroupMessage):
 
     @classmethod
     def from_bytes(cls, raw_bytes):
-        num_entries, central_node_id = struct.unpack(cls.HEADER_FORMAT, raw_bytes[:cls.SIZE])
+        type_val, num_entries, central_node_id = struct.unpack(cls.HEADER_FORMAT, raw_bytes[:cls.SIZE])
         entry_list = []
         # Use memory view due to frequent splitting
         bytes_view = memoryview(raw_bytes)
@@ -243,7 +247,8 @@ class SensorDisconnect(GroupMessage):
 
 class SensorDisconnectAck(GroupMessage):
     """
-    Acknowledgement of a sensor disconnect sent to node that is disconnecting in case it has further processing to do
+    Acknowledgement of a sensor disconnect sent to node that is
+    disconnecting in case it has further processing to do once it knows the group is aware of its leaving
     """
     FORMAT = "!B3x"
     SIZE = struct.calcsize(FORMAT)

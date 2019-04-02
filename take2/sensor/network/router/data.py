@@ -1,6 +1,6 @@
 from multiprocessing import Queue
 
-from sensor.network.netinterface import NetworkInterface
+from sensor.network.router.netinterface import NetworkInterface
 
 
 class RouterDataPlane:

@@ -1,8 +1,8 @@
 import struct
 from typing import Optional, Union
 
-from sensor.network.groupmessages import GroupMessage
-from sensor.network.serializable import Serializable
+from sensor.network.router.groupmessages import GroupMessage
+from sensor.network.router.serializable import Serializable
 
 DATA_TYPE = 0
 CONTROL_TYPE = 1

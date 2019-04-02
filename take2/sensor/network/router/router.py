@@ -6,12 +6,12 @@ from typing import Tuple, List
 
 from sensor.battery import Battery
 from sensor.config import Configuration
-from sensor.network.groupmessages import GroupMessage, HELLO_GROUP_TYPE, HELLO_GROUP_ACK_TYPE, HelloGroup
-from sensor.network.ilnp import ILNPPacket, ILNPAddress
-from sensor.network.netinterface import NetworkInterface
+from sensor.network.router.groupmessages import GroupMessage, HELLO_GROUP_TYPE, HELLO_GROUP_ACK_TYPE
+from sensor.network.router.ilnp import ILNPPacket, ILNPAddress
+from sensor.network.router.netinterface import NetworkInterface
 from sensor.network.router.control import RouterControlPlane
 from sensor.network.router.data import RouterDataPlane
-from sensor.network.transportwrapper import build_data_wrapper, TransportWrapper
+from sensor.network.router.transportwrapper import build_data_wrapper, TransportWrapper
 
 logger = logging.getLogger(__name__)
 
@@ -151,7 +151,9 @@ class Router(threading.Thread):
         logger.info("Beginning regular processing")
         while self.running:
             logger.info("Polling incoming packet queues")
-            queues_available, _, _ = select.select([self.data_packet_queue._reader, self.control_packet_queue._reader], [], [],
+            # NOTE select on queues doesn't work in windows due to the file handles used
+            queues_available, _, _ = select.select([self.data_packet_queue._reader, self.control_packet_queue._reader],
+                                                   [], [],
                                                    SECONDS_BETWEEN_SHUTDOWN_CHECKS)
             if len(queues_available) > 0:
                 logger.info("Data has arrived on one of the queues")

@@ -1,8 +1,8 @@
 import struct
 from typing import Union, Optional
 
-from sensor.network.serializable import Serializable
-from sensor.network.transportwrapper import TransportWrapper
+from sensor.network.router.serializable import Serializable
+from sensor.network.router.transportwrapper import TransportWrapper
 
 
 class ILNPAddress:
