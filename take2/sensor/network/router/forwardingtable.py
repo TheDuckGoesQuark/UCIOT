@@ -1,4 +1,5 @@
 import logging
+from functools import reduce
 from typing import Dict, List, Tuple
 
 from sensor.network.router.groupmessages import Link
@@ -90,6 +91,7 @@ class LinkGraph:
 
     def __init__(self):
         self.vertices: Dict[int, Vertex] = {}
+        self.costs = {}
 
     def __iter__(self):
         return iter(self.vertices.values())
@@ -136,6 +138,7 @@ class LinkGraph:
         """Recalculate best next hop for each node in local network based on current values"""
         logger.info("Starting forwarding table update")
         costs, next_hops = floyd_warshall(self)
+        self.costs = costs
         new_internal_table = {}
         start = self.get_vertex(root_id)
         for end in self:
@@ -148,6 +151,25 @@ class LinkGraph:
         logger.info(str(forwarding_table))
 
         forwarding_table.next_hop_internal = new_internal_table
+
+    def get_center(self) -> int:
+        logger.info("Calculating the center of the group")
+        vertex_to_max_distance = {}
+        for vertex in self:
+            vertex_to_max_distance[vertex] = max([cost for cost in self.costs[vertex].values()])
+
+        center = None
+        min_max_cost = None
+        for vertex, max_cost in vertex_to_max_distance.values():
+            if center is None:
+                center = vertex
+                min_max_cost = max_cost
+            elif max_cost < min_max_cost:
+                center = vertex
+                min_max_cost = max_cost
+
+        logger.info("Elected {} as center".format(center.id))
+        return center.id
 
     def add_edges(self, entry_list: List[Link]):
         logger.info("Adding list of links to graph")

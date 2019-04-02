@@ -39,13 +39,14 @@ def max_average(loc_avg_a: Tuple[int, int], loc_avg_b: Tuple[int, int]) -> Tuple
     else:
         return loc_avg_b
 
+
 def calc_neighbour_link_cost(neighbour_lambda, delay):
     return int(delay * K_THREE_CONSTANT / neighbour_lambda)
 
 
 class RouterControlPlane(threading.Thread):
     def __init__(self, net_interface: NetworkInterface, control_packet_queue: Queue, my_address: ILNPAddress,
-                 battery: Battery):
+                 battery: Battery, forwarding_table: ForwardingTable):
         super().__init__()
         self.central_node_id = my_address.id
         self.battery = battery
@@ -60,7 +61,7 @@ class RouterControlPlane(threading.Thread):
         # Link table manages network knowledge
         self.link_graph = LinkGraph()
         # Forwarding table provides quick look-up for forwarding packets to internal and external nodes
-        self.forwarding_table = ForwardingTable()
+        self.forwarding_table = forwarding_table
 
     def join(self, timeout=None) -> None:
         self.running = False
@@ -94,7 +95,11 @@ class RouterControlPlane(threading.Thread):
         sensor_disconnect = SensorDisconnect()
         t_wrap = build_control_wrapper(bytes(sensor_disconnect))
 
+        center_changed = False
         for expired_node in expired:
+            if expired_node == self.central_node_id:
+                center_changed = True
+
             logger.info("Announcing that {} has expired".format(expired_node))
             self.link_graph.remove_vertex(expired_node)
             packet = ILNPPacket(ILNPAddress(self.my_address.loc, expired_node), ILNPAddress(self.my_address.loc, 0),
@@ -102,6 +107,9 @@ class RouterControlPlane(threading.Thread):
             self.net_interface.broadcast(bytes(packet))
 
         self.link_graph.update_forwarding_table(self.forwarding_table, self.my_address.id)
+
+        if center_changed:
+            self.__recalculate_centre()
 
     def calc_my_lambda(self):
         return int((((MAX_CONNECTIONS - self.n_adjacent_nodes) * LOAD_PERCENTAGE) / MAX_CONNECTIONS) \
@@ -252,6 +260,9 @@ class RouterControlPlane(threading.Thread):
                                          payload_length=t_wrap.size_bytes(), payload=bytes(t_wrap))
         self.net_interface.send(bytes(ok_group_ack_packet), packet.src.id)
 
+        if self.central_node_id == self.my_address.id:
+            self.__recalculate_centre()
+
     def __ok_group_ack_handler(self, packet: ILNPPacket):
         """Update link state database based on reply"""
         if packet.src.loc != self.my_address.loc:
@@ -280,6 +291,24 @@ class RouterControlPlane(threading.Thread):
         self.link_graph.update_forwarding_table(self.forwarding_table, self.my_address.id)
         self.__reverse_path_forward(packet)
 
+        if self.central_node_id == self.my_address.id:
+            self.__recalculate_centre()
+
+    def __recalculate_centre(self):
+        """Recalculates who should be the center node, and notifies the group if its found to have changed"""
+        center_id = self.link_graph.get_center()
+        if center_id is not self.central_node_id:
+            self.__trigger_center_change(center_id)
+
+    def __trigger_center_change(self, center_id):
+        center_change = ChangeCentral(center_id)
+        t_wrap = build_control_wrapper(bytes(center_change))
+        packet = ILNPPacket(self.my_address, ILNPAddress(self.my_address.loc, 0),
+                            payload_length=t_wrap.size_bytes(), payload=bytes(t_wrap))
+
+        self.net_interface.broadcast(bytes(packet))
+
+
     def __reverse_path_forward(self, packet: ILNPPacket):
         """Send packet onto nodes that are the same distance as me from origin + 1"""
         to_forward_to: List[int] = self.link_graph.get_neighbours_to_flood(self.my_address.id, packet.src.id)
@@ -303,8 +332,15 @@ class RouterControlPlane(threading.Thread):
         if packet.src.loc != self.my_address.loc:
             logger.info("OK Group not for my group. Discarding")
             return
-        # TODO
-        pass
+
+        center_change: ChangeCentral = packet.payload.body
+        if center_change.central_node_id == self.central_node_id:
+            logger.info("Central node already set to {}".format(center_change.central_node_id))
+            return
+        else:
+            logger.info("Changing central node to {}".format(center_change.central_node_id))
+            self.central_node_id = center_change.central_node_id
+            self.__reverse_path_forward(packet)
 
     def __change_central_ack_handler(self, packet: ILNPPacket):
         if packet.src.loc != self.my_address.loc:
@@ -315,8 +351,18 @@ class RouterControlPlane(threading.Thread):
 
     def __sensor_disconnect_handler(self, packet: ILNPPacket):
         """remove links from link state table to the failing node, recompute paths"""
-        # TODO
-        pass
+        if self.central_node_id == self.my_address.id:
+            self.__recalculate_centre()
+
+        center_changed = packet.src.id == self.central_node_id
+
+        self.link_graph.remove_vertex(packet.src.id)
+        self.__reverse_path_forward(bytes(packet))
+
+        self.link_graph.update_forwarding_table(self.forwarding_table, self.my_address.id)
+
+        if center_changed:
+            self.__recalculate_centre()
 
     def __sensor_disconnect_ack_handler(self, packet: ILNPPacket):
         """Nothing to do"""
@@ -358,3 +404,4 @@ class RouterControlPlane(threading.Thread):
         elif type_val is SENSOR_DISCONNECT_ACK_TYPE:
             logger.info("sensor disconnect ack messaged received")
             packet.payload.body = SensorDisconnectAck.from_bytes(packet.payload.body)
+

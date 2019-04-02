@@ -6,6 +6,7 @@ from typing import Tuple, List
 
 from sensor.battery import Battery
 from sensor.config import Configuration
+from sensor.network.router.forwardingtable import ForwardingTable
 from sensor.network.router.groupmessages import GroupMessage, HELLO_GROUP_TYPE, HELLO_GROUP_ACK_TYPE
 from sensor.network.router.ilnp import ILNPPacket, ILNPAddress
 from sensor.network.router.netinterface import NetworkInterface
@@ -96,9 +97,12 @@ class Router(threading.Thread):
         self.control_packet_queue: Queue[ILNPPacket] = Queue()
         self.data_packet_queue: Queue[ILNPPacket] = Queue()
         # Control packet handler
-        self.control_plane = RouterControlPlane(self.net_interface, self.control_packet_queue, self.my_address, battery)
+        forwarding_table = ForwardingTable()
+        self.control_plane = RouterControlPlane(self.net_interface, self.control_packet_queue, self.my_address, battery,
+                                                forwarding_table)
         # Data packet handler
-        self.data_plane = RouterDataPlane(self.net_interface, self.data_packet_queue, self.arrived_data_queue)
+        self.data_plane = RouterDataPlane(self.net_interface, self.data_packet_queue, self.arrived_data_queue,
+                                          self.my_address, forwarding_table)
         # Thread for continuous polling of network interface for packets
         self.incoming_message_thread = IncomingMessageParserThread(
             self.net_interface, self.control_packet_queue, self.data_packet_queue)
