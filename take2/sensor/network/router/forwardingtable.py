@@ -32,10 +32,10 @@ class ForwardingTable:
 class Vertex:
     def __init__(self, node_id):
         self.id = node_id
-        self.adjacent = {}
+        self.adjacent: Dict[Vertex, int] = {}
 
-    def add_neighbor(self, neighbour_node_id, cost):
-        self.adjacent[neighbour_node_id] = cost
+    def add_neighbor(self, neighbour_vertex, cost):
+        self.adjacent[neighbour_vertex] = cost
 
     def get_neighbours(self):
         return self.adjacent.keys()
@@ -43,8 +43,8 @@ class Vertex:
     def get_id(self):
         return self.id
 
-    def get_weight(self, neighbour_id):
-        return self.adjacent[neighbour_id]
+    def get_weight(self, neighbour_vertex):
+        return self.adjacent[neighbour_vertex]
 
 
 def floyd_warshall(g) -> Tuple[Dict[Vertex, Dict[Vertex, float]], Dict[Vertex, Dict[Vertex, int]]]:
@@ -115,9 +115,9 @@ class LinkGraph:
         """Deconstructs graph into list of weighted links"""
         links = set()
         for vertex in self.vertices.values():
-            for neighbour_id, cost in vertex.adjacent:
-                min_id = min(neighbour_id, vertex.id)
-                max_id = max(neighbour_id, vertex.id)
+            for neighbour, cost in vertex.adjacent:
+                min_id = min(neighbour.id, vertex.id)
+                max_id = max(neighbour.id, vertex.id)
                 links.add((min_id, max_id, cost))
 
         return [Link(node_a, node_b, cost) for node_a, node_b, cost in links]
@@ -143,4 +143,16 @@ class LinkGraph:
         logger.info("Adding list of links to graph")
         for entry in entry_list:
             self.add_edge(entry.node_a_id, entry.node_b_id, entry.cost)
+
+    def get_neighbours_to_flood(self, my_id, origin_id) -> List[int]:
+        # Get all nodes the same number of hops away as me from source and assume they've been reached
+        logger.info("Getting list of neighbours to flood")
+        seen = set()
+        me = self.get_vertex(my_id)
+        start = self.get_vertex(origin_id)
+        while me not in seen:
+            for neighbour in start.adjacent:
+                seen.add(neighbour)
+
+        return [neighbour.id for neighbour in me.adjacent.keys() if neighbour not in seen]
 

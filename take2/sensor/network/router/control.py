@@ -222,6 +222,15 @@ class RouterControlPlane:
         self.link_table.add_edge(link.node_a_id, link.node_b_id, link.cost)
         logger.info("Triggering forwarding table refresh")
         self.link_table.update_forwarding_table(self.forwarding_table, self.my_address.id)
+        self.__reverse_path_forward(packet)
+
+    def __reverse_path_forward(self, packet:ILNPPacket):
+        """Send packet onto nodes that are the same distance as me from origin + 1"""
+        to_forward_to: List[int] = self.link_table.get_neighbours_to_flood(self.my_address.id, packet.src.id)
+        logger.info("Forwarding to {}".format(to_forward_to))
+        packet.decrement_hop_limit()
+        for next_hop in to_forward_to:
+            self.net_interface.send(bytes(packet), next_hop)
 
     def __new_sensor_ack_handler(self, packet: ILNPPacket):
         """Nothing to do"""
