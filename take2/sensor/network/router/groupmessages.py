@@ -118,6 +118,11 @@ class Link(Serializable):
         self.node_b_id = node_b_id
         self.cost = cost
 
+    def __eq__(self, other):
+        """Two links are equal if they have the same nodes at either side"""
+        return self.node_a_id == other.node_a_id and self.node_b_id == other.node_b_id \
+               or self.node_a_id == other.node_b_id and self.node_b_id == other.node_a_id
+
     def size_bytes(self):
         return self.SIZE
 

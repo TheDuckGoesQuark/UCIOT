@@ -10,9 +10,9 @@ from sensor.battery import Battery
 from sensor.network.router.groupmessages import HelloGroup, HELLO_GROUP_ACK_TYPE, GroupMessage, HelloGroupAck, OKGroup, \
     HELLO_GROUP_TYPE, OK_GROUP_TYPE, OK_GROUP_ACK_TYPE, OKGroupAck, NEW_SENSOR_TYPE, NewSensor, NEW_SENSOR_ACK_TYPE, \
     NewSensorAck, KEEPALIVE_TYPE, CHANGE_CENTRAL_TYPE, ChangeCentral, CHANGE_CENTRAL_ACK_TYPE, ChangeCentralAck, \
-    SENSOR_DISCONNECT_TYPE, SensorDisconnect, SENSOR_DISCONNECT_ACK_TYPE, SensorDisconnectAck
+    SENSOR_DISCONNECT_TYPE, SensorDisconnect, SENSOR_DISCONNECT_ACK_TYPE, SensorDisconnectAck, Link
 from sensor.network.router.ilnp import ILNPAddress, ILNPPacket
-from sensor.network.router.linktable import LinkTable
+from sensor.network.router.forwardingtable import ForwardingTable, LinkGraph
 from sensor.network.router.netinterface import NetworkInterface
 from sensor.network.router.transportwrapper import build_control_wrapper
 
@@ -40,22 +40,24 @@ def calc_neighbour_link_cost(neighbour_lambda, delay):
 class RouterControlPlane:
     def __init__(self, net_interface: NetworkInterface, control_packet_queue: Queue, my_address: ILNPAddress,
                  battery: Battery):
+        self.central_node_id = my_address.id
         self.battery = battery
         self.my_address = my_address
         self.n_neighbours = 0
         self.net_interface = net_interface
         self.control_packet_queue = control_packet_queue
-        self.link_table = LinkTable()
+
+        # Link table manages network knowledge
+        self.link_table = LinkGraph()
+        # Forwarding table provides quick look-up for forwarding packets to internal and external nodes
+        self.forwarding_table = ForwardingTable()
 
     def calc_my_lambda(self):
         return (((MAX_CONNECTIONS - self.n_neighbours) * LOAD_PERCENTAGE) / MAX_CONNECTIONS) \
                * sqrt((1 - ((self.battery.percentage() ** 2) / MIN_ENERGY_TO_BE_NEIGHBOUR)))
 
     def initialize_locator(self):
-        """
-        Broadcast node arrival and try to join/start group
-        :returns this nodes locator
-        """
+        """Broadcast node arrival and try to join/start group"""
         logger.info("Constructing hello group message")
         hello_group_msg = HelloGroup()
         t_wrap = build_control_wrapper(bytes(hello_group_msg))
@@ -89,14 +91,12 @@ class RouterControlPlane:
 
         if len(replies) == 0:
             logger.info("No replies. Using configuration locator {}.".format(self.my_address.loc))
+            return
         else:
             logger.info("Fully parsing hellogroupack packets")
             for reply, delay in replies:
                 reply.payload.body = HelloGroupAck.from_bytes(reply.payload.body)
 
-            self.__handle_hello_group_acks(replies)
-
-    def __handle_hello_group_acks(self, replies: List[Tuple[ILNPPacket, float]]):
         logger.info("Choosing best locator based on replies.")
         totals_and_count_for_locator = {}
         for reply, delay in replies:
@@ -118,18 +118,50 @@ class RouterControlPlane:
         self.n_neighbours = len(replies)
         logger.debug("Identified {} neighbours".format(self.n_neighbours))
         self.my_address.loc = best_locator
-        self.__reply_to_hello_group_acks(replies)
 
-    def __reply_to_hello_group_acks(self, hello_groups: List[Tuple[ILNPPacket, float]]):
-        logging.info("Replying to hello group acks")
-        for reply, delay in hello_groups:
-            ok_group = OKGroup(calc_neighbour_link_cost(reply.payload.body.lambda_val, delay))
-            self.link_table.add_entry(reply.src.id, reply.src.id, ok_group.cost)
-            logging.info("Replying to {} with cost {}".format(str(reply.src), ok_group.cost))
+        logger.info("Replying to hello group acks")
+        for hello_group_ack, delay in replies:
+            logger.info("Calculating cost to {}".format(hello_group_ack.src.id))
+            self.forwarding_table.add_internal_entry(hello_group_ack.src.id, hello_group_ack.src.id)
+
+            cost = calc_neighbour_link_cost(hello_group_ack.payload.body.lambda_val, delay)
+            logger.info("Replying to {} with cost {}".format(str(hello_group_ack.src), cost))
+            ok_group = OKGroup(cost)
             t_wrap = build_control_wrapper(bytes(ok_group))
-            packet = ILNPPacket(self.my_address, reply.src, hop_limit=0,
+            packet = ILNPPacket(self.my_address, hello_group_ack.src, hop_limit=0,
                                 payload_length=t_wrap.size_bytes(), payload=bytes(t_wrap))
-            self.net_interface.send(bytes(packet), reply.src.id)
+
+            self.net_interface.send(bytes(packet), hello_group_ack.src.id)
+
+        logger.info("Waiting on ok group ack")
+        group_acks = []
+        logger.info("Collecting reply packets for the next {} seconds".format(HELLO_GROUP_WAIT_SECS))
+        while time.time() < end:
+            logger.info("Waiting for replies...")
+            try:
+                packet: ILNPPacket = self.control_packet_queue.get(block=True, timeout=HELLO_GROUP_WAIT_SECS)
+            except Empty:
+                continue
+
+            logger.info("Got reply from group {}".format(packet.src.loc))
+            group_acks.append(packet)
+
+        logger.info("Removing any packets that aren't ok group acks from candidate join group")
+        group_acks = [reply for reply in group_acks
+                      if GroupMessage.parse_type(reply.payload.body) == OK_GROUP_ACK_TYPE
+                      and reply.src.loc == best_locator]
+
+        if len(group_acks) == 0:
+            logger.info("No group acknowledgements. Starting again.")
+            self.initialize_locator()
+        else:
+            logger.info("Fully parsing ok group ack packets")
+            for reply in group_acks:
+                reply.payload.body = OKGroupAck.from_bytes(reply.payload.body)
+                self.__ok_group_ack_handler(reply)
+
+            # Update forwarding table using new link state database
+            self.link_table.update_forwarding_table(self.forwarding_table, self.my_address.id)
 
     def __hello_group_handler(self, packet: ILNPPacket):
         """On receiving a hello group message, reply with my lambda value"""
@@ -145,19 +177,51 @@ class RouterControlPlane:
         logging.info("Discarding hello group ack.")
 
     def __ok_group_handler(self, packet: ILNPPacket):
-        """If node is joining my group, then begin informing the rest of the group"""
-        # TODO
-        pass
+        """If node is joining my group, then begin informing the rest of the group and send it link state db"""
+        if packet.src.loc != self.my_address.loc:
+            logger.info("OK Group not for my group. Discarding")
+            return
+
+        logger.info("OK Group for my group. Informing other nodes of new link")
+        link_entry = Link(self.my_address.id, packet.src.id, packet.payload.body.cost)
+        self.forwarding_table.add_internal_entry(link_entry.node_b_id, link_entry.node_b_id)
+        self.link_table.add_edge(link_entry.node_a_id, link_entry.node_b_id, link_entry.cost)
+        new_sensor = NewSensor(link_entry)
+        t_wrap = build_control_wrapper(bytes(new_sensor))
+        new_sensor_packet = ILNPPacket(self.my_address, ILNPAddress(self.my_address.loc, 0),
+                                       payload_length=t_wrap.size_bytes(), payload=bytes(t_wrap))
+        self.net_interface.broadcast(bytes(new_sensor_packet))
+
+        logger.info("Acknowledging group join")
+        link_entries = self.link_table.to_link_list()
+        ok_group_ack = OKGroupAck(len(link_entries), self.central_node_id, link_entries)
+        t_wrap = build_control_wrapper(bytes(ok_group_ack))
+        ok_group_ack_packet = ILNPPacket(self.my_address, ILNPAddress(self.my_address.loc, 0),
+                                         payload_length=t_wrap.size_bytes(), payload=bytes(t_wrap))
+        self.net_interface.send(bytes(ok_group_ack_packet), packet.src.id)
 
     def __ok_group_ack_handler(self, packet: ILNPPacket):
         """Update link state database based on reply"""
-        # TODO
-        pass
+        if packet.src.loc != self.my_address.loc:
+            logger.info("OK Group not for my group. Discarding")
+
+        ok_group_ack: OKGroupAck = packet.payload.body
+        self.central_node_id = ok_group_ack.central_node_id
+        logger.info("Registering {} as central node".format(self.central_node_id))
+        self.link_table.add_edges(ok_group_ack.entry_list)
 
     def __new_sensor_handler(self, packet: ILNPPacket):
         """Add new link to link state table, recompute paths"""
-        # TODO
-        pass
+        if packet.src.loc != self.my_address.loc:
+            logger.info("OK Group not for my group. Discarding")
+            return
+
+        new_sensor: NewSensor = packet.payload.body
+        link = new_sensor.link_entry
+        logger.info("Adding new link")
+        self.link_table.add_edge(link.node_a_id, link.node_b_id, link.cost)
+        logger.info("Triggering forwarding table refresh")
+        self.link_table.update_forwarding_table(self.forwarding_table, self.my_address.id)
 
     def __new_sensor_ack_handler(self, packet: ILNPPacket):
         """Nothing to do"""
@@ -170,10 +234,16 @@ class RouterControlPlane:
 
     def __change_central_handler(self, packet: ILNPPacket):
         """Update central node in local knowledge"""
+        if packet.src.loc != self.my_address.loc:
+            logger.info("OK Group not for my group. Discarding")
+            return
         # TODO
         pass
 
     def __change_central_ack_handler(self, packet: ILNPPacket):
+        if packet.src.loc != self.my_address.loc:
+            logger.info("OK Group not for my group. Discarding")
+            return
         """Nothing to do"""
         logging.info("Discarding new central ack.")
 
