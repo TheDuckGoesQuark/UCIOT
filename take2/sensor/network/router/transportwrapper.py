@@ -38,9 +38,9 @@ class TransportWrapper(Serializable):
         payload_type, payload_len = struct.unpack(cls.FORMAT, raw_bytes[:cls.SIZE])
 
         if payload_len != 0:
-            return TransportWrapper(payload_len, payload_type, raw_bytes[cls.SIZE:cls.SIZE + payload_len])
+            return TransportWrapper(payload_type, payload_len, raw_bytes[cls.SIZE:cls.SIZE + payload_len])
         else:
-            return TransportWrapper(payload_len, payload_type, None)
+            return TransportWrapper(payload_type, payload_len, None)
 
 
 def build_data_wrapper(data: bytes) -> TransportWrapper:
