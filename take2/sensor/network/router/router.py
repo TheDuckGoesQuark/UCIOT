@@ -96,7 +96,7 @@ class Router(threading.Thread):
         self.control_packet_queue: Queue[ILNPPacket] = Queue()
         self.data_packet_queue: Queue[ILNPPacket] = Queue()
         # Control packet handler
-        self.control_plane = RouterControlPlane(self.net_interface, self.control_packet_queue, self.my_address)
+        self.control_plane = RouterControlPlane(self.net_interface, self.control_packet_queue, self.my_address, battery)
         # Data packet handler
         self.data_plane = RouterDataPlane(self.net_interface, self.data_packet_queue, self.arrived_data_queue)
         # Thread for continuous polling of network interface for packets

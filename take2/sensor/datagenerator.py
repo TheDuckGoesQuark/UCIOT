@@ -66,6 +66,9 @@ class SensorReading(Serializable):
         self.pressure = pressure_hpa
         self.luminosity = luminosity
 
+    def __str__(self):
+        return str(vars(self))
+
     def __bytes__(self):
         return struct.pack(self.FORMAT, self.origin_id, self.temperature, self.humidity, self.pressure,
                            self.luminosity)

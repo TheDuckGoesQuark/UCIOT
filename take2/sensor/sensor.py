@@ -3,7 +3,7 @@ from time import sleep
 
 from sensor.battery import Battery
 from sensor.config import Configuration
-from sensor.datagenerator import MockDataGenerator
+from sensor.datagenerator import MockDataGenerator, SensorReading
 from sensor.network.ilnpsocket import ILNPSocket
 
 logger = logging.getLogger(name=__name__)
@@ -14,6 +14,7 @@ class Sensor:
         self.socket = ILNPSocket(config, Battery(config.max_sends))
         self.interval = config.interval
         self.sink_id = config.sink_id
+        self.is_sink = config.sink_id == config.my_id
         self.mock_gen = MockDataGenerator(config.my_id)
         self.running = True
 
@@ -23,7 +24,14 @@ class Sensor:
 
     def start(self):
         logger.info("Starting")
+        if self.is_sink:
+            self.run_as_sink()
+        else:
+            self.run_as_sensor()
 
+        self.stop()
+
+    def run_as_sensor(self):
         while self.running and not self.socket.is_closed():
             sleep(self.interval)
             try:
@@ -32,7 +40,16 @@ class Sensor:
             except IOError as e:
                 logger.warn("Terminating: " + e)
 
-        self.stop()
+    def run_as_sink(self):
+        while self.running and not self.socket.is_closed():
+            sleep(self.interval)
+            try:
+                data_bytes, source_id = self.socket.receive_from(self.interval)
+                sensor_reading = SensorReading.from_bytes(data_bytes)
+                print("Received reading {} from {}".format(sensor_reading, source_id))
+            except IOError as e:
+                logger.warn("Terminating: " + e)
+
 
     def stop(self):
         logger.info("Stopping underlying services.")

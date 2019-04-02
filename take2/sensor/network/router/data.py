@@ -1,5 +1,6 @@
 from multiprocessing import Queue
 
+from sensor.network.router.ilnp import ILNPPacket
 from sensor.network.router.netinterface import NetworkInterface
 
 
@@ -9,5 +10,5 @@ class RouterDataPlane:
         self.data_packet_queue = data_packet_queue
         self.for_me_queue = for_me_queue
 
-    def handle_packet(self, param):
-        pass
+    def handle_packet(self, packet: ILNPPacket):
+        self.for_me_queue.put((packet.payload.body, packet.src.id))
