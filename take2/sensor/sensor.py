@@ -38,7 +38,7 @@ class Sensor:
                 reading = self.take_reading()
                 self.socket.send(bytes(reading), self.sink_id)
             except IOError as e:
-                logger.warn("Terminating: " + e)
+                logger.warning("Terminating: " + str(e))
 
     def run_as_sink(self):
         while self.running and not self.socket.is_closed():

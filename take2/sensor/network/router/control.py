@@ -31,11 +31,13 @@ MAX_AGE_OF_LINK = KEEP_ALIVE_INTERVAL_SECS * 3
 
 
 def max_average(loc_avg_a: Tuple[int, int], loc_avg_b: Tuple[int, int]) -> Tuple[int, int]:
+    if loc_avg_a is None:
+        return loc_avg_b
+
     if loc_avg_a[1] > loc_avg_b[1]:
         return loc_avg_a
     else:
         return loc_avg_b
-
 
 def calc_neighbour_link_cost(neighbour_lambda, delay):
     return int(delay * K_THREE_CONSTANT / neighbour_lambda)
@@ -102,8 +104,8 @@ class RouterControlPlane(threading.Thread):
         self.link_graph.update_forwarding_table(self.forwarding_table, self.my_address.id)
 
     def calc_my_lambda(self):
-        return (((MAX_CONNECTIONS - self.n_adjacent_nodes) * LOAD_PERCENTAGE) / MAX_CONNECTIONS) \
-               * sqrt((1 - ((self.battery.percentage() ** 2) / MIN_ENERGY_TO_BE_NEIGHBOUR)))
+        return int((((MAX_CONNECTIONS - self.n_adjacent_nodes) * LOAD_PERCENTAGE) / MAX_CONNECTIONS) \
+                   * sqrt((1 - ((self.battery.percentage() ** 2) / MIN_ENERGY_TO_BE_NEIGHBOUR))))
 
     def initialize_locator(self):
         """Broadcast node arrival and try to join/start group"""
@@ -153,18 +155,18 @@ class RouterControlPlane(threading.Thread):
             if src_loc not in totals_and_count_for_locator:
                 totals_and_count_for_locator[src_loc] = (0, 0)
 
-            totals_and_count_for_locator[src_loc][0] += reply.payload.body.lambda_val
-            totals_and_count_for_locator[src_loc][1] += 1
+            current = totals_and_count_for_locator[src_loc]
+            totals_and_count_for_locator[src_loc] = (current[0] + reply.payload.body.lambda_val, current[1] + 1)
 
         # Get best locator based on highest average lambda
         locator_to_average = \
             {locator: total / count for locator, (total, count) in totals_and_count_for_locator.items()}
 
-        best_locator, best_average_lambda = \
-            reduce(lambda current_max, next_val: max_average(current_max, next_val), locator_to_average)
+        best_locator, best_average = \
+            reduce(lambda current_max, next_val: max_average(current_max, next_val), locator_to_average.items())
 
         logger.debug("{} chosen as best locator to join".format(best_locator))
-        self.n_adjacent_nodes = len(replies)
+        self.n_adjacent_nodes = len({packet.src.id for packet, delay in replies})
         logger.debug("Identified {} neighbours".format(self.n_adjacent_nodes))
         self.my_address.loc = best_locator
 
@@ -343,7 +345,7 @@ class RouterControlPlane(threading.Thread):
             packet.payload.body = NewSensorAck.from_bytes(packet.payload.body)
         elif type_val is KEEPALIVE_TYPE:
             logger.info("keepalive messaged received")
-            packet.payload.body = KEEPALIVE_TYPE.from_bytes(packet.payload.body)
+            packet.payload.body = KeepAlive.from_bytes(packet.payload.body)
         elif type_val is CHANGE_CENTRAL_TYPE:
             logger.info("change central messaged received")
             packet.payload.body = ChangeCentral.from_bytes(packet.payload.body)
