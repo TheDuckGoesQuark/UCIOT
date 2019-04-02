@@ -168,13 +168,17 @@ Wireless sensor networks (WSNs) are typically very mobile with limited memory an
 
 \cite{hassan} classifies differeent routing protocols and provides a survey of protocols for each class. Routing protocols are either:
 \begin{enumerate}
-    \item \textbf{Proactive}, where each node maintains a routing table through knowledge sharing with adjacent nodes. Typically involves high overhead due to regular flooding, but simpler to implement.
+    \item \textbf{Proactive}, where each node maintains a routing table through knowledge sharing with adjacent nodes. Typically involves high overhead due to regular flooding, but performs better than reactive methods as mobility increases.
         Examples include AODV \cite{aodv} and DSR \cite{dsr}.
 
-    \item \textbf{Reactive}, where nodes only seek out routes to remote nodes when one is required. Choosing the expiration timeout for how long a route should be used results in a tradeoff between reliability and overhead, but can be very effective if a good balance is found.
+    \item \textbf{Reactive}, where nodes only seek out routes to remote nodes when one is required. Very little overhead in networks with low mobility, but performance degrades quickly as mobility increases.
         Examples include OLSR \cite{olsr}.
     \item \textbf{Hybrid}, where features of both proactive and reactive protocols are used.
 \end{enumerate}
+
+In typical internet infrastructure, it makes sense to use hop counts and delay as metrics for working out the 'best' routes to a destination. However, many protocol for WSNs also account for values such as remaining battery life, or how much computation the node is willing to commit to networking. 
+
+In order to save power, MAC layer protocols will often only listen for short intervals, or rely on lower power and lower bitrate receivers to fully wake the host when communication is occuring \cite{offon}. This behaviour is one of the reasons that reactive protocols are increasingly popular for WSNs, as they don't have the high risk of signal collision that comes with frequent updates.
 
 \subsection{IoT in Agriculture}
 
@@ -182,15 +186,49 @@ The sensitivity of crops to changes in climate and agricultures crucial role on 
 
 \cite{indoor} propose enviromental sensors but for urban environments with access to the cloud. By providing cheap montoring and actuating sensors to the general public, they hope to encourage healthier eating habits, as people would be able to grow their own vegetables effectively. 
 
+
 \section{ILNP Testbed Implementation}
 
 Due to the recency of ILNPv6, there does not currently exist software for emulating ILNP networks as there is for the variations IP, therefore a custom testbed had to be implemented. This was achieved by building an ILNP overlay network using UDP with multicast. 
 
-\begin{enumerate}
-    \item Wireless connection emulation and abstraction
-\end{enumerate}
+A single UDP socket provided a communication endpoint. Sensors are initially unaware of each other, and so a simplified neighbour discovery mechanism is used to find which sensors are within radio range. 
 
-\subsection{Design}
+Since a mapping between the link layer MAC addresses and network layer IP addresses is used in IPv6 neihbour solicitation, and ILNPv6 can also use this mechanism, this was used to learn the IPv6 address of nodes that were also part of the multicast group. The grouping protocol discussed later involved one-hop packets to be broadcast, and so the IPv6 addresses could later be used for unicast communication. 
+
+\section{Protocol Design}
+
+For this project a hybrid approach was used, based on the grouping protocol in \cite{groups}. By usinng a proactive link state protocol within groups of nodes and reactive protocols between, quick failure detection and recovery would be possible, without each node needing to understand the state of every node in the entire network. The approach taken could be referred to as a Zoned Routing Protocol (ZRP), where we have a intra-zone routing protocol (IARP) and a inter-zone Routing protocol (IERP).
+
+\subsection{Grouping Mechanism}
+
+When a sensor wants to join the network, it first broadcasts a query for what groups already exist around it (\emph{HelloGroup}) . If no replies are heard after some duration, then it will declare itself the center of a group with a locator that could be assigned by some means. A configuration file was used in this case, but GPS could also be used in a real world example. 
+
+Neighbour nodes can reply with a \emph{HelloGroupAck}, providing a value $\lambda$ which can be used by the requesting node to choose which group it wants to join:
+
+\begin{equation}
+    \lambda = \frac{\textit{#AvailableConnections} \cdot L + K_2}{\textit{#MaxConnections}} \cdot \sqrt{1 - \frac{E^2}{K_1}}
+\end{equation}
+
+where $L$ is the \% of load the node is willing to give to networking, $E$ is \% energy used (i.e. 0 is fully charged, 100 is empty). 
+
+If several groups are available for joining, the decision is made based on the highest average $\lambda$ from each group. This discourages links forming with nodes that are under excessive load or are have little power left for forwarding packets.
+
+After making it's decision, a node announces it's choice to all it's neighbours by sending a \emph{OkGroup} message using the chosen groups locator value as the source locator in the ILNPPacket header. By informing nodes in the rejected groups also, a possible intra-locator next hop is established.
+
+\subsection{Intra-Zone Routing Protocol}
+
+Once a node has chosen and joined it's group, it joins in the process of sharing link state information. It's first links costs are established using the delay between \emph{JoinGroup} and \emph{JoinGroupAck} messages, as well as the $\lambda$ values for its neighbours. These are combined to form a link cost: 
+\begin{equation}
+    C = \frac{T \cdot K_3}{\lambda}
+\end{equation}
+Where T is the delay between sending the \emph{JoinGroup} message and receiving an acknowledgement.
+When choosing the best next hop for a packet, the Floyd Warshall \cite{floyd} algorithm was used, which provides the full cost of the shortest path between two nodes, as well as the next hop. 
+
+The link-state databases (LSDB) of the neighbouring nodes within the same locator are sent as part of the \emph{OkGroup} message, updated to included the new node. The neighbours also broadcast this information to the rest of the locator group by using reverse path forwarding (RPF).
+
+\subsection{Inter-Zone Routing Protocol}
+
+\section{Software Design}
 
 \begin{enumerate}
 \item Component structure (socket interface, router/dsrservice/forwardingtable, raw sockets)
