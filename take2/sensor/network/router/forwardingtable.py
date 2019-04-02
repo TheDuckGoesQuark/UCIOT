@@ -104,7 +104,6 @@ class LinkGraph:
     def add_vertex(self, node_id):
         new_vertex = Vertex(node_id)
         self.vertices[node_id] = new_vertex
-        return new_vertex
 
     def get_vertex(self, node_id):
         if node_id in self.vertices:
