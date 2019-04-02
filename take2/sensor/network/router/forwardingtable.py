@@ -19,6 +19,9 @@ class ForwardingTable:
         self.next_hop_internal: Dict[int, ForwardingTableEntry] = {}
         self.next_hop_to_locator: Dict[int, ForwardingTableEntry] = {}
 
+    def __str__(self):
+        return str(vars(self))
+
     def add_internal_entry(self, dest_id, next_hop):
         logger.info("Adding ID:{}, NH:{} to table".format(dest_id, next_hop))
         self.next_hop_internal[dest_id] = ForwardingTableEntry(dest_id, next_hop)

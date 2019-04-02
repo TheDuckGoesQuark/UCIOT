@@ -65,6 +65,7 @@ class RouterControlPlane(threading.Thread):
         super().join(timeout)
 
     def run(self) -> None:
+        """Send keepalives and remove links that haven't sent one"""
         self.running = True
         while self.running:
             time.sleep(KEEP_ALIVE_INTERVAL_SECS)
@@ -291,8 +292,9 @@ class RouterControlPlane(threading.Thread):
 
     def __keepalive_handler(self, packet: ILNPPacket):
         """Refresh age of neighbour link"""
-        # TODO
-        pass
+        src_id = packet.src.id
+        if src_id in self.internal_neighbours:
+            self.internal_neighbours[src_id] = 0
 
     def __change_central_handler(self, packet: ILNPPacket):
         """Update central node in local knowledge"""
