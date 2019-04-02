@@ -7,7 +7,10 @@ from queue import Empty
 from typing import Tuple, List
 
 from sensor.battery import Battery
-from sensor.network.router.groupmessages import HelloGroup, HELLO_GROUP_ACK_TYPE, GroupMessage, HelloGroupAck, OKGroup
+from sensor.network.router.groupmessages import HelloGroup, HELLO_GROUP_ACK_TYPE, GroupMessage, HelloGroupAck, OKGroup, \
+    HELLO_GROUP_TYPE, OK_GROUP_TYPE, OK_GROUP_ACK_TYPE, OKGroupAck, NEW_SENSOR_TYPE, NewSensor, NEW_SENSOR_ACK_TYPE, \
+    NewSensorAck, KEEPALIVE_TYPE, CHANGE_CENTRAL_TYPE, ChangeCentral, CHANGE_CENTRAL_ACK_TYPE, ChangeCentralAck, \
+    SENSOR_DISCONNECT_TYPE, SensorDisconnect, SENSOR_DISCONNECT_ACK_TYPE, SensorDisconnectAck
 from sensor.network.router.ilnp import ILNPAddress, ILNPPacket
 from sensor.network.router.linktable import LinkTable
 from sensor.network.router.netinterface import NetworkInterface
@@ -46,7 +49,7 @@ class RouterControlPlane:
 
     def calc_my_lambda(self):
         return (((MAX_CONNECTIONS - self.n_neighbours) * LOAD_PERCENTAGE) / MAX_CONNECTIONS) \
-               * sqrt((1 - ((self.battery.percentage()**2) / MIN_ENERGY_TO_BE_NEIGHBOUR)))
+               * sqrt((1 - ((self.battery.percentage() ** 2) / MIN_ENERGY_TO_BE_NEIGHBOUR)))
 
     def initialize_locator(self):
         """
@@ -128,5 +131,73 @@ class RouterControlPlane:
                                 payload_length=t_wrap.size_bytes(), payload=bytes(t_wrap))
             self.net_interface.send(bytes(packet), reply.src.id)
 
-    def handle_packet(self, param):
+    def __hello_group_handler(self, packet:ILNPPacket):
         pass
+
+    def __hello_group_ack_handler(self, packet:ILNPPacket):
+        pass
+
+    def __ok_group_handler(self):
+        pass
+
+    def __ok_group_ack_handler(self):
+        pass
+
+    def __new_sensor_handler(self):
+        pass
+
+    def __new_sensor_ack_handler(self):
+        pass
+
+    def __keepalive_handler(self):
+        pass
+
+    def __change_central_handler(self):
+        pass
+
+    def __change_central_ack_handler(self):
+        pass
+
+    def __sensor_disconnect_handler(self):
+        pass
+
+    def __sensor_disconnect_ack_handler(self):
+        pass
+
+    def handle_packet(self, packet: ILNPPacket):
+        type_val = GroupMessage.parse_type(packet.payload.body)
+        if type_val is HELLO_GROUP_TYPE:
+            logger.info("hello group messaged received")
+            packet.payload.body = HelloGroup.from_bytes(packet.payload.body)
+            self.__hello_group_handler(packet)
+        elif type_val is HELLO_GROUP_ACK_TYPE:
+            logger.info("hello group ack messaged received")
+            packet.payload.body = HelloGroupAck.from_bytes(packet.payload.body)
+        elif type_val is OK_GROUP_TYPE:
+            logger.info("ok group messaged received")
+            packet.payload.body = OKGroup.from_bytes(packet.payload.body)
+        elif type_val is OK_GROUP_ACK_TYPE:
+            logger.info("ok group ack messaged received")
+            packet.payload.body = OKGroupAck.from_bytes(packet.payload.body)
+        elif type_val is NEW_SENSOR_TYPE:
+            logger.info("new sensor messaged received")
+            packet.payload.body = NewSensor.from_bytes(packet.payload.body)
+        elif type_val is NEW_SENSOR_ACK_TYPE:
+            logger.info("new sensor ack messaged received")
+            packet.payload.body = NewSensorAck.from_bytes(packet.payload.body)
+        elif type_val is KEEPALIVE_TYPE:
+            logger.info("keepalive messaged received")
+            packet.payload.body = KEEPALIVE_TYPE.from_bytes(packet.payload.body)
+        elif type_val is CHANGE_CENTRAL_TYPE:
+            logger.info("change central messaged received")
+            packet.payload.body = ChangeCentral.from_bytes(packet.payload.body)
+        elif type_val is CHANGE_CENTRAL_ACK_TYPE:
+            logger.info("change central ack messaged received")
+            packet.payload.body = ChangeCentralAck.from_bytes(packet.payload.body)
+        elif type_val is SENSOR_DISCONNECT_TYPE:
+            logger.info("sensor disconnect messaged received")
+            packet.payload.body = SensorDisconnect.from_bytes(packet.payload.body)
+        elif type_val is SENSOR_DISCONNECT_ACK_TYPE:
+            logger.info("sensor disconnect ack messaged received")
+            packet.payload.body = SensorDisconnectAck.from_bytes(packet.payload.body)
+

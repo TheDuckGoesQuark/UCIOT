@@ -168,6 +168,46 @@ class OKGroupAck(GroupMessage):
         return OKGroupAck(num_entries, central_node_id, entry_list)
 
 
+class NewSensor(GroupMessage):
+    """
+    Message informing all nodes in network of new node link
+    """
+    HEADER_FORMAT = "!B3x"
+    SIZE = struct.calcsize(HEADER_FORMAT)
+
+    def __init__(self, link_entry: Link):
+        self.link_entry = link_entry
+
+    def __bytes__(self):
+        return struct.pack(self.HEADER_FORMAT, NEW_SENSOR_TYPE) + bytes(self.link_entry)
+
+    def size_bytes(self):
+        return self.SIZE + Link.SIZE
+
+    @classmethod
+    def from_bytes(cls, raw_bytes):
+        link = Link.from_bytes(raw_bytes[cls.SIZE:])
+        return NewSensor(link)
+
+
+class NewSensorAck(GroupMessage):
+    """
+    Sent to confirm reception of new sensor link
+    """
+    FORMAT = "!B3x"
+    SIZE = struct.calcsize(FORMAT)
+
+    def __bytes__(self):
+        return struct.pack(self.FORMAT, NEW_SENSOR_ACK_TYPE)
+
+    def size_bytes(self):
+        return self.SIZE
+
+    @classmethod
+    def from_bytes(cls, raw_bytes):
+        return NewSensorAck()
+
+
 class KeepAlive(GroupMessage):
     """
     Periodic message informing neighbours that this node is still live
