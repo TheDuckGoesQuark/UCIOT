@@ -3,7 +3,7 @@ import time
 from functools import reduce
 from multiprocessing import Queue
 from queue import Empty
-from typing import Dict, Tuple, List, Iterable
+from typing import Tuple, List
 
 from sensor.network.groupmessages import HelloGroup, HELLO_GROUP_ACK_TYPE, GroupMessage, HelloGroupAck
 from sensor.network.ilnp import ILNPAddress, ILNPPacket
@@ -43,7 +43,7 @@ class RouterControlPlane:
         # Collect packets and delay between send and receive
         replies: List[Tuple[ILNPPacket, float]] = []
 
-        logging.info("Broadcasting hello group message")
+        logger.info("Broadcasting hello group message")
         self.net_interface.broadcast(bytes(packet))
         start = time.time()
         end = start + HELLO_GROUP_WAIT_SECS
@@ -91,9 +91,10 @@ class RouterControlPlane:
         best_locator, best_average_lambda = \
             reduce(lambda current_max, next_val: max_average(current_max, next_val), locator_to_average)
 
-        logging.debug("{} chosen as best locator to join".format(best_locator))
+        logger.debug("{} chosen as best locator to join".format(best_locator))
+        self.my_address.loc = best_locator
 
-        # Filter replies from other groups
+        # Filter neighbours to be replied to
         replies = [(reply, delay) for reply, delay in replies if reply.src.loc == best_locator]
 
 

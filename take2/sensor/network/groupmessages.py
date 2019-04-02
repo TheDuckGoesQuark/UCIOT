@@ -2,6 +2,7 @@ import struct
 from abc import ABC
 from typing import Union
 
+from sensor.network.router.linktable import LinkTableEntry
 from sensor.network.serializable import Serializable
 
 # Joining
@@ -103,25 +104,64 @@ class OKGroup(GroupMessage):
         return OKGroup()
 
 
-class OKGroupAck(GroupMessage):
-    """
-    Confirmation message sent to newly joined node informing it who is the current central node.
-    """
-    FORMAT = "!B3xQ"
+class Link(Serializable):
+    """Record of two node IDs and the cost of the path between them"""
+    FORMAT = "!QQH2x"
     SIZE = struct.calcsize(FORMAT)
 
-    def __init__(self, central_node_id):
-        self.central_node_id = central_node_id
-
-    def __bytes__(self):
-        return struct.pack(self.FORMAT, OK_GROUP_ACK_TYPE, self.central_node_id)
+    def __init__(self, node_a_id, node_b_id, cost):
+        self.node_a_id = node_a_id
+        self.node_b_id = node_b_id
+        self.cost = cost
 
     def size_bytes(self):
         return self.SIZE
 
     @classmethod
     def from_bytes(cls, raw_bytes):
-        return OKGroupAck(struct.unpack(cls.FORMAT, raw_bytes)[1])
+        return Link(*struct.unpack(cls.FORMAT, raw_bytes[:cls.SIZE]))
+
+    def __bytes__(self):
+        return struct.pack(self.FORMAT, self.node_a_id, self.node_b_id, self.cost)
+
+
+class OKGroupAck(GroupMessage):
+    """
+    Confirmation message sent to newly joined node informing it who is the current central node, and
+    provides the full link database of the network
+    """
+    HEADER_FORMAT = "!BxHQ"
+    SIZE = struct.calcsize(HEADER_FORMAT)
+
+    def __init__(self, num_entries, central_node_id, entry_list):
+        self.num_entries = num_entries
+        self.central_node_id = central_node_id
+        self.entry_list = entry_list
+
+    def __bytes__(self):
+        entry_list_bytes = bytearray(Link.SIZE * self.num_entries)
+        entry_list_bytes_view = memoryview(entry_list_bytes)
+        for i in range(self.num_entries):
+            offset = i * Link.SIZE
+            entry_list_bytes_view[offset:offset + Link.SIZE] = bytes(self.entry_list[i])
+
+        return struct.pack(self.HEADER_FORMAT, OK_GROUP_ACK_TYPE, self.num_entries,
+                           self.central_node_id) + entry_list_bytes
+
+    def size_bytes(self):
+        return self.SIZE
+
+    @classmethod
+    def from_bytes(cls, raw_bytes):
+        num_entries, central_node_id = struct.unpack(cls.HEADER_FORMAT, raw_bytes[:cls.SIZE])
+        entry_list = []
+        # Use memory view due to frequent splitting
+        bytes_view = memoryview(raw_bytes)
+        for idx in range(num_entries):
+            offset = idx * Link.SIZE
+            entry_list.append(Link.from_bytes(bytes_view[offset:offset + Link.SIZE]))
+
+        return OKGroupAck(num_entries, central_node_id, entry_list)
 
 
 class KeepAlive(GroupMessage):
