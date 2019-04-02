@@ -11,7 +11,6 @@ from sensor.network.router.groupmessages import GroupMessage, HELLO_GROUP_TYPE, 
 from sensor.network.router.ilnp import ILNPPacket, ILNPAddress
 from sensor.network.router.netinterface import NetworkInterface
 from sensor.network.router.control import RouterControlPlane
-from sensor.network.router.data import RouterDataPlane
 from sensor.network.router.transportwrapper import build_data_wrapper, TransportWrapper
 
 logger = logging.getLogger(__name__)
@@ -63,7 +62,6 @@ class IncomingMessageParserThread(threading.Thread):
             received = self.net_interface.receive(SECONDS_BETWEEN_SHUTDOWN_CHECKS)
 
             if received is None:
-                logger.info("No packets arrived in the last {} seconds".format(SECONDS_BETWEEN_SHUTDOWN_CHECKS))
                 continue
 
             data = received[0]
@@ -72,11 +70,9 @@ class IncomingMessageParserThread(threading.Thread):
             packet = parse_packet(data)
 
             if packet.payload.is_control_packet():
-                logger.info("Received control packet from {} ({})".format(packet.src.id, ipv6_addr))
                 self.add_link_knowledge(packet, ipv6_addr)
                 self.control_packet_queue.put(packet)
             else:
-                logger.info("Received data packet from {} ({})".format(packet.src.id, ipv6_addr))
                 self.data_packet_queue.put(packet)
 
 
@@ -97,12 +93,9 @@ class Router(threading.Thread):
         self.control_packet_queue: Queue[ILNPPacket] = Queue()
         self.data_packet_queue: Queue[ILNPPacket] = Queue()
         # Control packet handler
-        forwarding_table = ForwardingTable()
+        self.forwarding_table = ForwardingTable()
         self.control_plane = RouterControlPlane(self.net_interface, self.control_packet_queue, self.my_address, battery,
-                                                forwarding_table)
-        # Data packet handler
-        self.data_plane = RouterDataPlane(self.net_interface, self.data_packet_queue, self.arrived_data_queue,
-                                          self.my_address, forwarding_table)
+                                                self.forwarding_table, config.max_radius)
         # Thread for continuous polling of network interface for packets
         self.incoming_message_thread = IncomingMessageParserThread(
             self.net_interface, self.control_packet_queue, self.data_packet_queue)
@@ -144,11 +137,9 @@ class Router(threading.Thread):
         dest_addr = ILNPAddress(None, dest_id)
         packet = ILNPPacket(src_addr, dest_addr, payload=t_wrap, payload_length=t_wrap.size_bytes())
 
-        logger.info("Adding data packet to queue for processing")
         self.data_packet_queue.put(packet)
 
     def receive_from(self, blocking=True, timeout=None) -> Tuple[bytes, int]:
-        logger.info("Polling arrived data queue...")
         return self.arrived_data_queue.get(blocking, timeout)
 
     def run(self) -> None:
@@ -159,7 +150,6 @@ class Router(threading.Thread):
         # Begin processing
         logger.info("Beginning regular processing")
         while self.running:
-            logger.info("Polling incoming packet queues")
             # NOTE select on queues doesn't work in windows due to the file handles used
             queues_available, _, _ = select.select([self.data_packet_queue._reader, self.control_packet_queue._reader],
                                                    [], [],
@@ -170,10 +160,30 @@ class Router(threading.Thread):
             else:
                 logger.info("No packets have arrived in the past {} seconds".format(SECONDS_BETWEEN_SHUTDOWN_CHECKS))
 
+    def handle_data_packet(self, packet: ILNPPacket):
+        """Attempt basic routing of packet using available resources"""
+        logger.info("Handling data packet")
+        if packet.dest.id == self.my_address.id:
+            logger.info("Packet for me, adding to received queue <3")
+            self.arrived_data_queue.put((packet.payload.body, packet.src.id))
+        elif packet.dest.loc == self.my_address.loc:
+            logger.info("Packet for someone in my locator")
+            next_hop = self.forwarding_table.get_next_internal_hop(packet.dest.id)
+            if next_hop is not None:
+                logger.info("Found next hop, forwarding to {}".format(next_hop))
+                self.net_interface.send(bytes(packet), next_hop)
+            else:
+                logger.info("No next hop found. Reverse path forwarding")
+                self.control_plane.reverse_path_forward(packet)
+        else:
+            logger.info("Packet for outside group and no path currently known.")
+            logger.info("Attempting reactive routing.")
+            self.control_plane.route_external_packet(packet)
+
     def handle_available_packets(self, queues_available: List[Queue]):
         """Passes the first packet from each of the queues to the relevant handler"""
         for queue in queues_available:
             if queue is self.control_packet_queue._reader:
-                self.control_plane.handle_packet(self.control_packet_queue.get())
+                self.control_plane.handle_control_packet(self.control_packet_queue.get())
             else:
-                self.data_plane.handle_packet(self.data_packet_queue.get())
+                self.handle_data_packet(self.data_packet_queue.get())

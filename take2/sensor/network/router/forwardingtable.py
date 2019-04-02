@@ -8,8 +8,7 @@ logger = logging.getLogger(__name__)
 
 
 class ForwardingTableEntry:
-    def __init__(self, dest_id, next_hop_id):
-        self.dest_id = dest_id
+    def __init__(self, next_hop_id):
         self.next_hop_id = next_hop_id
 
 
@@ -23,13 +22,19 @@ class ForwardingTable:
     def __str__(self):
         return str(vars(self))
 
+    def get_next_internal_hop(self, dest_id):
+        if dest_id in self.next_hop_internal:
+            return self.next_hop_internal[dest_id].next_hop_id
+        else:
+            return None
+
     def add_internal_entry(self, dest_id, next_hop):
         logger.info("Adding ID:{}, NH:{} to table".format(dest_id, next_hop))
-        self.next_hop_internal[dest_id] = ForwardingTableEntry(dest_id, next_hop)
+        self.next_hop_internal[dest_id] = ForwardingTableEntry(next_hop)
 
     def add_external_entry(self, dest_loc, next_hop):
         logger.info("Adding LOC:{}, NH:{} to table".format(dest_loc, next_hop))
-        self.next_hop_to_locator[dest_loc] = ForwardingTableEntry(dest_loc, next_hop)
+        self.next_hop_to_locator[dest_loc] = ForwardingTableEntry(next_hop)
 
 
 # https://www.sanfoundry.com/python-program-implement-floyd-warshall-algorithm/
@@ -127,7 +132,7 @@ class LinkGraph:
         """Deconstructs graph into list of weighted links"""
         links = set()
         for vertex in self.vertices.values():
-            for neighbour, cost in vertex.adjacent:
+            for neighbour, cost in vertex.adjacent.items():
                 min_id = min(neighbour.id, vertex.id)
                 max_id = max(neighbour.id, vertex.id)
                 links.add((min_id, max_id, cost))
@@ -154,13 +159,14 @@ class LinkGraph:
 
     def get_center(self) -> int:
         logger.info("Calculating the center of the group")
+        costs, next_hops = floyd_warshall(self)
         vertex_to_max_distance = {}
         for vertex in self:
-            vertex_to_max_distance[vertex] = max([cost for cost in self.costs[vertex].values()])
+            vertex_to_max_distance[vertex] = max([cost for cost in costs[vertex].values()])
 
         center = None
         min_max_cost = None
-        for vertex, max_cost in vertex_to_max_distance.values():
+        for vertex, max_cost in vertex_to_max_distance.items():
             if center is None:
                 center = vertex
                 min_max_cost = max_cost
@@ -196,3 +202,12 @@ class LinkGraph:
 
         # Remove from graph
         del self.vertices[expired_node]
+
+    def get_distance(self, node_one_id, node_two_id):
+        if node_one_id == node_two_id:
+            return 0
+
+        v_a = self.get_vertex(node_one_id)
+        v_b = self.get_vertex(node_two_id)
+
+        return self.costs[v_a][v_b]

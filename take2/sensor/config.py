@@ -37,6 +37,7 @@ class Configuration:
         # ILNP Conf
         self.my_id: int = fields.getint('my_id')
         self.my_locator: int = fields.getint('my_locator')
+        self.max_radius: int = fields.getint('max_radius')
 
         # Experiment Conf
         self.max_sends = fields.getint('max_packet_sends')

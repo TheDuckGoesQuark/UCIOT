@@ -49,8 +49,6 @@ def create_mcast_socket(port: int, multicast_addresses: List[str], loopback: boo
     return sock
 
 
-
-
 class NetworkInterface:
     def __init__(self, config: Configuration, battery: Battery):
         super().__init__()
@@ -115,7 +113,6 @@ class NetworkInterface:
         """
         buffer = bytearray(self.buffer_size)
 
-        logger.info("Waiting for data to arrive. Timeout: {}".format(timeout))
         ready, _, _ = select.select([self.sock], [], [], timeout)
 
         if len(ready) == 0:
@@ -123,7 +120,6 @@ class NetworkInterface:
 
         n_bytes_read, addr_info = self.sock.recvfrom_into(buffer, len(buffer))
         src_ipv6_addr = addr_info[0]
-        logger.info("Data arrived from {}".format(src_ipv6_addr))
 
         return buffer[:n_bytes_read], src_ipv6_addr
 
