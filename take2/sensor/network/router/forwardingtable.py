@@ -150,7 +150,7 @@ class LinkGraph:
             if end is root_id or next_hops[start][end] is None:
                 continue
 
-            new_internal_table[end.id] = ForwardingTableEntry(end.id, next_hops[start][end])
+            new_internal_table[end.id] = ForwardingTableEntry(next_hops[start][end])
 
         logger.info("Updated forwarding table")
         logger.info(str(forwarding_table))

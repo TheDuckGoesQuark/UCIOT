@@ -80,10 +80,10 @@ class RouterControlPlane(threading.Thread):
             time.sleep(KEEP_ALIVE_INTERVAL_SECS)
             self.__send_keepalive()
             logger.info("Removing expired links")
-            expired = [neighbour for neighbour, age in self.internal_neighbours if age > MAX_AGE_OF_LINK]
-            self.internal_neighbours = [(neighbour, age + KEEP_ALIVE_INTERVAL_SECS)
-                                        for neighbour, age in self.internal_neighbours
-                                        if age <= MAX_AGE_OF_LINK]
+            expired = [neighbour for neighbour, age in self.internal_neighbours.items() if age > MAX_AGE_OF_LINK]
+            self.internal_neighbours = {neighbour: age + KEEP_ALIVE_INTERVAL_SECS
+                                        for neighbour, age in self.internal_neighbours.items()
+                                        if age <= MAX_AGE_OF_LINK}
 
             logger.info("links expired: {}".format(expired))
             self.__remove_expired_links(expired)
@@ -153,7 +153,9 @@ class RouterControlPlane(threading.Thread):
 
             # Update forwarding table using new link state database
             self.link_graph.update_forwarding_table(self.forwarding_table, self.my_address.id)
-            self.internal_neighbours = self.link_graph.get_neighbour_ids(self.my_address.id)
+            logger.info("Initializing neighbour ages")
+            self.internal_neighbours = {neighbour_id: 0 for neighbour_id in
+                                        self.link_graph.get_neighbour_ids(self.my_address.id)}
 
         self.initialized = True
 
@@ -227,6 +229,12 @@ class RouterControlPlane(threading.Thread):
 
         if len(replies) == 0:
             logger.info("No replies. Using configuration locator {}.".format(self.my_address.loc))
+            self.central_node_id = self.my_address.id
+            self.link_graph.add_vertex(self.my_address.id)
+            self.link_graph.update_forwarding_table(self.forwarding_table, self.my_address.id)
+            self.internal_neighbours = {neighbour_id: 0 for neighbour_id in
+                                        self.link_graph.get_neighbour_ids(self.my_address.id)}
+            self.initialized = True
             return
         else:
             logger.info("Fully parsing hellogroupack packets")
@@ -243,8 +251,9 @@ class RouterControlPlane(threading.Thread):
 
     def __hello_group_handler(self, packet: ILNPPacket):
         """On receiving a hello group message, reply with my lambda value (if I'm not at the max radius)"""
-        if self.link_graph.get_distance(self.my_address.id, self.central_node_id) >= self.max_radius:
-            logger.info("Discarding since already reached max radius")
+        if self.link_graph.get_distance(self.my_address.id, self.central_node_id) >= self.max_radius \
+                or not self.initialized:
+            logger.info("Discarding since already reached max radius, or this node isn't ready to help others join yet")
             return
 
         hg_ack = HelloGroupAck(self.calc_my_lambda())
@@ -378,7 +387,7 @@ class RouterControlPlane(threading.Thread):
         center_changed = packet.src.id == self.central_node_id
 
         self.link_graph.remove_vertex(packet.src.id)
-        self.reverse_path_forward(bytes(packet))
+        self.reverse_path_forward(packet)
 
         self.link_graph.update_forwarding_table(self.forwarding_table, self.my_address.id)
 
@@ -405,8 +414,7 @@ class RouterControlPlane(threading.Thread):
             self.__ok_group_handler(packet)
         elif type_val is OK_GROUP_ACK_TYPE:
             logger.info("ok group ack messaged received")
-            packet.payload.body = OKGroupAck.from_bytes(packet.payload.body)
-            self.__ok_group_ack_handler(packet)
+            logger.info("Ack message not currently relevant to this node")
         elif type_val is NEW_SENSOR_TYPE:
             logger.info("new sensor messaged received")
             packet.payload.body = NewSensor.from_bytes(packet.payload.body)

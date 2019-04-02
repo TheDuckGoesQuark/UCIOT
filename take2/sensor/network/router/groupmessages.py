@@ -165,7 +165,7 @@ class OKGroupAck(GroupMessage):
         type_val, num_entries, central_node_id = struct.unpack(cls.HEADER_FORMAT, raw_bytes[:cls.SIZE])
         entry_list = []
         # Use memory view due to frequent splitting
-        bytes_view = memoryview(raw_bytes)
+        bytes_view = memoryview(raw_bytes)[cls.SIZE:]
         for idx in range(num_entries):
             offset = idx * Link.SIZE
             entry_list.append(Link.from_bytes(bytes_view[offset:offset + Link.SIZE]))
