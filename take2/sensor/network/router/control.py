@@ -131,38 +131,60 @@ class RouterControlPlane:
                                 payload_length=t_wrap.size_bytes(), payload=bytes(t_wrap))
             self.net_interface.send(bytes(packet), reply.src.id)
 
-    def __hello_group_handler(self, packet:ILNPPacket):
+    def __hello_group_handler(self, packet: ILNPPacket):
+        """On receiving a hello group message, reply with my lambda value"""
+        hg_ack = HelloGroupAck(self.calc_my_lambda())
+        t_wrap = build_control_wrapper(bytes(hg_ack))
+        reply_packet = ILNPPacket(self.my_address, packet.src, hop_limit=0,
+                                  payload_length=t_wrap.size_bytes(), payload=bytes(t_wrap))
+
+        self.net_interface.send(bytes(reply_packet), packet.src.id)
+
+    def __hello_group_ack_handler(self, packet: ILNPPacket):
+        """Hello group ack only useful during group joining/forming phase"""
+        logging.info("Discarding hello group ack.")
+
+    def __ok_group_handler(self, packet: ILNPPacket):
+        """If node is joining my group, then begin informing the rest of the group"""
+        # TODO
         pass
 
-    def __hello_group_ack_handler(self, packet:ILNPPacket):
+    def __ok_group_ack_handler(self, packet: ILNPPacket):
+        """Update link state database based on reply"""
+        # TODO
         pass
 
-    def __ok_group_handler(self):
+    def __new_sensor_handler(self, packet: ILNPPacket):
+        """Add new link to link state table, recompute paths"""
+        # TODO
         pass
 
-    def __ok_group_ack_handler(self):
+    def __new_sensor_ack_handler(self, packet: ILNPPacket):
+        """Nothing to do"""
+        logging.info("Discarding new sensor ack.")
+
+    def __keepalive_handler(self, packet: ILNPPacket):
+        """Refresh age of neighbour link"""
+        # TODO
         pass
 
-    def __new_sensor_handler(self):
+    def __change_central_handler(self, packet: ILNPPacket):
+        """Update central node in local knowledge"""
+        # TODO
         pass
 
-    def __new_sensor_ack_handler(self):
+    def __change_central_ack_handler(self, packet: ILNPPacket):
+        """Nothing to do"""
+        logging.info("Discarding new central ack.")
+
+    def __sensor_disconnect_handler(self, packet: ILNPPacket):
+        """remove links from link state table to the failing node, recompute paths"""
+        # TODO
         pass
 
-    def __keepalive_handler(self):
-        pass
-
-    def __change_central_handler(self):
-        pass
-
-    def __change_central_ack_handler(self):
-        pass
-
-    def __sensor_disconnect_handler(self):
-        pass
-
-    def __sensor_disconnect_ack_handler(self):
-        pass
+    def __sensor_disconnect_ack_handler(self, packet: ILNPPacket):
+        """Nothing to do"""
+        logging.info("Discarding new sensor disconnect ack.")
 
     def handle_packet(self, packet: ILNPPacket):
         type_val = GroupMessage.parse_type(packet.payload.body)
@@ -200,4 +222,3 @@ class RouterControlPlane:
         elif type_val is SENSOR_DISCONNECT_ACK_TYPE:
             logger.info("sensor disconnect ack messaged received")
             packet.payload.body = SensorDisconnectAck.from_bytes(packet.payload.body)
-
