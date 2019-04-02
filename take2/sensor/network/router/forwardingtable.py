@@ -46,6 +46,9 @@ class Vertex:
     def get_weight(self, neighbour_vertex):
         return self.adjacent[neighbour_vertex]
 
+    def remove_neighbour(self, expired):
+        del self.adjacent[expired]
+
 
 def floyd_warshall(g) -> Tuple[Dict[Vertex, Dict[Vertex, float]], Dict[Vertex, Dict[Vertex, int]]]:
     """Return dictionaries distance and next_v.
@@ -98,6 +101,10 @@ class LinkGraph:
             return self.vertices[node_id]
         else:
             return None
+
+    def get_neighbour_ids(self, node_id) -> List[int]:
+        vertex = self.get_vertex(node_id)
+        return [neighbour.id for neighbour in vertex.adjacent]
 
     def add_edge(self, from_node_id, to_node_id, cost=0):
         if from_node_id not in self.vertices:
@@ -156,3 +163,11 @@ class LinkGraph:
 
         return [neighbour.id for neighbour in me.adjacent.keys() if neighbour not in seen]
 
+    def remove_vertex(self, expired_node):
+        expired: Vertex = self.get_vertex(expired_node)
+        # Remove links from neighbours
+        for neighbour in expired.adjacent:
+            neighbour.remove_neighbour(expired)
+
+        # Remove from graph
+        del self.vertices[expired_node]

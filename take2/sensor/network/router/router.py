@@ -106,6 +106,9 @@ class Router(threading.Thread):
         self.incoming_message_thread.daemon = True
         self.incoming_message_thread.start()
 
+        self.control_plane.daemon = True
+        self.control_plane.start()
+
         self.running = True
 
     def join(self, **kwargs):
@@ -116,6 +119,8 @@ class Router(threading.Thread):
         self.net_interface.close()
         logger.info("Waiting on incoming message thread to terminate")
         self.incoming_message_thread.join()
+        logger.info("Waiting on control plane thread terminating")
+        self.control_plane.join()
         logger.info("Joining router thread")
         super().join()
         logger.info("Finished terminating routing thread")

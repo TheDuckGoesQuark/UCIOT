@@ -1,16 +1,17 @@
 import logging
+import threading
 import time
 from functools import reduce
 from math import sqrt
 from multiprocessing import Queue
 from queue import Empty
-from typing import Tuple, List
+from typing import Tuple, List, Dict
 
 from sensor.battery import Battery
 from sensor.network.router.groupmessages import HelloGroup, HELLO_GROUP_ACK_TYPE, GroupMessage, HelloGroupAck, OKGroup, \
     HELLO_GROUP_TYPE, OK_GROUP_TYPE, OK_GROUP_ACK_TYPE, OKGroupAck, NEW_SENSOR_TYPE, NewSensor, NEW_SENSOR_ACK_TYPE, \
     NewSensorAck, KEEPALIVE_TYPE, CHANGE_CENTRAL_TYPE, ChangeCentral, CHANGE_CENTRAL_ACK_TYPE, ChangeCentralAck, \
-    SENSOR_DISCONNECT_TYPE, SensorDisconnect, SENSOR_DISCONNECT_ACK_TYPE, SensorDisconnectAck, Link
+    SENSOR_DISCONNECT_TYPE, SensorDisconnect, SENSOR_DISCONNECT_ACK_TYPE, SensorDisconnectAck, Link, KeepAlive
 from sensor.network.router.ilnp import ILNPAddress, ILNPPacket
 from sensor.network.router.forwardingtable import ForwardingTable, LinkGraph
 from sensor.network.router.netinterface import NetworkInterface
@@ -25,6 +26,9 @@ LOAD_PERCENTAGE = 50
 MIN_ENERGY_TO_BE_NEIGHBOUR = 10
 K_THREE_CONSTANT = 1000
 
+KEEP_ALIVE_INTERVAL_SECS = 3
+MAX_AGE_OF_LINK = KEEP_ALIVE_INTERVAL_SECS * 3
+
 
 def max_average(loc_avg_a: Tuple[int, int], loc_avg_b: Tuple[int, int]) -> Tuple[int, int]:
     if loc_avg_a[1] > loc_avg_b[1]:
@@ -37,23 +41,67 @@ def calc_neighbour_link_cost(neighbour_lambda, delay):
     return int(delay * K_THREE_CONSTANT / neighbour_lambda)
 
 
-class RouterControlPlane:
+class RouterControlPlane(threading.Thread):
     def __init__(self, net_interface: NetworkInterface, control_packet_queue: Queue, my_address: ILNPAddress,
                  battery: Battery):
+        super().__init__()
         self.central_node_id = my_address.id
         self.battery = battery
         self.my_address = my_address
-        self.n_neighbours = 0
+        # Tracks neighbours and time since last keepalive
+        self.internal_neighbours: Dict[int, int] = {}
+        self.n_adjacent_nodes = 0
         self.net_interface = net_interface
         self.control_packet_queue = control_packet_queue
+        self.running = False
 
         # Link table manages network knowledge
-        self.link_table = LinkGraph()
+        self.link_graph = LinkGraph()
         # Forwarding table provides quick look-up for forwarding packets to internal and external nodes
         self.forwarding_table = ForwardingTable()
 
+    def join(self, timeout=None) -> None:
+        self.running = False
+        super().join(timeout)
+
+    def run(self) -> None:
+        self.running = True
+        while self.running:
+            time.sleep(KEEP_ALIVE_INTERVAL_SECS)
+            self.__send_keepalive()
+            logger.info("Removing expired links")
+            expired = [neighbour for neighbour, age in self.internal_neighbours if age > MAX_AGE_OF_LINK]
+            self.internal_neighbours = [(neighbour, age + KEEP_ALIVE_INTERVAL_SECS)
+                                        for neighbour, age in self.internal_neighbours
+                                        if age <= MAX_AGE_OF_LINK]
+
+            logger.info("links expired: {}".format(expired))
+            self.__remove_expired_links(expired)
+
+    def __send_keepalive(self):
+        logger.info("Sending keepalive")
+        keepalive = KeepAlive()
+        t_wrap = build_control_wrapper(bytes(keepalive))
+        packet = ILNPPacket(self.my_address, ILNPAddress(self.my_address.loc, 0), hop_limit=0,
+                            payload_length=t_wrap.size_bytes(), payload=bytes(t_wrap))
+
+        self.net_interface.broadcast(bytes(packet))
+
+    def __remove_expired_links(self, expired: List[int]):
+        sensor_disconnect = SensorDisconnect()
+        t_wrap = build_control_wrapper(bytes(sensor_disconnect))
+
+        for expired_node in expired:
+            logger.info("Announcing that {} has expired".format(expired_node))
+            self.link_graph.remove_vertex(expired_node)
+            packet = ILNPPacket(ILNPAddress(self.my_address.loc, expired_node), ILNPAddress(self.my_address.loc, 0),
+                                payload_length=t_wrap.size_bytes(), payload=bytes(t_wrap))
+            self.net_interface.broadcast(bytes(packet))
+
+        self.link_graph.update_forwarding_table(self.forwarding_table, self.my_address.id)
+
     def calc_my_lambda(self):
-        return (((MAX_CONNECTIONS - self.n_neighbours) * LOAD_PERCENTAGE) / MAX_CONNECTIONS) \
+        return (((MAX_CONNECTIONS - self.n_adjacent_nodes) * LOAD_PERCENTAGE) / MAX_CONNECTIONS) \
                * sqrt((1 - ((self.battery.percentage() ** 2) / MIN_ENERGY_TO_BE_NEIGHBOUR)))
 
     def initialize_locator(self):
@@ -115,8 +163,8 @@ class RouterControlPlane:
             reduce(lambda current_max, next_val: max_average(current_max, next_val), locator_to_average)
 
         logger.debug("{} chosen as best locator to join".format(best_locator))
-        self.n_neighbours = len(replies)
-        logger.debug("Identified {} neighbours".format(self.n_neighbours))
+        self.n_adjacent_nodes = len(replies)
+        logger.debug("Identified {} neighbours".format(self.n_adjacent_nodes))
         self.my_address.loc = best_locator
 
         logger.info("Replying to hello group acks")
@@ -161,7 +209,8 @@ class RouterControlPlane:
                 self.__ok_group_ack_handler(reply)
 
             # Update forwarding table using new link state database
-            self.link_table.update_forwarding_table(self.forwarding_table, self.my_address.id)
+            self.link_graph.update_forwarding_table(self.forwarding_table, self.my_address.id)
+            self.internal_neighbours = self.link_graph.get_neighbour_ids(self.my_address.id)
 
     def __hello_group_handler(self, packet: ILNPPacket):
         """On receiving a hello group message, reply with my lambda value"""
@@ -185,7 +234,7 @@ class RouterControlPlane:
         logger.info("OK Group for my group. Informing other nodes of new link")
         link_entry = Link(self.my_address.id, packet.src.id, packet.payload.body.cost)
         self.forwarding_table.add_internal_entry(link_entry.node_b_id, link_entry.node_b_id)
-        self.link_table.add_edge(link_entry.node_a_id, link_entry.node_b_id, link_entry.cost)
+        self.link_graph.add_edge(link_entry.node_a_id, link_entry.node_b_id, link_entry.cost)
         new_sensor = NewSensor(link_entry)
         t_wrap = build_control_wrapper(bytes(new_sensor))
         new_sensor_packet = ILNPPacket(self.my_address, ILNPAddress(self.my_address.loc, 0),
@@ -193,7 +242,7 @@ class RouterControlPlane:
         self.net_interface.broadcast(bytes(new_sensor_packet))
 
         logger.info("Acknowledging group join")
-        link_entries = self.link_table.to_link_list()
+        link_entries = self.link_graph.to_link_list()
         ok_group_ack = OKGroupAck(len(link_entries), self.central_node_id, link_entries)
         t_wrap = build_control_wrapper(bytes(ok_group_ack))
         ok_group_ack_packet = ILNPPacket(self.my_address, ILNPAddress(self.my_address.loc, 0),
@@ -208,7 +257,11 @@ class RouterControlPlane:
         ok_group_ack: OKGroupAck = packet.payload.body
         self.central_node_id = ok_group_ack.central_node_id
         logger.info("Registering {} as central node".format(self.central_node_id))
-        self.link_table.add_edges(ok_group_ack.entry_list)
+        self.link_graph.add_edges(ok_group_ack.entry_list)
+
+        logger.info("Initializing neighbour ages")
+        self.internal_neighbours = {neighbour_id: 0 for neighbour_id in
+                                    self.link_graph.get_neighbour_ids(self.my_address.id)}
 
     def __new_sensor_handler(self, packet: ILNPPacket):
         """Add new link to link state table, recompute paths"""
@@ -219,14 +272,14 @@ class RouterControlPlane:
         new_sensor: NewSensor = packet.payload.body
         link = new_sensor.link_entry
         logger.info("Adding new link")
-        self.link_table.add_edge(link.node_a_id, link.node_b_id, link.cost)
+        self.link_graph.add_edge(link.node_a_id, link.node_b_id, link.cost)
         logger.info("Triggering forwarding table refresh")
-        self.link_table.update_forwarding_table(self.forwarding_table, self.my_address.id)
+        self.link_graph.update_forwarding_table(self.forwarding_table, self.my_address.id)
         self.__reverse_path_forward(packet)
 
-    def __reverse_path_forward(self, packet:ILNPPacket):
+    def __reverse_path_forward(self, packet: ILNPPacket):
         """Send packet onto nodes that are the same distance as me from origin + 1"""
-        to_forward_to: List[int] = self.link_table.get_neighbours_to_flood(self.my_address.id, packet.src.id)
+        to_forward_to: List[int] = self.link_graph.get_neighbours_to_flood(self.my_address.id, packet.src.id)
         logger.info("Forwarding to {}".format(to_forward_to))
         packet.decrement_hop_limit()
         for next_hop in to_forward_to:
