@@ -7,10 +7,10 @@ from typing import Tuple, List
 from sensor.battery import Battery
 from sensor.config import Configuration
 from sensor.network.router.forwardingtable import ForwardingTable
-from sensor.network.router.groupmessages import GroupMessage, HELLO_GROUP_TYPE, HELLO_GROUP_ACK_TYPE
 from sensor.network.router.ilnp import ILNPPacket, ILNPAddress
 from sensor.network.router.netinterface import NetworkInterface
 from sensor.network.router.control import RouterControlPlane
+from sensor.network.router.reactive.dsrmessages import parse_type, Hello
 from sensor.network.router.transportwrapper import build_data_wrapper, TransportWrapper
 
 logger = logging.getLogger(__name__)
@@ -35,11 +35,10 @@ class IncomingMessageParserThread(threading.Thread):
     Also provides ID <-> IPv6 address mapping as HelloGroup messages will only arrive from one hop neighbours
     """
 
-    def __init__(self, net_interface: NetworkInterface, control_packet_queue: Queue, data_packet_queue: Queue):
+    def __init__(self, net_interface: NetworkInterface, packet_queue: Queue):
         super().__init__()
         self.net_interface: NetworkInterface = net_interface
-        self.control_packet_queue: Queue = control_packet_queue
-        self.data_packet_queue: Queue = data_packet_queue
+        self.packet_queue: Queue = packet_queue
         self.stopped: bool = False
 
     def join(self, timeout=None) -> None:
@@ -49,10 +48,10 @@ class IncomingMessageParserThread(threading.Thread):
         logger.info("Finished terminating network interface polling thread")
 
     def add_link_knowledge(self, packet: ILNPPacket, ipv6_addr: str):
-        """If packet is one-hop type, it can provide a mapping for sending directly to neighbour links"""
-        message_type = GroupMessage.parse_type(packet.payload.body)
+        """If packet is HELLO, it can provide a mapping for sending directly to neighbour links"""
+        message_type = parse_type(memoryview(packet.payload.body))
 
-        if message_type is HELLO_GROUP_TYPE or message_type is HELLO_GROUP_ACK_TYPE:
+        if message_type is Hello.TYPE:
             logger.info("Registering node {} ({}) as link local neighbour.".format(packet.src.id, ipv6_addr))
             self.net_interface.add_id_ipv6_mapping(packet.src.id, ipv6_addr)
 
@@ -71,9 +70,8 @@ class IncomingMessageParserThread(threading.Thread):
 
             if packet.payload.is_control_packet():
                 self.add_link_knowledge(packet, ipv6_addr)
-                self.control_packet_queue.put(packet)
-            else:
-                self.data_packet_queue.put(packet)
+
+            self.packet_queue.put(packet)
 
 
 class Router(threading.Thread):
@@ -90,15 +88,14 @@ class Router(threading.Thread):
         # Interface for sending data
         self.net_interface: NetworkInterface = NetworkInterface(config, battery)
         # Data received from net interface needing processed
-        self.control_packet_queue: Queue[ILNPPacket] = Queue()
-        self.data_packet_queue: Queue[ILNPPacket] = Queue()
+        self.packet_queue: Queue[ILNPPacket] = Queue()
         # Control packet handler
         self.forwarding_table = ForwardingTable()
-        self.control_plane = RouterControlPlane(self.net_interface, self.control_packet_queue, self.my_address, battery,
+        self.control_plane = RouterControlPlane(self.net_interface, self.packet_queue, self.my_address, battery,
                                                 self.forwarding_table, config.max_radius)
         # Thread for continuous polling of network interface for packets
         self.incoming_message_thread = IncomingMessageParserThread(
-            self.net_interface, self.control_packet_queue, self.data_packet_queue)
+            self.net_interface, self.packet_queue)
 
         self.incoming_message_thread.daemon = True
         self.incoming_message_thread.start()
@@ -137,7 +134,7 @@ class Router(threading.Thread):
         dest_addr = ILNPAddress(None, dest_id)
         packet = ILNPPacket(src_addr, dest_addr, payload=t_wrap, payload_length=t_wrap.size_bytes())
 
-        self.data_packet_queue.put(packet)
+        self.packet_queue.put(packet)
 
     def receive_from(self, blocking=True, timeout=None) -> Tuple[bytes, int]:
         return self.arrived_data_queue.get(blocking, timeout)
@@ -151,12 +148,11 @@ class Router(threading.Thread):
         logger.info("Beginning regular processing")
         while self.running:
             # NOTE select on queues doesn't work in windows due to the file handles used
-            queues_available, _, _ = select.select([self.data_packet_queue._reader, self.control_packet_queue._reader],
-                                                   [], [],
-                                                   SECONDS_BETWEEN_SHUTDOWN_CHECKS)
-            if len(queues_available) > 0:
+            packet = self.packet_queue.get(timeout=SECONDS_BETWEEN_SHUTDOWN_CHECKS)
+
+            if data is not None:
                 logger.info("Data has arrived on one of the queues")
-                self.handle_available_packets(queues_available)
+                self.handle_packet(packet)
             else:
                 logger.info("No packets have arrived in the past {} seconds".format(SECONDS_BETWEEN_SHUTDOWN_CHECKS))
 
@@ -180,10 +176,11 @@ class Router(threading.Thread):
             logger.info("Attempting reactive routing.")
             self.control_plane.route_external_packet(packet)
 
-    def handle_available_packets(self, queues_available: List[Queue]):
+    def handle_packet(self, packet: ILNPPacket):
         """Passes the first packet from each of the queues to the relevant handler"""
-        for queue in queues_available:
-            if queue is self.control_packet_queue._reader:
-                self.control_plane.handle_control_packet(self.control_packet_queue.get())
-            else:
-                self.handle_data_packet(self.data_packet_queue.get())
+        if packet.payload.is_control_packet():
+            self.control_plane.handle_control_packet(packet)
+        else:
+            self.handle_data_packet(packet)
+
+

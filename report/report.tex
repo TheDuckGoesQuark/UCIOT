@@ -34,11 +34,11 @@
 \usepackage{tikz,tikz-3dplot}
 \usepgfplotslibrary{colormaps,fillbetween}
 \pgfplotsset{compat=1.16}
-\pgfplotscolormaptoshadingspec{hot}{7cm}\result
-\def\tempb{\pgfdeclarehorizontalshading{tempshading}{7cm}}%
-% where '\result' is inserted as last argument:
-\expandafter\tempb\expandafter{\result}%
-\sbox\backbox{\pgfuseshading{tempshading}}%
+%	\pgfplotscolormaptoshadingspec{hot}{7cm}\result
+%	\def\tempb{\pgfdeclarehorizontalshading{tempshading}{7cm}}%
+%	% where '\result' is inserted as last argument:
+%	\expandafter\tempb\expandafter{\result}%
+%	\sbox\backbox{\pgfuseshading{tempshading}}%
 
 
 \begin{document}
@@ -166,6 +166,7 @@ The benefits of ILNP are clear for the entire internet infrastructure. The nativ
 
 These devices are often restricted by limited battery life, memory, and computational capabilities. Most routing protocols focus on finding the shortest route between a source and destination, which often results in a small number of paths being heavily used and so some nodes are especially drained due to processing and forwarding of packets. This can result in a network partion once crucial nodes fail (due to loss of battery), rendering a section of still operational nodes useless. By reducing the networking overhead and attempting to balance traffic across several paths, the network can remain operational for longer. 
 
+\pagebreak
 \section{Context Survey}
 
 \subsection{Internet Routing and Addressing Architecture}
@@ -198,22 +199,8 @@ The sensitivity of crops to changes in climate and agricultures crucial role on 
 
 \cite{indoor} propose enviromental sensors but for urban environments with access to the cloud. By providing cheap montoring and actuating sensors to the general public, they hope to encourage healthier eating habits, as people would be able to grow their own vegetables effectively. 
 
-\section{ILNP Testbed Implementation}
-
-Due to the recency of ILNPv6, there does not currently exist software for emulating wireless ILNP networks as there is for IP, therefore a custom testbed had to be implemented. This was achieved by building an ILNP overlay network using UDP with multicast. A single UDP socket provided a communication endpoint. 
-
-A multicast group would exist for each node ID, and so neighbours of a node would join the multicast groups of their neighbours in order to receive broadcasted packets. Figure \ref{fig:mcast} shows the ranges of each sensors radio signal as dashed lines, where each node within the range joins the multicast group.
-
-IPv4 uses the Address Resolution Protocol (ARP) and IPv6 uses Neighbour Discovery (ND) in order to produce a mapping between IP addresses and the link layer addresses of other machines in a local network. In our overlay network, the IP addresses of the underlying network could be treated as MAC addresses. This would allow us to emulate neighbour discovery in ILNPv6, and provide unicast communication once a mapping between these virtual link layer addresses and ILNP IDs were obtained via broadcasted messages. 
-
-\begin{figure}[!h]
-	\centering
-	\includegraphics[width=0.5\linewidth]{images/mcast}
-	\caption{Wireless broadcast emulation using multicast}
-	\label{fig:mcast}
-\end{figure}
-
-\section{Protocol Design}
+\pagebreak
+\section{Protocol Design} \label{protodesign}
 
 The protocol used is based on the Ad Hoc On-Demand Distance Vector (AODV) routing protocol, with added fields to try and account for energy usage. AODV is a reactive protocol which has three phases: discovery, maintenance, and recovery.
 
@@ -246,7 +233,7 @@ By forwarding RRPLYs along the reverse of the path that they contain, we ensure 
 This only works if we assume that all links are bidrectional which is not always the case especially in heterogenous WSNs, due to differences in transceiver ranges. 
 \cite{unidirec} shows that accounting for unidirectional links in a protocol does not provide much benefit compared to the increased overhead. Also in our scenario, the nodes are likely to be homogenous and evenly spaced, so transceiver power can be assumed to be equal throughout, with no interference hot spots. 
 
-\begin{figure}[!h]
+\begin{figure}[h]
 	\centering
 	\includegraphics[width=\linewidth]{images/rrplyflow}
 	\caption{Route Reply (RRPLY) Flow}
@@ -266,9 +253,24 @@ Each node calculates this value before adding their ID to the path in the RREQ, 
 \cite{groups} also included a load balancing factor that would account for the number of neighbours a node had, and this was considered for use in the AODV implementation. Instead of using the number of neighbours as in their link state protocol, we could use the number of nodes using a route that passed through this node. 
 This value could be ascertained by counting the number of unique source IDs of packets that were forwardded. However, defining a maximum in order to normalise this factor would place restrictions on how large the network could grow. Too large and the factor has no real effect, too small and it would reduce to zero making the metric meaningless for nodes further upstream. If this number could be supplied however, it would help other nodes choose routes that aren't being used as heavily, which would be very beneficial for the lifespan of the network.
 
-\begin{figure}[!h]
+\begin{figure}[h]
 	\centering
 	\begin{tikzpicture}
+	%	\begin{axis}[set layers,view={90}{0},
+	%		 axis lines=left,
+	%		 grid=major,
+	%		 no marks,
+	%		 xmin=0, xmax=1, xlabel=$E$,
+	%		 ymin=0, ymax=1, ylabel=$\lambda$, ylabel style={rotate=-90}
+	%		 ]
+	%		\addplot+[smooth,blue] {1 - (1 - x)^2}; % actual curve
+	%		\begin{pgfonlayer}{pre main}
+	%			\clip plot[variable=\x,samples=25,domain=0:1] (\x,{1 - (1 - \x)^2})
+	%			|-cycle;
+	%			\node at (0.5,0.5){\usebox\backbox};
+	%		\end{pgfonlayer}
+	%		% filling
+	%	\end{axis}
 		\begin{axis}[set layers,view={90}{0},
 			 axis lines=left,
 			 grid=major,
@@ -277,14 +279,9 @@ This value could be ascertained by counting the number of unique source IDs of p
 			 ymin=0, ymax=1, ylabel=$\lambda$, ylabel style={rotate=-90}
 			 ]
 			\addplot+[smooth,blue] {1 - (1 - x)^2}; % actual curve
-			\begin{pgfonlayer}{pre main}
-				\clip plot[variable=\x,samples=25,domain=0:1] (\x,{1 - (1 - \x)^2})
-				|-cycle;
-				\node at (0.5,0.5){\usebox\backbox};
-			\end{pgfonlayer}
-			% filling
 		\end{axis}
-	   \end{tikzpicture}\caption{Plot of Equation \ref{eq:lambda}}
+	   \end{tikzpicture}
+	   \caption{Plot of Equation \ref{eq:lambda}}
 	\label{fig:lambda}
 \end{figure}
 
@@ -292,7 +289,7 @@ This value could be ascertained by counting the number of unique source IDs of p
 
 In order to check if neighbours are still live, \emph{HELLO} messages are exchanged at regular intervals between neighbouring nodes. These messages also provide neighbour discovery as they are limited to one hop, therefore the source ID can be mapped to the arriving IPv6 address in the emulated link layer. 
 
-\begin{figure}[!h]
+\begin{figure}[!ht]
 	\centering
 	\includegraphics[width=0.6\linewidth]{images/helloflow}
 	\caption{Hello Flow}
@@ -307,7 +304,7 @@ Cached routes will also expire after some time to trigger another route request 
 
 If the keepalive process fails for a neighbour, then a node will forward a RERR to all previous nodes in any paths it takes part in, shown in figure \ref{fig:rerrflow}.
 
-\begin{figure}[!h]
+\begin{figure}[h]
 	\centering
 	\includegraphics[width=\linewidth]{images/rerrflow}
 	\caption{Route Error (RERR) Flow}
@@ -317,15 +314,59 @@ If the keepalive process fails for a neighbour, then a node will forward a RERR 
 Any packets that were sent between the failure of the link and the receiving of a route error will most likely be dropped, and future packets will be delayed as route discovery will have to take place again unless this node is aware of a disjoint path to the destination.
 
 \FloatBarrier
+\pagebreak
+\section{ILNP Testbed Implementation}
 
-\section{Software Design}
+Due to the recency of ILNPv6, there does not currently exist software for emulating wireless ILNP networks as there is for IP, therefore a custom testbed had to be implemented.  
 
+The testing environment was implemented using Python 3.7. The project has three main components: The wireless network emulation, routing and network management, and sensor emulation. Figure \ref{fig:struc} shows the components with the flow of messages.
+
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=\linewidth]{images/struc}
+	\caption{Implementation Structure}
+	\label{fig:struc}
+\end{figure}
+
+\subsection{Wireless Network Emulation}
+
+Emulating wireless communication was achieved by building an overlay network using UDP with multicast. A single UDP socket provided a communication endpoint.
+
+A multicast group exists for each node ID, and so neighbours of a node would join the multicast groups of their neighbours in order to receive broadcasted packets. Figure \ref{fig:mcast} shows the ranges of each sensors radio signal as dashed lines, where each node within the range joins the multicast group.
+
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.5\linewidth]{images/mcast}
+	\caption{Wireless broadcast emulation using multicast}
+	\label{fig:mcast}
+\end{figure}
+
+IPv4 uses the Address Resolution Protocol (ARP) and IPv6 uses Neighbour Discovery (ND) in order to produce a mapping between IP addresses and the link layer addresses of other machines in a local network. In our overlay network, the IP addresses of the underlying network could be treated as MAC addresses. This would allow us to emulate neighbour discovery in ILNPv6, and provide unicast communication once a mapping between these virtual link layer addresses and ILNP IDs were obtained via broadcasted messages. 
+
+The network interface abstraction provided the following methods:
 \begin{enumerate}
-\item Component structure (socket interface, router/dsrservice/forwardingtable, raw sockets)
-\item Runtime behaviour (packet parsing, routing, and forwarding)
-\item Use figures to visualise project structure and workflow
+	\item \textbf{send}: For unicast communication.
+	\item \textbf{broadcast}: For establishing neighbours or flooding packets.
+	\item \textbf{receive}: For receiving packets, broadcast or unicast.
 \end{enumerate}
 
+A daemon thread continuously polls the network interface for incoming data. It then parses the contents of the packet and records the source IDs and source IP addresses of any neighbourhood discovery packets for later communication. 
+
+All polling functions included a timeout in order for each thread to check if it has been asked to terminate, if for example the power levels had reached a critical level.
+
+\subsection{Routing and Network Management}
+
+The router polls the incoming packet queue and decides the next course of action using the processes described in section \ref{protodesign}.
+
+\subsection{Sensor Emulation}
+
+The sensor initialises the ILNPSocket, and depending on whether or not it is configured to operate as the sink (where all the data from every node is collected) begins either polling for packets or sending 'readings' at intervals.
+
+To mock realistic application data, a random fluctuation is applied to a series of values that would be relevant in our scenario: temperature, humidity, pressure, and luminosity \cite{agrisensor}.
+
+Only the ID of the sink is known by each node, which is all that should be necessary when using ILNP to route a packet. If it was possible to provide a FQDN for the sink node then the addressing scheme would be abstracted also, but emulating a DNS was deemed unecessary for the experiment.
+
+\pagebreak
 \section{Experiment}
 
 \begin{enumerate}
@@ -334,8 +375,15 @@ Any packets that were sent between the failure of the link and the receiving of 
 \item Use visuals to show locators to real life position and sensor radi
 \item Discuss experiment configuration (how machines were chosen, results collected, battery life simulated, etc)
 \item discuss choice of metrics, justifcation and how to compare results.
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=\linewidth]{images/layout}
+	\caption{WSN layout with example route.}
+	\label{fig:layout}
+\end{figure}
 \end{enumerate}
 
+\pagebreak
 \section{Results and Discussion}
 
 \begin{enumerate}
@@ -345,6 +393,7 @@ Any packets that were sent between the failure of the link and the receiving of 
 \item Discuss weaknesses with experiment
 \end{enumerate}
 
+\pagebreak
 \section{Conclusions}
 
 Improve AODV to use locator for 'approximate' routing, then complete path once reaches locator
@@ -355,6 +404,7 @@ Mercy message to send from nodes under heavy load to try and request downstream 
 \item future work with ILNP, possible suggestions of better alternatives to the routing protocol used.
 \end{enumerate}
 
+\pagebreak
 \section{Appendix}
 \begin{enumerate}
 \item Instructions on installing, and executing and using the python module, and how to configure the experiments.
