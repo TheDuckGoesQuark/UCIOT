@@ -1,6 +1,7 @@
 import logging
 import select
 import threading
+from _queue import Empty
 from multiprocessing import Queue
 from typing import Tuple, List
 
@@ -147,10 +148,9 @@ class Router(threading.Thread):
         # Begin processing
         logger.info("Beginning regular processing")
         while self.running:
-            # NOTE select on queues doesn't work in windows due to the file handles used
             packet = self.packet_queue.get(timeout=SECONDS_BETWEEN_SHUTDOWN_CHECKS)
 
-            if data is not None:
+            if packet is not None:
                 logger.info("Data has arrived on one of the queues")
                 self.handle_packet(packet)
             else:
@@ -162,19 +162,19 @@ class Router(threading.Thread):
         if packet.dest.id == self.my_address.id:
             logger.info("Packet for me, adding to received queue <3")
             self.arrived_data_queue.put((packet.payload.body, packet.src.id))
-        elif packet.dest.loc == self.my_address.loc:
-            logger.info("Packet for someone in my locator")
-            next_hop = self.forwarding_table.get_next_internal_hop(packet.dest.id)
-            if next_hop is not None:
-                logger.info("Found next hop, forwarding to {}".format(next_hop))
-                self.net_interface.send(bytes(packet), next_hop)
-            else:
-                logger.info("No next hop found. Reverse path forwarding")
-                self.control_plane.reverse_path_forward(packet)
-        else:
-            logger.info("Packet for outside group and no path currently known.")
-            logger.info("Attempting reactive routing.")
+            return
+
+        next_hop = self.forwarding_table.get_next_hop(packet.dest.id)
+
+        if next_hop is not None:
+            logger.info("Found next hop, forwarding to {}".format(next_hop))
+            self.net_interface.send(bytes(packet), next_hop)
+        elif packet.src.id == self.my_address.id:
+            logger.info("No next hop found for packet originating from this node.")
+            logger.info("Requesting route reactive routing.")
             self.control_plane.route_external_packet(packet)
+        else:
+            logger.info("No next hop found for packet. Dropping packet.")
 
     def handle_packet(self, packet: ILNPPacket):
         """Passes the first packet from each of the queues to the relevant handler"""
@@ -182,5 +182,3 @@ class Router(threading.Thread):
             self.control_plane.handle_control_packet(packet)
         else:
             self.handle_data_packet(packet)
-
-

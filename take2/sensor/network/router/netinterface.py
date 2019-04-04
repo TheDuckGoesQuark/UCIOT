@@ -111,13 +111,13 @@ class NetworkInterface:
         :return: received bytes and origin ipv6 address as two element tuple
         :raises TimeoutError
         """
-        buffer = bytearray(self.buffer_size)
-
+        # Select provides timeout to socket polling
         ready, _, _ = select.select([self.sock], [], [], timeout)
 
         if len(ready) == 0:
             return None
 
+        buffer = bytearray(self.buffer_size)
         n_bytes_read, addr_info = self.sock.recvfrom_into(buffer, len(buffer))
         src_ipv6_addr = addr_info[0]
 

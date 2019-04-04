@@ -22,7 +22,7 @@ class ForwardingTable:
     def __str__(self):
         return str(vars(self))
 
-    def get_next_internal_hop(self, dest_id):
+    def get_next_hop(self, dest_id):
         if dest_id in self.next_hop_internal:
             return self.next_hop_internal[dest_id].next_hop_id
         else:
