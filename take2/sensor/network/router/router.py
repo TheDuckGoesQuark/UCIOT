@@ -172,7 +172,7 @@ class Router(threading.Thread):
         elif packet.src.id == self.my_address.id:
             logger.info("No next hop found for packet originating from this node.")
             logger.info("Requesting route reactive routing.")
-            self.control_plane.route_external_packet(packet)
+            self.control_plane.find_route(packet)
         else:
             logger.info("No next hop found for packet. Dropping packet.")
 

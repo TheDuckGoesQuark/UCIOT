@@ -80,3 +80,6 @@ class RouterControlPlane(threading.Thread):
 
     def handle_control_packet(self, packet: ILNPPacket):
         pass
+
+    def find_route(self, packet:ILNPPacket):
+        pass
