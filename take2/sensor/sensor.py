@@ -48,8 +48,7 @@ class Sensor:
                 sensor_reading = SensorReading.from_bytes(data_bytes)
                 print("Received reading {} from {}".format(sensor_reading, source_id))
             except IOError as e:
-                logger.warn("Terminating: " + e)
-
+                logger.warning("Terminating: " + e)
 
     def stop(self):
         logger.info("Stopping underlying services.")
