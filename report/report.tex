@@ -244,31 +244,26 @@ This only works if we assume that all links are bidrectional which is not always
 The structure of the route request is the same as in RFC3561 \cite{aodv}, but with an extra $\lambda$ field with each hop entry. This value provides a metric for determining the lifespan of a route, and is calculated using equation \ref{eq:lambda}, and visualised in Figure \ref{fig:lambda}. 
 
 \begin{equation} \label{eq:lambda}
-	\lambda = L \cdot (1 -(1 - E)^2)
+	\lambda = 1 -(1 - E)^2
 \end{equation}
 
-where $L$ is the \% of load the node is willing to give to networking, and $E$ is the \% battery remaining. It is based on the equation for $\lambda$ in \cite{groups}, adjusted so that $E = 0$ occurs when the battery is empty. The effect of decreasing $E$ was chosen so that $lambda$ would be more affected by very small values of $E$, but still have the decline happen gradually rather than a sudden drop off once energy levels become critical.
+where $L$ is the \% of load the node is willing to give to networking, and $E$ is the \% battery remaining. It is based on the equation for $\lambda$ in \cite{groups}, adjusted so that $E = 0$ occurs when the battery is empty. 
+The effect of decreasing $E$ was chosen so that the value of $\lambda$ would be similiar during network initialization, but to avoid network partions smaller values of $E$ would have a greater effect on $\lambda$.
 
-\cite{groups} included a load balancing factor that would account for the number of neighbours a node had, and this could also used in our AODV implementation. Instead of using the number of neighbours, we could use the number of nodes using a route that passed through this node which could be counted using the source identifiers of packets being forwarded. However, defining a maximum in order to normalise this factor would place restrictions on how large the network could grow. Too large and the factor has no real effect, too small it would reduce to zero making the metric meaningless for nodes further upstream. If this number could be supplied however, it would help other nodes choose routes that aren't being used as heavily, which would be very beneficial for the lifespan of the network.
+\cite{groups} also included a load balancing factor that would account for the number of neighbours a node had, and this could also used in our AODV implementation. Instead of using the number of neighbours, we could use the number of nodes using a route that passed through this node which could be counted using the source identifiers of packets being forwarded. However, defining a maximum in order to normalise this factor would place restrictions on how large the network could grow. Too large and the factor has no real effect, too small it would reduce to zero making the metric meaningless for nodes further upstream. If this number could be supplied however, it would help other nodes choose routes that aren't being used as heavily, which would be very beneficial for the lifespan of the network.
 
-\begin{figure}
+\begin{figure}[!h]
 	\centering
-	\begin{tikzpicture}[
-		declare function={
-			func(\x, \y) = x * (1 - (1 - y)^2) ;
-		}]
+	\begin{tikzpicture}[trim axis left, trim axis right]
 		\begin{axis}[
-			view={-30}{20},
-			grid=major,
-			zlabel style={rotate=-90},
-			xtick={0,0.5,1},
-			ytick={0,0.5,1},
-			ymin=0, ymax=1, ylabel=$E$,
-			xmin=0, xmax=1, xlabel=$L$,
-			zmin=0, zmax=1, zlabel=$\lambda$,
-		]
-		\addplot3[domain=0:1, y domain=0:1, surf, colormap/hot2, samples=41] {func(\x, \y)};
-		\end{axis}
+		 axis lines=left,
+		 grid=major,
+		 no marks,
+		 xmin=0, xmax=1, xlabel=$E$,
+		 ymin=0, ymax=1, ylabel=$\lambda$, ylabel style={rotate=-90}
+		 ]
+		\addplot+[smooth,black, fill=red] {1 - (1 - x)^2}; % actual curve
+	  \end{axis}
 	\end{tikzpicture}
 	\caption{Plot of Equation \ref{eq:lambda}}
 	\label{fig:lambda}
