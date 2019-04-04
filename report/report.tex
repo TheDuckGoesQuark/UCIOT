@@ -33,7 +33,12 @@
 \usepackage{pgfplots}
 \usepackage{tikz,tikz-3dplot}
 \usepgfplotslibrary{colormaps,fillbetween}
-\pgfplotsset{compat=1.10}
+\pgfplotsset{compat=1.16}
+\pgfplotscolormaptoshadingspec{hot}{7cm}\result
+\def\tempb{\pgfdeclarehorizontalshading{tempshading}{7cm}}%
+% where '\result' is inserted as last argument:
+\expandafter\tempb\expandafter{\result}%
+\sbox\backbox{\pgfuseshading{tempshading}}%
 
 
 \begin{document}
@@ -195,11 +200,18 @@ The sensitivity of crops to changes in climate and agricultures crucial role on 
 
 \section{ILNP Testbed Implementation}
 
-Due to the recency of ILNPv6, there does not currently exist software for emulating ILNP networks as there is for the variations IP, therefore a custom testbed had to be implemented. This was achieved by building an ILNP overlay network using UDP with multicast. 
+Due to the recency of ILNPv6, there does not currently exist software for emulating wireless ILNP networks as there is for IP, therefore a custom testbed had to be implemented. This was achieved by building an ILNP overlay network using UDP with multicast. A single UDP socket provided a communication endpoint. 
 
-A single UDP socket provided a communication endpoint. Sensors are initially unaware of each other, and so a simplified neighbour discovery mechanism is used to find which sensors are within radio range. 
+A multicast group would exist for each node ID, and so neighbours of a node would join the multicast groups of their neighbours in order to receive broadcasted packets. Figure \ref{fig:mcast} shows the ranges of each sensors radio signal as dashed lines, where each node within the range joins the multicast group.
 
-Since a mapping between the link layer MAC addresses and network layer IP addresses is used in IPv6 neihbour solicitation, and ILNPv6 can also use this mechanism, this was used to learn the IPv6 address of nodes that were also part of the multicast group. The grouping protocol discussed later involved one-hop packets to be broadcast, and so the IPv6 addresses could later be used for unicast communication. 
+IPv4 uses the Address Resolution Protocol (ARP) and IPv6 uses Neighbour Discovery (ND) in order to produce a mapping between IP addresses and the link layer addresses of other machines in a local network. In our overlay network, the IP addresses of the underlying network could be treated as MAC addresses. This would allow us to emulate neighbour discovery in ILNPv6, and provide unicast communication once a mapping between these virtual link layer addresses and ILNP IDs were obtained via broadcasted messages. 
+
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.5\linewidth]{images/mcast}
+	\caption{Wireless broadcast emulation using multicast}
+	\label{fig:mcast}
+\end{figure}
 
 \section{Protocol Design}
 
@@ -241,7 +253,7 @@ This only works if we assume that all links are bidrectional which is not always
 	\label{fig:rrplyflow}
 \end{figure}
 
-The structure of the route request is the same as in RFC3561 \cite{aodv}, but with an extra $\lambda$ field with each hop entry. This value provides a metric for determining the lifespan of a route, and is calculated using equation \ref{eq:lambda}, and visualised in Figure \ref{fig:lambda}. 
+The structure of the route request is the same as in RFC3561 \cite{aodv}, but with an extra $\lambda$ field in the header. This value provides a metric for determining the lifespan of a route, and is calculated for an individual node using equation \ref{eq:lambda}, and visualised in Figure \ref{fig:lambda}. 
 
 \begin{equation} \label{eq:lambda}
 	\lambda = 1 -(1 - E)^2
@@ -249,40 +261,62 @@ The structure of the route request is the same as in RFC3561 \cite{aodv}, but wi
 
 where $L$ is the \% of load the node is willing to give to networking, and $E$ is the \% battery remaining. It is based on the equation for $\lambda$ in \cite{groups}, adjusted so that $E = 0$ occurs when the battery is empty. 
 The effect of decreasing $E$ was chosen so that the value of $\lambda$ would be similiar during network initialization, but to avoid network partions smaller values of $E$ would have a greater effect on $\lambda$.
+Each node calculates this value before adding their ID to the path in the RREQ, and only changes the field in the packet if its calculated value is lower. 
 
-\cite{groups} also included a load balancing factor that would account for the number of neighbours a node had, and this could also used in our AODV implementation. Instead of using the number of neighbours, we could use the number of nodes using a route that passed through this node which could be counted using the source identifiers of packets being forwarded. However, defining a maximum in order to normalise this factor would place restrictions on how large the network could grow. Too large and the factor has no real effect, too small it would reduce to zero making the metric meaningless for nodes further upstream. If this number could be supplied however, it would help other nodes choose routes that aren't being used as heavily, which would be very beneficial for the lifespan of the network.
+\cite{groups} also included a load balancing factor that would account for the number of neighbours a node had, and this was considered for use in the AODV implementation. Instead of using the number of neighbours as in their link state protocol, we could use the number of nodes using a route that passed through this node. 
+This value could be ascertained by counting the number of unique source IDs of packets that were forwardded. However, defining a maximum in order to normalise this factor would place restrictions on how large the network could grow. Too large and the factor has no real effect, too small and it would reduce to zero making the metric meaningless for nodes further upstream. If this number could be supplied however, it would help other nodes choose routes that aren't being used as heavily, which would be very beneficial for the lifespan of the network.
 
 \begin{figure}[!h]
 	\centering
-	\begin{tikzpicture}[trim axis left, trim axis right]
-		\begin{axis}[
-		 axis lines=left,
-		 grid=major,
-		 no marks,
-		 xmin=0, xmax=1, xlabel=$E$,
-		 ymin=0, ymax=1, ylabel=$\lambda$, ylabel style={rotate=-90}
-		 ]
-		\addplot+[smooth,black, fill=red] {1 - (1 - x)^2}; % actual curve
-	  \end{axis}
-	\end{tikzpicture}
-	\caption{Plot of Equation \ref{eq:lambda}}
+	\begin{tikzpicture}
+		\begin{axis}[set layers,view={90}{0},
+			 axis lines=left,
+			 grid=major,
+			 no marks,
+			 xmin=0, xmax=1, xlabel=$E$,
+			 ymin=0, ymax=1, ylabel=$\lambda$, ylabel style={rotate=-90}
+			 ]
+			\addplot+[smooth,blue] {1 - (1 - x)^2}; % actual curve
+			\begin{pgfonlayer}{pre main}
+				\clip plot[variable=\x,samples=25,domain=0:1] (\x,{1 - (1 - \x)^2})
+				|-cycle;
+				\node at (0.5,0.5){\usebox\backbox};
+			\end{pgfonlayer}
+			% filling
+		\end{axis}
+	   \end{tikzpicture}\caption{Plot of Equation \ref{eq:lambda}}
 	\label{fig:lambda}
 \end{figure}
 
-
 \subsection{Maintenance}
+
+In order to check if neighbours are still live, \emph{HELLO} messages are exchanged at regular intervals between neighbouring nodes. These messages also provide neighbour discovery as they are limited to one hop, therefore the source ID can be mapped to the arriving IPv6 address in the emulated link layer. 
+
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.6\linewidth]{images/helloflow}
+	\caption{Hello Flow}
+	\label{fig:helloflow}
+\end{figure}
+
+Figure \ref{fig:helloflow} shows how the \emph{HELLO} messages are processed. If a node fails to deliver a hello messages after a certain interval, then it's neighbours will begin the route recovery process.
+
+Cached routes will also expire after some time to trigger another route request if required. This allows nodes to learn if a path is under heavy load, and ensures that a route will be corrected if for some reason the recovery process is not completed. 
 
 \subsection{Recovery}
 
+If the keepalive process fails for a neighbour, then a node will forward a RERR to all previous nodes in any paths it takes part in, shown in figure \ref{fig:rerrflow}.
+
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=\linewidth]{images/rerrflow}
+	\caption{Route Error (RERR) Flow}
+	\label{fig:rerrflow}
+\end{figure}
+
+Any packets that were sent between the failure of the link and the receiving of a route error will most likely be dropped, and future packets will be delayed as route discovery will have to take place again unless this node is aware of a disjoint path to the destination.
+
 \FloatBarrier
-\subsection{Path Cost}
-
-
-
-
-\begin{equation}
-    C = \frac{T \cdot K_3}{\lambda}
-\end{equation}
 
 \section{Software Design}
 
@@ -314,6 +348,7 @@ The effect of decreasing $E$ was chosen so that the value of $\lambda$ would be 
 \section{Conclusions}
 
 Improve AODV to use locator for 'approximate' routing, then complete path once reaches locator
+Mercy message to send from nodes under heavy load to try and request downstream nodes to use different paths.
 
 \begin{enumerate}	
 \item was the goal met, and if so how well?
