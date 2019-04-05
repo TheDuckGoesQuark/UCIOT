@@ -39,6 +39,7 @@
 %	% where '\result' is inserted as last argument:
 %	\expandafter\tempb\expandafter{\result}%
 %	\sbox\backbox{\pgfuseshading{tempshading}}%
+\def\l@paragraph{\@dottedtocline{5}{10em}{5em}}
 
 
 \begin{document}
@@ -151,6 +152,7 @@ The locator value identifies the subnetwork that a host belongs to, and a host c
 Though ILNPv6 is very backwards-compatible, there are still some difficult challenges involved in its deployment. \cite{ipwithoutip} describes how the tight coupling of the C socket API and IP addresses could cause issues in some legacy applications. ILNPv6 also requires some additions to the Domain Name System (DNS) to properly support multihoming.
 
 \subsection{Goal}
+
 The main goal of this project is to produce a library for a prototype communication
 protocol for Internet of Things (IoT) devices based on the identifier-locator
 approach. 
@@ -173,37 +175,38 @@ on devices. This will be tested through emulation of an IoT network and the ener
 \pagebreak
 \section{Context Survey}
 
-\# TODO Flesh this out, talk more about WHY this is a problem, what's been done about it so far, and how what I'm doing is different.
+\subsection{Ubiquity of IoT Devices}
 
-\subsection{Internet Routing and Addressing Architecture}
+Despite the intitial motivation for WSNs being military applications, they are now being used to solve many other problems.
 
-ILNP was listed alongside several other solutions to the current challenges facing the internet infrastructure in RFC6115 \cite{rfc6115}. Locator-Identifer Split Protocol (LISP) also uses locator-idnetifier semantics and has already been deployed in 60 sites over 10 countries \cite{nahla}. This ease of deployment is likely due to the fact that it requires no changes to hosts, and instead only required updates to core routers to be operational. 
+The sensitivity of crops to changes in climate and agricultures crucial role on national economies has naturally resulted in large amounts of research and development. \cite{agrisensor} describe how sensor technology is being used to monitor conditions in greenhouses, fields, and bodies of water. In order to make accessing this data more convenient and to help automate processes, they implemented a wireless network of enviromental sensors. This data would then be collected at a sink node and could be analysed from an application. 
 
-Another possible alternative is Routing Architecture for the Next Generation Internet (RANGI) \cite{rangi}. RANGI again uses the identifier-locator split, but also has a cryptographic identifier which provides sender identification. 
+WSNs currently often require specialised applications and manually specified network configurations in order for consumers to collect and analyse the data they produce. In order to make access to the data more standardised and easily available, research is also being done to connect sensor networks to the cloud. \cite{indoor} propose enviromental sensors for urban environments with gateways to to the internet which could integrate into our own homes. By providing cheap montoring and actuating sensors to the general public, they hope to encourage healthier eating habits, as people would be able to grow their own vegetables effectively. 
+
+\cite{wsnlist} list the other applications of WSNs, and the different approaches to integrating WSNs and the internet. They recognise that providing a single gateway results in a single point of failure, and so focus on methods involving multiple or integrated gateways. This requires that sensors adopt the responsiblity of managing their networks topology instead of just forwarding towards a sink node. 
+
+\subsection{Integration of WSNs and Current Internet Infrastructure}
+
+Previous research involving integrating WSNs into the current internet infrastructure is typically structured around IP. For all the reasons mentioned earlier, researches have realised the benefits of building WSNs using other approaches such as the locator-identifier split.
+
+In RFC6115 \cite{rfc6115}, ILNP was listed alongside several other solutions that resolved the issues faced by IP. One of the most well researched solutions listed is the Locator-Identifer Split Protocol (LISP), which has already been deployed in 60 sites over 10 countries \cite{nahla}. Whilst it does not have natural support for network mobility, attempts have been made to provide it that require further extensions to the protocol \cite{moblisp}. 
+
+ILNPv6 on the other hand has been able to demonstrate reliable mobility using a soft handover process \cite{shilnp}. Soft handover is where a host remains connected to it's original network while transitioning to a new one, which avoids loss of data when packets are still being routed to it's original network. 
+
+Soft handovers are crucial for high mobility devices such as smartphones, which are constantly transitioning between networks. Handovers are implemented in Mobile IP for IPv6, and has been improved since IPv4, but the method is still not as performant as it could be. It also further muddies the meaning of IP addresses, due to the use of different addresses (e.g. 'home' and 'care-of' addresses) in order to redirect packets to the mobile node. 
+
+A different addressing scheme is only part of the solution required for successful intergration of WSNs and the internet. IoT devices typically have limited memory and power, and so require optimised routing protocols if they are to be integrated effeciently. Due to the myriad of situations that IoT devices are used, there is no one-size-fits-all solution, and so many versions of IoT routing have been proposed.
 
 \subsection{Energy Effecient Routing Protocols}
 
-Wireless sensor networks (WSNs) are typically very mobile with limited memory and power, and so require optimised routing protocols. Due to the myriad of situations that IoT devices are used, there is no one-size-fits-all solution. 
+\cite{hassan} classifies differeent routing protocols and provides a survey of protocols for each class. Routing protocols are either proactive, reactive, or hybrid. 
 
-\cite{hassan} classifies differeent routing protocols and provides a survey of protocols for each class. Routing protocols are either:
-\begin{enumerate}
-    \item \textbf{Proactive}, where each node maintains a routing table through knowledge sharing with adjacent nodes. Typically involves high overhead due to regular flooding, but performs better than reactive methods as mobility increases.
-        Examples include AODV \cite{aodv} and DSR \cite{dsr}.
+\paragraph{Proactive} each node maintains a routing table through knowledge sharing with adjacent nodes. Typically involves high overhead due to regular flooding and beacon messages, but performs better than reactive methods as mobility increases as links are repaired quickly. In the current internet, OSPF is one of the most popular interior gateway protocols, and so naturally researchers tried to adapt it to wireless networks. This produced the Optimized Link State Routing (OLSR) protocol \cite{olsr} and Open Shortest Path First MANET Designated Routers (OSPF-MDR) protocol. Despite both making attempts to reduce enery consumption, they are defeated by reactive protocols in this area.
 
-    \item \textbf{Reactive}, where nodes only seek out routes to remote nodes when one is required. Very little overhead in networks with low mobility, but performance degrades quickly as mobility increases.
-        Examples include OLSR \cite{olsr}.
-    \item \textbf{Hybrid}, where features of both proactive and reactive protocols are used.
-\end{enumerate}
+\paragraph{Reactive} nodes only seek out routes to remote nodes when one is required. Reactive protocols involve very little overhead in networks with low mobility, but performance degrades quickly as mobility increases. Examples include AODV \cite{aodv} and DSR \cite{dsr}. Since these protocols were designed for mobile ad-hoc networks, most research involves improving the protocols awareness of energy availability. When a single node lies on many paths, it can be quickly drained by traffic, and so \cite{eaodv} produced a solution that considered the mean energy of a path before choosing which route to suggest to the requesting node. 
+Reactive protocols also perform well in wireless environments as lack of periodic updates reduces the chance of interference which exists with link state proactive protocols.
 
-In typical internet infrastructure, it makes sense to use hop counts and delay as metrics for working out the 'best' routes to a destination. However, many protocol for WSNs also account for values such as remaining battery life, or how much computation the node is willing to commit to networking. 
-
-In order to save power, MAC layer protocols will often only listen for short intervals, or rely on lower power and lower bitrate receivers to fully wake the host when communication is occuring \cite{offon}. This behaviour is one of the reasons that reactive protocols are increasingly popular for WSNs, as they don't have the high risk of signal collision that comes with frequent updates.
-
-\subsection{IoT in Agriculture}
-
-The sensitivity of crops to changes in climate and agricultures crucial role on national economies has naturally resulted in large amounts of research and development. \cite{agrisensor} describe how sensor technology is being used to monitor conditions in greenhouses, fields, and bodies of water. In order to make accessing this data more convenient and to help automate processes, they implemented a wireless network of enviromental sensors. These sensors communicate data to a gateway node which makes the data accessible via the cloud for visualisation and actuation. 
-
-\cite{indoor} propose enviromental sensors but for urban environments with access to the cloud. By providing cheap montoring and actuating sensors to the general public, they hope to encourage healthier eating habits, as people would be able to grow their own vegetables effectively. 
+\paragraph{Hybrid} features of both proactive and reactive protocols are used. The hybrid approach is useful in scenarios where the grouping of nodes is appropriate. \cite{cluster} use a clustering approach in order to manage resources within subsets of nodes. Since not all WSNs are homogenous, this approach can take advantage of some nodes having larger energy reserves than others by electing these nodes as the coordinator of the subnetwork.
 
 \pagebreak
 \section{Protocol Design} \label{protodesign}
