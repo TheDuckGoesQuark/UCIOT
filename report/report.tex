@@ -99,6 +99,8 @@
 
 \part*{Abstract}
 
+This project provides an implementation of a wireless ad-hoc sensor network, using ILNP as an addressing scheme. It focuses on an agricultural scenario, where groups of sensors are able to monitor and manage their local environment, whilst also providing data to a sink node for more in depth analysis. A zoning approach was taken to route data through the WSN, where subnetworks were created within the WSN in order to provide energy effecient routing with low memory and communication overhead. Finally, an experiment is carried out to show how effective the protocol is when using ILNP and IP as an addressing scheme, and also evaluates the effectiveness of the protocol along. The results showed that ...
+
 \part*{Declaration}
 I declare that the material submitted for
 assessment is my own work except where credit is
@@ -217,6 +219,8 @@ Features of both proactive and reactive protocols are used. The hybrid approach 
 \pagebreak
 \part{Protocol Design} \label{protodesign}
 
+\section{Motivation and Overview}
+
 The protocol used is a reactive zone-based routing protocol (ZBR), and is based on the work by \cite{zbrp} with added support for energy awareness. It was designed with the following assumptions:
 
 \begin{enumerate}
@@ -225,11 +229,10 @@ The protocol used is a reactive zone-based routing protocol (ZBR), and is based 
 	\item Locators cover a similiar physical area, in a lattice structure.
 \end{enumerate}
 
-Locator values could be assigned using GPS for example.
 
-Agricultural sensor networks often consist of many sensor nodes for monitoring the environment and a few actuators for triggering sprinklers or covering delicate crops. Based on this data, sensors could control the actuators within their locators themselves, whilst reporting their readings to the sink for further analysis. By splitting sensors into geographically relevant zones, the arriving data can also be grouped by origin location to help with visualisation and analysis at the sink. 
+Agricultural sensor networks often consist of many sensor nodes for monitoring the environment and a few actuators for triggering sprinklers or covering delicate crops. Based on this data, sensors could control the actuators within their locators themselves, whilst reporting their readings to the sink for further analysis. By splitting sensors into geographically relevant zones and assiging locators using tools such as GPS, the arriving data could also be grouped by origin location to help with visualisation and analysis at the sink. 
 
-Our ZBR uses a different routing strategy for routing within and between locators, referred to as the intrazone and interzone routing protocols. The interzone routing protocol is based on the reactive protocol AODV with added fields to try and account for energy usage in paths. The intrazone routing protocol is based on the proactive link-state protocol OLSR.
+Our ZBR uses a different routing strategy for routing within and between locators, referred to as the intrazone and interzone routing protocols. Both are based on the reactive protocol AODV with added fields to try and account for energy usage in paths. 
 
 Figure \ref{fig:actuate} provides example communication paths, where data is communicated from the nodes in one zone to the sink in another zone.
 
@@ -240,56 +243,28 @@ Figure \ref{fig:actuate} provides example communication paths, where data is com
 	\label{fig:actuate}
 \end{figure}
 
-A reactive protocol was chosen for inter-zone communication in order to limit the amount of global network knowledge required for routing. Since data is being sent for analysis purposes, delay is not a problem, and AODV could provide multiple paths which would allow traffic to be balanced across zones.
+A reactive protocol was chosen for communication in order to limit the amount of network knowledge required for routing. It also has the benefit that link breakages do not need to be broadcast to the entire network, and can instead only be sent to nodes relying on that links existence at the time of breakage.
 
-A proactive protocol was chosen for intra-zone communication in order to provide quick reliable routing within zones. For example, if high wind speeds are suddenly detected or a temperature drop due to snow, quick shelter could be crucial, like the one described in \cite{rain}.
+The protocol was specifically designed to identify the actuators and border nodes within each subnetwork, and to route data to the sink. The only knowledge that would be available upon initialization is the ID and locator for the starting node, and the ID of the sink node. This would allow the sink node to be multihomed without having to reconfigure the entire network of sensors, and would allow sensors to detect which tools were available to them within their own subnetworks. 
 
 \FloatBarrier
 
-\section{Intra-Zone}
-
-The intra-zone routing table is responsible for forwarding packets between the nodes of a locator. To do this, it keeps track of:
+\subsection{Protocol Stages}
 
 \begin{enumerate}
-	\item The destination node ID
-	\item The next hop ID to reach the destination ID
-	\item The cost of this path, based on $\lambda$.
-	\item Whether or not the destination node is a border or normal node.
-	\item The neighbouring locators that the destination node has links to (border nodes only).
+	\item The node broadcasts a \emph{localhello} message to its neighbours, and each neighbour constructs a path by appending their ID to the \emph{hello message}. 
+	\item Border nodes and actuators reply to \emph{localhello} messages with either \emph{border} or \emph{actuator} messages respectively, which provide the requesting node paths to each of them. The \emph{border} message also includes information as to what locators can be reached from that node.
+	\item Border nodes from other locators will also reply to the \emph{hello} message, providing information about their own accessible locators, which will then designate the new node as a border node.
+	\item The sensor then requests a route to the sink node using its ID.
+	\item Once it receives at least one RRPLY containing a route to the sink node, the sensor begins taking readings periodically and sending them to the sink node. 
+	\item If any readings cross a preconfigured threshold, the sensor would then either request a path to an actuator within its locator, or use one it already obtained.
 \end{enumerate}
 
-The intra-zone routing table is constructed and maintained over the course of three phases: neighbourhood discovery, topology flooding, and topology updating.
+\section{AODV}
 
-\subsection{Neighbourhood Discovery}
+AODV is a reactive protocol that is used differently for inter-zone and inter-zone routing. Inside locators, the hop list will consist of node IDs, providing exact routes between the source and destination. Between locators, the hop list will consist of locators, and the exact hop-by-hop routing will be provided by each zone internally.
 
-Neighbourhood discovery is where a node learns about its one hop neighbours. A node starts by broadcasting its ID to neighbouring nodes with a \emph{hello} message.
-
-\subsection{Topology Flooding}
-
-\subsection{Topology Updating}
-
-\section{Inter-zone}
-
-The inter-zone routing table is responsible for forwarding packets between nodes in different locators, and is maintained by nodes that exist on the borders of these locators such as those highlighted red in figure \ref{fig:border}. It contains information about:
-
-\begin{enumerate}
-	\item The destination locator 
-	\item The next hop ID to reach this destination (i.e the ID of a border node from a neighbouring locator)
-	\item The cost of this path, based on the average $\lambda$ within the zones being crossed.
-\end{enumerate}
-
-If multiple border nodes provide links to the same neighbour zone, then nodes will alterate between them using a weighted round robin method based on the path costs to avoid all traffic travelling through the same border node.
-
-\begin{figure}[!ht]
-	\centering
-	\includegraphics[width=0.5\linewidth]{images/nb}
-	\caption{Border Nodes}
-	\label{fig:border}
-\end{figure}
-
-The inter-zone routing table is constructed through communication between border nodes across locators and AODVs route discovery mechanism.
-
-AODV is a reactive protocol which has three phases: discovery, maintenance, and recovery.
+Both approaches have three phases: discovery, maintenance, and recovery.
 
 \subsection{Discovery}
 
@@ -399,6 +374,50 @@ If the keepalive process fails for a neighbour, then a node will forward a RERR 
 \end{figure}
 
 Any packets that were sent between the failure of the link and the receiving of a route error will most likely be dropped, and future packets will be delayed as route discovery will have to take place again unless this node is aware of a disjoint path to the destination.
+
+\section{Intra-Zone Forwarding Table}
+
+The intra-zone routing table is responsible for forwarding packets between the nodes of a locator. To do this, it keeps track of:
+
+\begin{enumerate}
+	\item The destination node ID
+	\item The next hop ID to reach the destination ID
+	\item The cost of this path, based on $\lambda$.
+	\item Whether or not the destination node is a border or normal node.
+	\item The neighbouring locators that the destination node has links to (border nodes only).
+\end{enumerate}
+
+The intra-zone routing table is built by broadcasting RREQs where each hop is an node ID, and only contains routes to actuator nodes and border nodes. 
+
+\section{Inter-zone Forwarding Table}
+
+The inter-zone routing table is responsible for forwarding packets between nodes in different locators, and is maintained by nodes that exist on the borders of these locators such as those highlighted red in figure \ref{fig:border}. It contains information about:
+
+\begin{enumerate}
+	\item The destination locator 
+	\item The next hop locator to reach this destination (i.e the ID of a border node from a neighbouring locator)
+\end{enumerate}
+
+If multiple border nodes provide links to the same neighbour zone, then nodes will alterate between them using a weighted round robin method based on the path costs to avoid all traffic travelling through the same border node.
+
+When packets arrive to be forwarded to another locator, the interzone forwarding table will be used to find the next hop locator. Then the intrazone forwarding table will be used to provide the next hop ID in order to reach a border node that can get the packet closer to the destination locator;
+
+\begin{figure}[!ht]
+	\centering
+	\includegraphics[width=0.5\linewidth]{images/nb}
+	\caption{Border Nodes}
+	\label{fig:border}
+\end{figure}
+
+Figure \ref{fig:external} shows locator discovery occuring, which returns the locator of the destination node with the requested ID, and the hop by hop list of locators that have to be crossed to reach it.
+Once this locator discovery has been carried out, border nodes will be aware of how to reach each locator, and so will be able to forward packets to that destination.
+
+\begin{figure}[!ht]
+	\centering
+	\includegraphics[width=0.8\linewidth]{images/external}
+	\caption{Locator Discovery}
+	\label{fig:external}
+\end{figure}
 
 \FloatBarrier
 \pagebreak
@@ -621,22 +640,20 @@ Figure \ref{fig:internaltablesize} shows the sizes of the internal forwarding ta
 
 \begin{enumerate}
 \item Explain features of heat map and snapshots
+\item Discuss how well the routing protocol performed, compared to other implementations. 
 \item Discuss weaknesses with experiment
 \end{enumerate}
 
 \pagebreak
 \part{Conclusions}
 
-Improve AODV to use locator for 'approximate' routing, then complete path once reaches locator
-Discuss attempt at zoned based routing, and why it was discarded despite being a better example of ILNP.
-Discuss how mobile networks would demonstrate the usefuless of ILNP better through link state protocols, and not so much with aodv and dsr.
+Discuss how global AODV was originally considered, but discarded since it didn't take full advantage of ILNP.
 
-Mercy message to send from nodes under heavy load to try and request downstream nodes to use different paths.
+Possible mercy message to send from nodes under heavy load to try and request downstream nodes to use different paths, rather than outright route errors.
 
-\begin{enumerate}	
-\item was the goal met, and if so how well?
-\item future work with ILNP, possible suggestions of better alternatives to the routing protocol used.
-\end{enumerate}
+was the goal met, and if so how well?
+
+future work with ILNP, possible suggestions of better alternatives to the routing protocol used.
 
 \pagebreak
 \part{Appendix}
