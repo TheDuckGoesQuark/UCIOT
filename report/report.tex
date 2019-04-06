@@ -39,7 +39,8 @@
 %	% where '\result' is inserted as last argument:
 %	\expandafter\tempb\expandafter{\result}%
 %	\sbox\backbox{\pgfuseshading{tempshading}}%
-\def\l@paragraph{\@dottedtocline{5}{10em}{5em}}
+
+\counterwithin*{section}{part}
 
 
 \begin{document}
@@ -96,9 +97,9 @@
 
 \pagenumbering{gobble}
 
-\section*{Abstract}
+\part*{Abstract}
 
-\section*{Declaration}
+\part*{Declaration}
 I declare that the material submitted for
 assessment is my own work except where credit is
 explicitly given to others by citation or
@@ -125,11 +126,11 @@ copyright in this work.
 \pagenumbering{arabic}
 \setcounter{page}{1} 
 
-\section{Introduction}
+\part{Introduction}
 
 Despite the imminent exhaustion of IPv4 addresses \cite{ripe_labs}, IPv6 is still being adopted slowly \cite{google_ipv6}. Brittle solutions such as NAT are being used to expand the IPv4 address space and to avoid the transition costs involved in upgrading to IPv6. Whilst IPv6 does expand the address space greatly and introduces functionality such as multicast, the internet protocol has more intrinsic issues. The initial design for the infrastructure of the internet did not account for level of mobility that is common with network capable devices nowadays, and the attempts to retrospectively include support for such features have resulted in an incredibly complex system made of incompatible components. 
 
-\subsection{Issues with IP and IoT}
+\section{Issues with IP and IoT}
 
 IP addresses are used both to identify a system and to determine its topological location. \cite{briancarpenter2014} lists several of the downsides to this overloading of IP addresses, and why the protocol was still adopted despite them.
 
@@ -143,7 +144,7 @@ IoT devices are often restricted by limited battery life, memory, and computatio
 
 Given the difficulty involved in simply migrating from IPv4 to IPv6, it is very doubtful that introducing an entirely different protocol for the internet would be successful. A backwards compatible solution would likely be the only solution that would be adopted within a reasonable time frame.
 
-\subsection{ILNP}
+\section{ILNP}
 
 Both multihoming and mobility are far simpler to implement and maintain if the identity and topological locator of a host are separated, and this is how the Identifier-Locator Network Protocol functions. \cite{5586444} proposes ILNPv6, which implement ILNP with the same address space as IPv6 and the same packet structure as IPv6, but with different semantics for interpreting the addresses. ILNPv6 splits the original 128-bits used for an IPv6 address into two 64-bit fields: the upper bits representing the locator and the lower 64 bits representing the identifier. The version field in the IP header is used to differentiate between ILNPv6 and IPv6 packets, and routers that don't support ILNP can interpret the packets as IP without any issue. 
 
@@ -151,7 +152,7 @@ The locator value identifies the subnetwork that a host belongs to, and a host c
 
 Though ILNPv6 is very backwards-compatible, there are still some difficult challenges involved in its deployment. \cite{ipwithoutip} describes how the tight coupling of the C socket API and IP addresses could cause issues in some legacy applications. ILNPv6 also requires some additions to the Domain Name System (DNS) to properly support multihoming.
 
-\subsection{Goal} \label{ssec:goal}
+\section{Goal} \label{ssec:goal}
 
 The main goal of this project is to produce a library for a prototype communication
 protocol for Internet of Things (IoT) devices based on the identifier-locator
@@ -173,9 +174,9 @@ on devices. This will be tested through emulation of an IoT network and the ener
 \end{enumerate}
 
 \pagebreak
-\section{Context Survey}
+\part{Context Survey}
 
-\subsection{Ubiquity of IoT Devices}
+\section{Ubiquity of IoT Devices}
 
 Despite the intitial motivation for WSNs being military applications, they are now being used to solve many other problems.
 
@@ -185,7 +186,7 @@ WSNs currently often require specialised applications and manually specified net
 
 \cite{wsnlist} list the other applications of WSNs, and the different approaches to integrating WSNs and the internet. They recognise that providing a single gateway results in a single point of failure, and so focus on methods involving multiple or integrated gateways. This requires that sensors adopt the responsiblity of managing their networks topology instead of just forwarding towards a sink node. 
 
-\subsection{Integration of WSNs and Current Internet Infrastructure}
+\section{Integration of WSNs and Current Internet Infrastructure}
 
 Previous research involving integrating WSNs into the current internet infrastructure is typically structured around IP. For all the reasons mentioned earlier, researches have realised the benefits of building WSNs using other approaches such as the locator-identifier split.
 
@@ -195,29 +196,106 @@ ILNPv6 on the other hand has been able to demonstrate reliable mobility using a 
 
 Soft handovers are crucial for high mobility devices such as smartphones, which are constantly transitioning between networks. Handovers are implemented in Mobile IP for IPv6, and has been improved since IPv4, but the method is still not as performant as it could be. It also further muddies the meaning of IP addresses, due to the use of different addresses (e.g. 'home' and 'care-of' addresses) in order to redirect packets to the mobile node. 
 
+Multihoming is also incredibly useful for WSNs, as it can potentially allow them to scale without being reconfigured. WSN lifetimes are inversely proportional to their diameter when a single sink or gateway is available \cite{multisink}. By providing multiple sinks, the levels of traffic around the sink nodes is decreased, increasing the longevity of the network, and with ILNP the end destination identifier would remain the same, and so the underlying routing protocol would only have to include a way of realising a route to the new interface.
+
 A different addressing scheme is only part of the solution required for successful intergration of WSNs and the internet. IoT devices typically have limited memory and power, and so require optimised routing protocols if they are to be integrated effeciently. Due to the myriad of situations that IoT devices are used, there is no one-size-fits-all solution, and so many versions of IoT routing have been proposed.
 
-\subsection{Energy Effecient Routing Protocols}
+\section{Energy Effecient Routing Protocols}
 
 \cite{hassan} classifies differeent routing protocols and provides a survey of protocols for each class. Routing protocols are either proactive, reactive, or hybrid. 
 
-\paragraph{Proactive} each node maintains a routing table through knowledge sharing with adjacent nodes. Typically involves high overhead due to regular flooding and beacon messages, but performs better than reactive methods as mobility increases as links are repaired quickly. In the current internet, OSPF is one of the most popular interior gateway protocols, and so naturally researchers tried to adapt it to wireless networks. This produced the Optimized Link State Routing (OLSR) protocol \cite{olsr} and Open Shortest Path First MANET Designated Routers (OSPF-MDR) protocol. Despite both making attempts to reduce enery consumption, they are defeated by reactive protocols in this area.
+\subsection{Proactive} 
+Each node maintains a routing table through knowledge sharing with adjacent nodes. Typically involves high overhead due to regular flooding and beacon messages, but performs better than reactive methods as mobility increases as links are repaired quickly. In the current internet, OSPF is one of the most popular interior gateway protocols, and so naturally researchers tried to adapt it to wireless networks. This produced the Optimized Link State Routing (OLSR) protocol \cite{olsr} and Open Shortest Path First MANET Designated Routers (OSPF-MDR) protocol. Despite both making attempts to reduce enery consumption, they are defeated by reactive protocols in this area. 
 
-\paragraph{Reactive} nodes only seek out routes to remote nodes when one is required. Reactive protocols involve very little overhead in networks with low mobility, but performance degrades quickly as mobility increases. Examples include AODV \cite{aodv} and DSR \cite{dsr}. Since these protocols were designed for mobile ad-hoc networks, most research involves improving the protocols awareness of energy availability. When a single node lies on many paths, it can be quickly drained by traffic, and so \cite{eaodv} produced a solution that considered the mean energy of a path before choosing which route to suggest to the requesting node. 
+\subsection{Reactive} 
+Nodes only seek out routes to remote nodes when one is required. Reactive protocols involve very little overhead in networks with low mobility, but performance degrades quickly as mobility increases. Examples include AODV \cite{aodv} and DSR \cite{dsr}. Since these protocols were designed for mobile ad-hoc networks, most research involves improving the protocols awareness of energy availability. When a single node lies on many paths, it can be quickly drained by traffic, and so \cite{eaodv} produced a solution that considered the mean energy of a path before choosing which route to suggest to the requesting node. 
 Reactive protocols also perform well in wireless environments as lack of periodic updates reduces the chance of interference which exists with link state proactive protocols.
 
-\paragraph{Hybrid} features of both proactive and reactive protocols are used. The hybrid approach is useful in scenarios where the grouping of nodes is appropriate. \cite{cluster} use a clustering approach in order to manage resources within subsets of nodes. Since not all WSNs are homogenous, this approach can take advantage of some nodes having larger energy reserves than others by electing these nodes as the coordinator of the subnetwork. \cite{vanet} also implement a hybrid routing protocol for vehicle mobile networks which uses beacons to monitor link states between nodes to allow recovery to occur when the routes created by the proactive protocol fail. They also use GPS to help route packets when their target is in a known location.
+\subsection{Hybrid} 
+Features of both proactive and reactive protocols are used. The hybrid approach is useful in scenarios where the grouping of nodes is appropriate. \cite{cluster} use a clustering approach in order to manage resources within subsets of nodes. Since not all WSNs are homogenous, this approach can take advantage of some nodes having larger energy reserves than others by electing these nodes as the coordinator of the subnetwork. \cite{vanet} also implement a hybrid routing protocol for vehicle mobile networks which uses beacons to monitor link states between nodes to allow recovery to occur when the routes created by the proactive protocol fail. They also use GPS to help route packets when their target is in a known location.
 
 \pagebreak
-\section{Protocol Design} \label{protodesign}
+\part{Protocol Design} \label{protodesign}
 
-The protocol used is based on the Ad Hoc On-Demand Distance Vector (AODV) routing protocol, with added fields to try and account for energy usage. AODV is a reactive protocol which has three phases: discovery, maintenance, and recovery.
+The protocol used is a reactive zone-based routing protocol (ZBR), and is based on the work by \cite{zbrp} with added support for energy awareness. It was designed with the following assumptions:
+
+\begin{enumerate}
+	\item All nodes have equal computation and network ranges.
+	\item All nodes that share a locator are also physically located in a simliar area.
+	\item Locators cover a similiar physical area, in a lattice structure.
+\end{enumerate}
+
+Locator values could be assigned using GPS for example.
+
+Agricultural sensor networks often consist of many sensor nodes for monitoring the environment and a few actuators for triggering sprinklers or covering delicate crops. Based on this data, sensors could control the actuators within their locators themselves, whilst reporting their readings to the sink for further analysis. By splitting sensors into geographically relevant zones, the arriving data can also be grouped by origin location to help with visualisation and analysis at the sink. 
+
+Our ZBR uses a different routing strategy for routing within and between locators, referred to as the intrazone and interzone routing protocols. The interzone routing protocol is based on the reactive protocol AODV with added fields to try and account for energy usage in paths. The intrazone routing protocol is based on the proactive link-state protocol OLSR.
+
+Figure \ref{fig:actuate} provides example communication paths, where data is communicated from the nodes in one zone to the sink in another zone.
+
+\begin{figure}[!ht]
+	\centering
+	\includegraphics[width=0.5\linewidth]{images/actuate}
+	\caption{Communication patterns in agricultural WSN}
+	\label{fig:actuate}
+\end{figure}
+
+A reactive protocol was chosen for inter-zone communication in order to limit the amount of global network knowledge required for routing. Since data is being sent for analysis purposes, delay is not a problem, and AODV could provide multiple paths which would allow traffic to be balanced across zones.
+
+A proactive protocol was chosen for intra-zone communication in order to provide quick reliable routing within zones. For example, if high wind speeds are suddenly detected or a temperature drop due to snow, quick shelter could be crucial, like the one described in \cite{rain}.
+
+\FloatBarrier
+
+\section{Intra-Zone}
+
+The intra-zone routing table is responsible for forwarding packets between the nodes of a locator. To do this, it keeps track of:
+
+\begin{enumerate}
+	\item The destination node ID
+	\item The next hop ID to reach the destination ID
+	\item The cost of this path, based on $\lambda$.
+	\item Whether or not the destination node is a border or normal node.
+	\item The neighbouring locators that the destination node has links to (border nodes only).
+\end{enumerate}
+
+The intra-zone routing table is constructed and maintained over the course of three phases: neighbourhood discovery, topology flooding, and topology updating.
+
+\subsection{Neighbourhood Discovery}
+
+Neighbourhood discovery is where a node learns about its one hop neighbours. A node starts by broadcasting its ID to neighbouring nodes with a \emph{hello} message.
+
+\subsection{Topology Flooding}
+
+\subsection{Topology Updating}
+
+\section{Inter-zone}
+
+The inter-zone routing table is responsible for forwarding packets between nodes in different locators, and is maintained by nodes that exist on the borders of these locators such as those highlighted red in figure \ref{fig:border}. It contains information about:
+
+\begin{enumerate}
+	\item The destination locator 
+	\item The next hop ID to reach this destination (i.e the ID of a border node from a neighbouring locator)
+	\item The cost of this path, based on the average $\lambda$ within the zones being crossed.
+\end{enumerate}
+
+If multiple border nodes provide links to the same neighbour zone, then nodes will alterate between them using a weighted round robin method based on the path costs to avoid all traffic travelling through the same border node.
+
+\begin{figure}[!ht]
+	\centering
+	\includegraphics[width=0.5\linewidth]{images/nb}
+	\caption{Border Nodes}
+	\label{fig:border}
+\end{figure}
+
+The inter-zone routing table is constructed through communication between border nodes across locators and AODVs route discovery mechanism.
+
+AODV is a reactive protocol which has three phases: discovery, maintenance, and recovery.
 
 \subsection{Discovery}
 
 AODV produces a list of hops that a packet can be sent over to reach a destination by flooding route request packets (RREQs). The route discovery process is summarised in figure \ref{fig:path}, where the leftmost node (1) is requesting a route to the rightmost node (4).
 
-\begin{figure}[!h]
+\begin{figure}[!ht]
 	\centering
 	\includegraphics[width=\linewidth]{images/path}
 	\caption{Route Discovery Overview}
@@ -228,7 +306,7 @@ Figure \ref{fig:rreqflow} shows how RREQs are processed at each node. The destin
 
 When using ILNP instead of IP with AODV, packets can be routed based on the identifier alone, and this can result in multiple paths to the same node. This provides robust communication if the end destination is multihomed (i.e. has interfaces to multiple locators), with less complexity than in IP. It also makes it easier to identify disjoint paths as the node has a single name in the network, which wouldn't be the case in IP multihoming. 
 
-\begin{figure}[!h]
+\begin{figure}[!ht]
 	\centering
 	\includegraphics[width=\linewidth]{images/rreqflow}
 	\caption{Route Request (RREQ) Flow}
@@ -265,21 +343,21 @@ This value could be ascertained by counting the number of unique source IDs of p
 \begin{figure}[h]
 	\centering
 	\begin{tikzpicture}
-	%	\begin{axis}[set layers,view={90}{0},
-	%		 axis lines=left,
-	%		 grid=major,
-	%		 no marks,
-	%		 xmin=0, xmax=1, xlabel=$E$,
-	%		 ymin=0, ymax=1, ylabel=$\lambda$, ylabel style={rotate=-90}
-	%		 ]
-	%		\addplot+[smooth,blue] {1 - (1 - x)^2}; % actual curve
-	%		\begin{pgfonlayer}{pre main}
-	%			\clip plot[variable=\x,samples=25,domain=0:1] (\x,{1 - (1 - \x)^2})
-	%			|-cycle;
-	%			\node at (0.5,0.5){\usebox\backbox};
-	%		\end{pgfonlayer}
-	%		% filling
-	%	\end{axis}
+%		\begin{axis}[set layers,view={90}{0},
+%			 axis lines=left,
+%			 grid=major,
+%			 no marks,
+%			 xmin=0, xmax=1, xlabel=$E$,
+%			 ymin=0, ymax=1, ylabel=$\lambda$, ylabel style={rotate=-90}
+%			 ]
+%			\addplot+[smooth,blue] {1 - (1 - x)^2}; % actual curve
+%			\begin{pgfonlayer}{pre main}
+%				\clip plot[variable=\x,samples=25,domain=0:1] (\x,{1 - (1 - \x)^2})
+%				|-cycle;
+%				\node at (0.5,0.5){\usebox\backbox};
+%			\end{pgfonlayer}
+%			% filling
+%		\end{axis}
 		\begin{axis}[set layers,view={90}{0},
 			 axis lines=left,
 			 grid=major,
@@ -324,26 +402,26 @@ Any packets that were sent between the failure of the link and the receiving of 
 
 \FloatBarrier
 \pagebreak
-\section{ILNP Testbed Implementation}
+\part{ILNP Testbed Implementation}
 
 Due to the recency of ILNPv6, there does not currently exist software for emulating wireless ILNP networks as there is for IP, therefore a custom testbed had to be implemented.  
 
 The testing environment was implemented using Python 3.7. The project has three main components: The wireless network emulation, routing and network management, and sensor emulation. Figure \ref{fig:struc} shows the components with the flow of messages.
 
-\begin{figure}[!h]
+\begin{figure}[!ht]
 	\centering
 	\includegraphics[width=\linewidth]{images/struc}
 	\caption{Implementation Structure}
 	\label{fig:struc}
 \end{figure}
 
-\subsection{Wireless Network Emulation}
+\section{Wireless Network Emulation}
 
 Emulating wireless communication was achieved by building an overlay network using UDP with multicast. A single UDP socket provided a communication endpoint.
 
 A multicast group exists for each node ID, and so neighbours of a node would join the multicast groups of their neighbours in order to receive broadcasted packets. Figure \ref{fig:mcast} shows the ranges of each sensors radio signal as dashed lines, where each node within the range joins the multicast group.
 
-\begin{figure}[!h]
+\begin{figure}[!ht]
 	\centering
 	\includegraphics[width=0.5\linewidth]{images/mcast}
 	\caption{Wireless broadcast emulation using multicast}
@@ -363,7 +441,7 @@ A daemon thread continuously polls the network interface for incoming data. It t
 
 All polling functions included a timeout in order for each thread to check if it has been asked to terminate, if for example the power levels had reached a critical level.
 
-\subsection{Routing and Network Management}
+\section{Routing and Network Management}
 
 The router polls the incoming packet queue and decides the next course of action using the processes described in section \ref{protodesign}. The control plane handles any control packets or any packets that can't be forwarded using the current forwarding table.
 
@@ -371,7 +449,7 @@ The router polls the incoming packet queue and decides the next course of action
 
 \#https://ieeexplore.ieee.org/document/7993954 to fix route reply storm issue: add jitter before responding with route reply and listen for other replies
 
-\subsection{Sensor Emulation}
+\section{Sensor Emulation}
 
 The sensor initialises the ILNPSocket, and depending on whether or not it is configured to operate as the sink (where all the data from every node is collected) begins either polling for packets or sending 'readings' at intervals.
 
@@ -380,30 +458,43 @@ To mock realistic application data, a random fluctuation is applied to a series 
 Only the ID of the sink is known by each node, which is all that should be necessary when using ILNP to route a packet. If it was possible to provide a FQDN for the sink node then the addressing scheme would be abstracted also, but emulating a DNS was deemed unecessary for the experiment.
 
 \pagebreak
-\section{Experiment}
+\part{Experiment}
 
-The aims of the experiment were to show that protocol succeeded in meeting the goals from section \ref{ssec:goal}. This was to be achieved by simulating a wireless sensor network for monitoring fields in a farm. 
+The aims of the experiment were to show that protocol succeeded in meeting the goals from section \ref{ssec:goal}, and to exemplify how ILNP helped in achieving these goals compared to how it would be implemented in IP. This was be achieved by simulating a wireless sensor network for monitoring fields in a farm. 
 
-Figure \ref{fig:layout} shows the real life scenario being emulated, where each black circle represents a sensor node, and the green circles represent interfaces to the sink, such as be wireless receivers. WSN lifetimes are inversely proportional to their diameter \cite{multisink}, and so multiple access points to the sink would likely be used. The transparent blue circles represent the wireless ranges of the nodes, and the blue dotted arrows show example paths that could be taken to reach the sinks.
+Figure \ref{fig:layout} shows the real life scenario being emulated, where each black circle represents a sensor node, and the green circles represent interfaces to the sink, such as be wireless receivers. The transparent red circles represent the wireless ranges of the nodes, and the blue dotted arrows show  an example path that could be taken to reach the sink.
 
 For the emulation, we assumed that: 
 \begin{enumerate}
     \item Each sensor had equal radio ranges.
-    \item Sensors always listened for packets with same antennae (i.e. no lower power antennaes would be used until became available \cite{offon})
+    \item Sensors always listened for packets with same antennae (i.e. no lower power antennaes would be used until a signal was detected\cite{offon})
     \item Sending a packet has a fixed energy cost, regardless of size of payload.
-    \item Collisions requring resends would not occur.
+    \item Collisions and interference would not occur.
 \end{enumerate}
 
-Each field (shown as a green square outlined in yellow) would have its own locator value, and so the sink could be considered multihomed. 
-
-\begin{figure}[!h]
+\begin{figure}[!ht]
 	\centering
 	\includegraphics[width=\linewidth]{images/layout}
 	\caption{WSN layout with example routes.}
 	\label{fig:layout}
 \end{figure}
 
-\subsection{Setup}
+Two experiments would be run in order to compare performance when using ILNP and IP. The hypothesis being that the protocol will perform better using ILNP since nodes will be able to operate without knowledge of the entire network. Figure \ref{fig:spectrum} shows that ILNP can emulate IP by either:
+\begin{enumerate}
+	\item providing a locator for every node, essentially treating every node as a subnetwork that will require a routing table entry.
+	\item using the same locator for all nodes, which would require knowledge of the entire subnetwork in order to route correctly.
+\end{enumerate}
+
+Both extremes of the spectrum will provide identical flat addressing schemes like IP, so either could be used to the same effect. The locator per node approach was taken for this experiment.
+
+\begin{figure}[!ht]
+	\centering
+	\includegraphics[width=\linewidth]{images/spectrum}
+	\caption{Relationship between IP and ILNP}
+	\label{fig:spectrum}
+\end{figure}
+
+\section{Setup}
 
 The experiment was run on the lab machines, remaining within the schools network. 
 
@@ -411,13 +502,13 @@ To construct and automate the testing environment, a series of bash scripts were
 
 Since multicast was being used to emulate wireless broadcast, my user ID was used as the second-last octet to avoid collision with other experiments possibly running on the network.
 
-The configuration files that were used to initialize each sensor node were generated by performing string replacement on a template configuration. "LOC\_1\_2\_ID\_2" for example would produce a configuration file for a node with the ID 2 that was part of the multicast groups "ff02::dead:1" and "ff02::dead:2". Being able to describe network topologies using single strings allowed multiple tests to be configured easily, and possible future work could involve generating these configurations using a visual representation of the network.
+The configuration files that were used to initialize each sensor node were generated by performing string replacement on a template configuration. "LOC\_1\_ID\_2\_MCAST\_1\_2" for example would produce a configuration file for a node with ID 2, locator 1, that was part of the multicast groups "ff02::dead:1" and "ff02::dead:2". Being able to describe network topologies using single strings allowed multiple tests to be configured easily, and possible future work could involve generating these configurations using a visual representation of the network.
 
 With the list of available computers and the configuration files generated, another script was written that would \emph{ssh} into the lab machines one by one and start the sensor emulation program with each configuration. Logs from each instance of the program were redirected to a file based on the node ID for monitoring the network.
 
-\subsection{Method}
+\section{Method}
 
-In order to monitor the type and number of packets sent and forwarded by each node, an additional \emph{monitor} module was added to the testbed implementation. For each packet sent, the monitor recorded a the ID of the sensor, timestamp, the type of packet (control or data), and whether or not the packet originated from this node or was being forwarded. 
+In order to monitor the type and number of packets sent and forwarded by each node, an additional \emph{monitor} module was added to the testbed implementation. For each packet sent, the monitor recorded a the ID of the sensor, timestamp, the type of packet (control or data), and whether or not the packet originated from this node or was being forwarded. The monitor would also report the size of the routing table when each packet was sent. 
 
 Using this information, the flow of packets over time could be visualised, and the ratio of control packets to data packets (i.e. overhead) could be measured. 
 
@@ -427,11 +518,13 @@ A \emph{battery} module was also added to the emulation. The battery would be de
 
 Each test was run multiple times in order to ensure that the results were consistent.
 
-\subsection{Results}
+\section{Results}
 
-Figures \ref{fig:datasnapone} and \ref{fig:ctrlsnapone} show the concentration of data and control packets throughout the network during the intialisation of the network. As expected, the overhead is initially quite high, as every node is trying to learn routes to the sink. 
+\subsection{Routing Protocol Performance}
 
-\begin{figure}[!h]
+Figures \ref{fig:datasnapone} and \ref{fig:ctrlsnapone} show the concentration of data and control packets throughout the network during the intialisation of the network in the multiple sink scenario. As expected, the overhead is initially quite high, as every node is trying to learn routes to the sink. 
+
+\begin{figure}[!ht]
     \centering
     \begin{minipage}{0.45\textwidth}
         \centering
@@ -449,7 +542,7 @@ Figures \ref{fig:datasnapone} and \ref{fig:ctrlsnapone} show the concentration o
 
 Figures \ref{fig:datasnaptwo} and \ref{fig:ctrlsnaptwo} show how the overhead decreases once routes are established, and how the paths taken are fairly evenly spread and not just focused around the shortest paths. 
 
-\begin{figure}[!h]
+\begin{figure}[!ht]
     \centering
     \begin{minipage}{0.45\textwidth}
         \centering
@@ -459,33 +552,15 @@ Figures \ref{fig:datasnaptwo} and \ref{fig:ctrlsnaptwo} show how the overhead de
     \end{minipage}\hfill
     \begin{minipage}{0.45\textwidth}
         \centering
-        \includegraphics[width=0.9\textwidth]{example-image-b} % second figure itself
+       \includegraphics[width=0.9\textwidth]{example-image-b} % second figure itself
         \caption{Control packets sent by each node once intial routes have been established.}
         \label{fig:ctrlsnaptwo}
     \end{minipage}
 \end{figure}
 
-In figures \ref{fig:datasnapthree} and \ref{fig:ctrlsnapthree}, we see routes being recalculated as the more heavily used routes begin to reach low levels of residual power.
+Figures \ref{fig:datasnapfour} and \ref{fig:ctrlsnapfour} show how as nodes begin to fail, the limited number of paths force heavier traffic to pass through the remaining nodes. The failing nodes have occurred near the sinks as expected.
 
-\begin{figure}[!h]
-    \centering
-    \begin{minipage}{0.45\textwidth}
-        \centering
-        \includegraphics[width=0.9\textwidth]{example-image-a} % first figure itself
-        \caption{Data packets sent by each node once energy levels become critical.}
-        \label{fig:datasnapthree}
-    \end{minipage}\hfill
-    \begin{minipage}{0.45\textwidth}
-        \centering
-        \includegraphics[width=0.9\textwidth]{example-image-b} % second figure itself
-        \caption{Control packets sent by each node once energy levels become critical.}
-        \label{fig:ctrlsnapthree}
-    \end{minipage}
-\end{figure}
-
-Finally, figures \ref{fig:datasnapfour} and \ref{fig:ctrlsnapfour} show how as nodes begin to fail, the limited number of paths force heavier traffic to pass through the remaining nodes. The failing nodes have occurred near the sinks as expected.
-
-\begin{figure}[!h]
+\begin{figure}[!ht]
     \centering
     \begin{minipage}{0.45\textwidth}
         \centering
@@ -503,7 +578,7 @@ Finally, figures \ref{fig:datasnapfour} and \ref{fig:ctrlsnapfour} show how as n
 
 Figure \ref{fig:loss} shows the packet over time, and finally figure \ref{fig:dis} shows the level of disordering over time.
 
-\begin{figure}[!h]
+\begin{figure}[!ht]
     \centering
     \begin{minipage}{0.45\textwidth}
         \centering
@@ -515,22 +590,42 @@ Figure \ref{fig:loss} shows the packet over time, and finally figure \ref{fig:di
         \centering
         \includegraphics[width=0.9\textwidth]{example-image-b} % second figure itself
         \caption{Disordering over time.}
-        \label{fig:ctrlsnapfour}
-    \end{minipage}
+        \label{fig:dis}
+    \end{minipage}\hfill
+\end{figure}
+
+\FloatBarrier
+\subsection{ILNP and IP Dependent Results}
+
+Figure \ref{fig:internaltablesize} shows the sizes of the internal forwarding tables for IP and ILNP, and \ref{fig:externaltablesize} shows the sizes of the external forwarding tables.
+
+\begin{figure}[!ht]
+    \centering
+    \begin{minipage}{0.45\textwidth}
+        \centering
+        \includegraphics[width=0.9\textwidth]{example-image-a} % second figure itself
+        \caption{Sizes of internal forwarding tables over time.}
+        \label{fig:internaltablesize}
+    \end{minipage}\hfill
+    \begin{minipage}{0.45\textwidth}
+        \centering
+        \includegraphics[width=0.9\textwidth]{example-image-b} % second figure itself
+        \caption{Sizes of external forwarding tables over time.}
+        \label{fig:externaltablesize}
+    \end{minipage}\hfill
 \end{figure}
 
 \FloatBarrier
 
-\subsection{Discussion}
+\section{Discussion}
 
 \begin{enumerate}
 \item Explain features of heat map and snapshots
-\item Describe the behaviour if IP was used instead
 \item Discuss weaknesses with experiment
 \end{enumerate}
 
 \pagebreak
-\section{Conclusions}
+\part{Conclusions}
 
 Improve AODV to use locator for 'approximate' routing, then complete path once reaches locator
 Discuss attempt at zoned based routing, and why it was discarded despite being a better example of ILNP.
@@ -544,7 +639,7 @@ Mercy message to send from nodes under heavy load to try and request downstream 
 \end{enumerate}
 
 \pagebreak
-\section{Appendix}
+\part{Appendix}
 \begin{enumerate}
 \item Instructions on installing, and executing and using the python module
 \end{enumerate}
