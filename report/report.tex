@@ -151,7 +151,7 @@ The locator value identifies the subnetwork that a host belongs to, and a host c
 
 Though ILNPv6 is very backwards-compatible, there are still some difficult challenges involved in its deployment. \cite{ipwithoutip} describes how the tight coupling of the C socket API and IP addresses could cause issues in some legacy applications. ILNPv6 also requires some additions to the Domain Name System (DNS) to properly support multihoming.
 
-\subsection{Goal}
+\subsection{Goal} \label{ssec:goal}
 
 The main goal of this project is to produce a library for a prototype communication
 protocol for Internet of Things (IoT) devices based on the identifier-locator
@@ -206,7 +206,7 @@ A different addressing scheme is only part of the solution required for successf
 \paragraph{Reactive} nodes only seek out routes to remote nodes when one is required. Reactive protocols involve very little overhead in networks with low mobility, but performance degrades quickly as mobility increases. Examples include AODV \cite{aodv} and DSR \cite{dsr}. Since these protocols were designed for mobile ad-hoc networks, most research involves improving the protocols awareness of energy availability. When a single node lies on many paths, it can be quickly drained by traffic, and so \cite{eaodv} produced a solution that considered the mean energy of a path before choosing which route to suggest to the requesting node. 
 Reactive protocols also perform well in wireless environments as lack of periodic updates reduces the chance of interference which exists with link state proactive protocols.
 
-\paragraph{Hybrid} features of both proactive and reactive protocols are used. The hybrid approach is useful in scenarios where the grouping of nodes is appropriate. \cite{cluster} use a clustering approach in order to manage resources within subsets of nodes. Since not all WSNs are homogenous, this approach can take advantage of some nodes having larger energy reserves than others by electing these nodes as the coordinator of the subnetwork.
+\paragraph{Hybrid} features of both proactive and reactive protocols are used. The hybrid approach is useful in scenarios where the grouping of nodes is appropriate. \cite{cluster} use a clustering approach in order to manage resources within subsets of nodes. Since not all WSNs are homogenous, this approach can take advantage of some nodes having larger energy reserves than others by electing these nodes as the coordinator of the subnetwork. \cite{vanet} also implement a hybrid routing protocol for vehicle mobile networks which uses beacons to monitor link states between nodes to allow recovery to occur when the routes created by the proactive protocol fail. They also use GPS to help route packets when their target is in a known location.
 
 \pagebreak
 \section{Protocol Design} \label{protodesign}
@@ -382,29 +382,150 @@ Only the ID of the sink is known by each node, which is all that should be neces
 \pagebreak
 \section{Experiment}
 
-\# Multihomed sink provides simple multipath implementation
+The aims of the experiment were to show that protocol succeeded in meeting the goals from section \ref{ssec:goal}. This was to be achieved by simulating a wireless sensor network for monitoring fields in a farm. 
 
+Figure \ref{fig:layout} shows the real life scenario being emulated, where each black circle represents a sensor node, and the green circles represent interfaces to the sink, such as be wireless receivers. WSN lifetimes are inversely proportional to their diameter \cite{multisink}, and so multiple access points to the sink would likely be used. The transparent blue circles represent the wireless ranges of the nodes, and the blue dotted arrows show example paths that could be taken to reach the sinks.
+
+For the emulation, we assumed that: 
 \begin{enumerate}
-\item Discuss aim of experiment (to measure effeciency of the used routing protocol with ILNP, and compare to IP).
-\item Explain case study, with reference to source (i.e. agricultural sensor setup)
-\item Use visuals to show locators to real life position and sensor radi
-\item Discuss experiment configuration (how machines were chosen, results collected, battery life simulated, etc)
-\item discuss choice of metrics, justifcation and how to compare results.
+    \item Each sensor had equal radio ranges.
+    \item Sensors always listened for packets with same antennae (i.e. no lower power antennaes would be used until became available \cite{offon})
+    \item Sending a packet has a fixed energy cost, regardless of size of payload.
+    \item Collisions requring resends would not occur.
+\end{enumerate}
+
+Each field (shown as a green square outlined in yellow) would have its own locator value, and so the sink could be considered multihomed. 
+
 \begin{figure}[!h]
 	\centering
 	\includegraphics[width=\linewidth]{images/layout}
-	\caption{WSN layout with example route.}
+	\caption{WSN layout with example routes.}
 	\label{fig:layout}
 \end{figure}
-\end{enumerate}
 
-\pagebreak
-\section{Results and Discussion}
+\subsection{Setup}
+
+The experiment was run on the lab machines, remaining within the schools network. 
+
+To construct and automate the testing environment, a series of bash scripts were written. The first of which would perform a quick liveness check using a list of IP addresses of the lab machines in order to know which machines were available for use.
+
+Since multicast was being used to emulate wireless broadcast, my user ID was used as the second-last octet to avoid collision with other experiments possibly running on the network.
+
+The configuration files that were used to initialize each sensor node were generated by performing string replacement on a template configuration. "LOC\_1\_2\_ID\_2" for example would produce a configuration file for a node with the ID 2 that was part of the multicast groups "ff02::dead:1" and "ff02::dead:2". Being able to describe network topologies using single strings allowed multiple tests to be configured easily, and possible future work could involve generating these configurations using a visual representation of the network.
+
+With the list of available computers and the configuration files generated, another script was written that would \emph{ssh} into the lab machines one by one and start the sensor emulation program with each configuration. Logs from each instance of the program were redirected to a file based on the node ID for monitoring the network.
+
+\subsection{Method}
+
+In order to monitor the type and number of packets sent and forwarded by each node, an additional \emph{monitor} module was added to the testbed implementation. For each packet sent, the monitor recorded a the ID of the sensor, timestamp, the type of packet (control or data), and whether or not the packet originated from this node or was being forwarded. 
+
+Using this information, the flow of packets over time could be visualised, and the ratio of control packets to data packets (i.e. overhead) could be measured. 
+
+The sink node would also record each data packet it received, which included a sequence number so that the level of disordering and packet loss that occurred could also be measured. Loss would simply be the difference between the number of data packets sent by each sensor and the number received by the sink. Disorder was measured as the absolute different between the current highest sequence number received from a node (i.e the sequence number in the most recently sent packet) and the sequence number in the received packet.
+
+A \emph{battery} module was also added to the emulation. The battery would be decremented as each packet was sent, emulating real loss of power when transmitting which would be used when calculating $\lambda$ for each node.
+
+Each test was run multiple times in order to ensure that the results were consistent.
+
+\subsection{Results}
+
+Figures \ref{fig:datasnapone} and \ref{fig:ctrlsnapone} show the concentration of data and control packets throughout the network during the intialisation of the network. As expected, the overhead is initially quite high, as every node is trying to learn routes to the sink. 
+
+\begin{figure}[!h]
+    \centering
+    \begin{minipage}{0.45\textwidth}
+        \centering
+        \includegraphics[width=0.9\textwidth]{example-image-a} % first figure itself
+        \caption{Data packets sent by each node during network initialisation.}
+        \label{fig:datasnapone}
+    \end{minipage}\hfill
+    \begin{minipage}{0.45\textwidth}
+        \centering
+        \includegraphics[width=0.9\textwidth]{example-image-b} % second figure itself
+        \caption{Control packets sent by each node during network initialisation.}
+        \label{fig:ctrlsnapone}
+    \end{minipage}
+\end{figure}
+
+Figures \ref{fig:datasnaptwo} and \ref{fig:ctrlsnaptwo} show how the overhead decreases once routes are established, and how the paths taken are fairly evenly spread and not just focused around the shortest paths. 
+
+\begin{figure}[!h]
+    \centering
+    \begin{minipage}{0.45\textwidth}
+        \centering
+        \includegraphics[width=0.9\textwidth]{example-image-a} % first figure itself
+        \caption{Data packets sent by each node once initial routes have been established.}
+        \label{fig:datasnaptwo}
+    \end{minipage}\hfill
+    \begin{minipage}{0.45\textwidth}
+        \centering
+        \includegraphics[width=0.9\textwidth]{example-image-b} % second figure itself
+        \caption{Control packets sent by each node once intial routes have been established.}
+        \label{fig:ctrlsnaptwo}
+    \end{minipage}
+\end{figure}
+
+In figures \ref{fig:datasnapthree} and \ref{fig:ctrlsnapthree}, we see routes being recalculated as the more heavily used routes begin to reach low levels of residual power.
+
+\begin{figure}[!h]
+    \centering
+    \begin{minipage}{0.45\textwidth}
+        \centering
+        \includegraphics[width=0.9\textwidth]{example-image-a} % first figure itself
+        \caption{Data packets sent by each node once energy levels become critical.}
+        \label{fig:datasnapthree}
+    \end{minipage}\hfill
+    \begin{minipage}{0.45\textwidth}
+        \centering
+        \includegraphics[width=0.9\textwidth]{example-image-b} % second figure itself
+        \caption{Control packets sent by each node once energy levels become critical.}
+        \label{fig:ctrlsnapthree}
+    \end{minipage}
+\end{figure}
+
+Finally, figures \ref{fig:datasnapfour} and \ref{fig:ctrlsnapfour} show how as nodes begin to fail, the limited number of paths force heavier traffic to pass through the remaining nodes. The failing nodes have occurred near the sinks as expected.
+
+\begin{figure}[!h]
+    \centering
+    \begin{minipage}{0.45\textwidth}
+        \centering
+        \includegraphics[width=0.9\textwidth]{example-image-a} % first figure itself
+        \caption{Data packets sent by each node once failures have started to occur.}
+        \label{fig:datasnapfour}
+    \end{minipage}\hfill
+    \begin{minipage}{0.45\textwidth}
+        \centering
+        \includegraphics[width=0.9\textwidth]{example-image-b} % second figure itself
+        \caption{Control packets sent by each node once failures have started to occur.}
+        \label{fig:ctrlsnapfour}
+    \end{minipage}
+\end{figure}
+
+Figure \ref{fig:loss} shows the packet over time, and finally figure \ref{fig:dis} shows the level of disordering over time.
+
+\begin{figure}[!h]
+    \centering
+    \begin{minipage}{0.45\textwidth}
+        \centering
+        \includegraphics[width=0.9\textwidth]{example-image-a} % second figure itself
+        \caption{Packet loss over time.}
+        \label{fig:loss}
+    \end{minipage}\hfill
+    \begin{minipage}{0.45\textwidth}
+        \centering
+        \includegraphics[width=0.9\textwidth]{example-image-b} % second figure itself
+        \caption{Disordering over time.}
+        \label{fig:ctrlsnapfour}
+    \end{minipage}
+\end{figure}
+
+\FloatBarrier
+
+\subsection{Discussion}
 
 \begin{enumerate}
-\item Show heat map of results
-\item Explain features of heat map
-\item Describe the behaviour if IP was used instead through analysis
+\item Explain features of heat map and snapshots
+\item Describe the behaviour if IP was used instead
 \item Discuss weaknesses with experiment
 \end{enumerate}
 
@@ -412,6 +533,9 @@ Only the ID of the sink is known by each node, which is all that should be neces
 \section{Conclusions}
 
 Improve AODV to use locator for 'approximate' routing, then complete path once reaches locator
+Discuss attempt at zoned based routing, and why it was discarded despite being a better example of ILNP.
+Discuss how mobile networks would demonstrate the usefuless of ILNP better through link state protocols, and not so much with aodv and dsr.
+
 Mercy message to send from nodes under heavy load to try and request downstream nodes to use different paths.
 
 \begin{enumerate}	
@@ -422,7 +546,7 @@ Mercy message to send from nodes under heavy load to try and request downstream 
 \pagebreak
 \section{Appendix}
 \begin{enumerate}
-\item Instructions on installing, and executing and using the python module, and how to configure the experiments.
+\item Instructions on installing, and executing and using the python module
 \end{enumerate}
 
 \bibliographystyle{unsrt}
