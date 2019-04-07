@@ -229,12 +229,13 @@ The protocol used is a reactive zone-based routing protocol (ZBR), and is based 
 	\item Locators cover a similiar physical area, in a lattice structure.
 \end{enumerate}
 
-
 Agricultural sensor networks often consist of many sensor nodes for monitoring the environment and a few actuators for triggering sprinklers or covering delicate crops. Based on this data, sensors could control the actuators within their locators themselves, whilst reporting their readings to the sink for further analysis. By splitting sensors into geographically relevant zones and assiging locators using tools such as GPS, the arriving data could also be grouped by origin location to help with visualisation and analysis at the sink. 
 
-Our ZBR uses a different routing strategy for routing within and between locators, referred to as the intrazone and interzone routing protocols. Both are based on the reactive protocol AODV with added fields to try and account for energy usage in paths. 
+Our ZBR uses a different routing strategy for routing within and between locators, referred to as the intrazone and interzone routing protocols (IARP, and IERP). The IERP is based on the reactive protocol AODV, and the IARP is based on the link state protocol OLSR with added fields to try and account for energy usage in paths. 
 
 Figure \ref{fig:actuate} provides example communication paths, where data is communicated from the nodes in one zone to the sink in another zone.
+
+The protocol was specifically designed for autonomous subnetworks to operate, while still being able to route globally. For example, sensors could communicate with actuators within their subnetworks, whilst sending monitoring data to a global sink. The only knowledge that would be available upon initialization is the ID and locator for the starting node, and the ID of the sink node. The sink node could then be multihomed without having to reconfigure the entire network of sensors. Sensors could also detect any other hosts within their subnetwork, which could be devices such as sprinkler systems, shelters, or cameras.
 
 \begin{figure}[!ht]
 	\centering
@@ -243,24 +244,34 @@ Figure \ref{fig:actuate} provides example communication paths, where data is com
 	\label{fig:actuate}
 \end{figure}
 
-A reactive protocol was chosen for communication in order to limit the amount of network knowledge required for routing. It also has the benefit that link breakages do not need to be broadcast to the entire network, and can instead only be sent to nodes relying on that links existence at the time of breakage.
+A reactive protocol was chosen for communication between zones in order to limit the amount of network knowledge required for routing. It also has the benefit that link breakages do not need to be broadcast to the entire network, and can instead only be sent to nodes relying on that links existence at the time of breakage.
 
-The protocol was specifically designed to identify the actuators and border nodes within each subnetwork, and to route data to the sink. The only knowledge that would be available upon initialization is the ID and locator for the starting node, and the ID of the sink node. This would allow the sink node to be multihomed without having to reconfigure the entire network of sensors, and would allow sensors to detect which tools were available to them within their own subnetworks. 
+A proactive protocol was chosen for routing within locators as it would provide node discovery, and would hopefully reduce the number of repeated route discoveries after breakages by being able to find alternative routes within zones.
 
-\FloatBarrier
+\section{Intra-Zone Routing Protocol}
 
-\subsection{Protocol Stages}
+Initially, each node would broadcast its presence to its neighbours in order to learn what links were available to it using a \emph{Join} message. 
+
+Once the entire local network topology is available, data packets would be routed using the following logic:
 
 \begin{enumerate}
-	\item The node broadcasts a \emph{localhello} message to its neighbours, and each neighbour constructs a path by appending their ID to the \emph{hello message}. 
-	\item Border nodes and actuators reply to \emph{localhello} messages with either \emph{border} or \emph{actuator} messages respectively, which provide the requesting node paths to each of them. The \emph{border} message also includes information as to what locators can be reached from that node.
-	\item Border nodes from other locators will also reply to the \emph{hello} message, providing information about their own accessible locators, which will then designate the new node as a border node.
-	\item The sensor then requests a route to the sink node using its ID.
-	\item Once it receives at least one RRPLY containing a route to the sink node, the sensor begins taking readings periodically and sending them to the sink node. 
-	\item If any readings cross a preconfigured threshold, the sensor would then either request a path to an actuator within its locator, or use one it already obtained.
+	\item If the packet destination ID matches the current node, then it will add the payload of the packet to the received queue. 
+	\item Otherwise it will attempt to find the next hop for the packet, provided by the forwarding table, and forward it to the node with that ID. 
+	\item If no entries are found in the forwarding table:
+	\begin{enumerate}
+		\item If the packet destination locator matches this nodes locator, then not finding a next hop suggests that the destination ID doesn't exist, and so the packet is discarded. 
+		\item Otherwise, the inter-zone routing protocol will be invoked, but only if the packet originates from the current node. 
+	\end{enumerate}
 \end{enumerate}
 
-\section{AODV}
+This method ensures that packets arriving from external locators will receive best effort routing based on the assumptions that:
+
+\begin{enumerate}
+	\item All nodes within a locator have at least one path between each other. 
+	\item Data packets are only sent to other locators once a route has been established.
+\end{enumerate}
+
+\section{Inter-Zone Routing Protocl}
 
 AODV is a reactive protocol that is used differently for inter-zone and inter-zone routing. Inside locators, the hop list will consist of node IDs, providing exact routes between the source and destination. Between locators, the hop list will consist of locators, and the exact hop-by-hop routing will be provided by each zone internally.
 
@@ -462,9 +473,9 @@ All polling functions included a timeout in order for each thread to check if it
 
 \section{Routing and Network Management}
 
-The router polls the incoming packet queue and decides the next course of action using the processes described in section \ref{protodesign}. The control plane handles any control packets or any packets that can't be forwarded using the current forwarding table.
+The router polls the incoming packet queue and decides the next course of action. 
 
-\# TODO Finish description of control 
+The control plane handles any control packets or any packets that can't be forwarded using the current forwarding table, and is responsible for populating the forwarding table.
 
 \#https://ieeexplore.ieee.org/document/7993954 to fix route reply storm issue: add jitter before responding with route reply and listen for other replies
 

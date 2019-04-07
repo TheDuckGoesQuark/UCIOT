@@ -1,12 +1,10 @@
 import struct
 from typing import Optional, Union
 
-from sensor.network.router.groupmessages import GroupMessage
 from sensor.network.router.serializable import Serializable
 
 DATA_TYPE = 0
-LOCAL_CONTROL_TYPE = 1
-EXTERNAL_CONTROL_TYPE = 2
+CONTROL_TYPE = 1
 
 
 class TransportWrapper(Serializable):
@@ -17,10 +15,10 @@ class TransportWrapper(Serializable):
     FORMAT = "!BxH"
     SIZE = struct.calcsize(FORMAT)
 
-    def __init__(self, payload_type: int, payload_len: int, payload: Optional[Union[bytes, bytearray, GroupMessage]]):
+    def __init__(self, payload_type: int, payload_len: int, payload: Optional[Union[bytes, bytearray, Serializable]]):
         self.payload_type = payload_type
         self.body_len = payload_len
-        self.body: Optional[Union[bytes, bytearray, GroupMessage]] = payload
+        self.body: Optional[Union[bytes, bytearray, Serializable]] = payload
 
     def __bytes__(self):
         if self.body is not None:
@@ -32,7 +30,7 @@ class TransportWrapper(Serializable):
         return self.SIZE + self.body_len
 
     def is_control_packet(self):
-        return self.payload_type == LOCAL_CONTROL_TYPE
+        return self.payload_type == CONTROL_TYPE
 
     @classmethod
     def from_bytes(cls, raw_bytes):
@@ -48,9 +46,5 @@ def build_data_wrapper(data: bytes) -> TransportWrapper:
     return TransportWrapper(DATA_TYPE, len(data), data)
 
 
-def build_local_control_wrapper(data: bytes) -> TransportWrapper:
-    return TransportWrapper(LOCAL_CONTROL_TYPE, len(data), data)
-
-
-def build_external_control_wrapper(data: bytes) -> TransportWrapper:
-    return TransportWrapper(EXTERNAL_CONTROL_TYPE, len(data), data)
+def build_control_wrapper(data: bytes) -> TransportWrapper:
+    return TransportWrapper(CONTROL_TYPE, len(data), data)

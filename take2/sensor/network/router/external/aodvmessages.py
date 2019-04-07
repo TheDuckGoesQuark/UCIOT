@@ -48,27 +48,6 @@ class AODVHeader(Serializable):
         return self.SIZE
 
 
-class Hello(Serializable):
-    """
-    Sent by node on startup to either join group or determine if it should start its own group.
-
-    Src Locator value in packet is irrelevant at this stage
-    """
-    FORMAT = "!B3x"
-    SIZE = struct.calcsize(FORMAT)
-    TYPE = 6
-
-    def __bytes__(self):
-        return struct.pack(self.FORMAT, self.TYPE)
-
-    def size_bytes(self):
-        return self.SIZE
-
-    @classmethod
-    def from_bytes(cls, raw_bytes):
-        return Hello()
-
-
 class RouteList(Serializable):
     LOCATOR_FORMAT: str = "!{}Q"
 

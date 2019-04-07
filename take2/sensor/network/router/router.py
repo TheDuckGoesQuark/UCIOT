@@ -7,11 +7,12 @@ from typing import Tuple, List
 
 from sensor.battery import Battery
 from sensor.config import Configuration
+from sensor.network.router.external.aodvmessages import parse_type
 from sensor.network.router.forwardingtable import ForwardingTable
 from sensor.network.router.ilnp import ILNPPacket, ILNPAddress
+from sensor.network.router.internal.lsmessages import Hello
 from sensor.network.router.netinterface import NetworkInterface
 from sensor.network.router.control import RouterControlPlane
-from sensor.network.router.reactive.dsrmessages import parse_type, Hello
 from sensor.network.router.transportwrapper import build_data_wrapper, TransportWrapper
 
 logger = logging.getLogger(__name__)
@@ -19,7 +20,7 @@ logger = logging.getLogger(__name__)
 SECONDS_BETWEEN_SHUTDOWN_CHECKS = 3
 
 
-def parse_packet(data) -> ILNPPacket:
+def parse_packet_header(data) -> ILNPPacket:
     packet = ILNPPacket.from_bytes(data)
     packet.payload = TransportWrapper.from_bytes(packet.payload)
     return packet
@@ -49,7 +50,7 @@ class IncomingMessageParserThread(threading.Thread):
         logger.info("Finished terminating network interface polling thread")
 
     def add_link_knowledge(self, packet: ILNPPacket, ipv6_addr: str):
-        """If packet is HELLO, it can provide a mapping for sending directly to neighbour links"""
+        """If packet type is only ever sent one hop, it can provide a mapping for sending directly to neighbour links"""
         message_type = parse_type(memoryview(packet.payload.body))
 
         if message_type is Hello.TYPE:
@@ -65,11 +66,11 @@ class IncomingMessageParserThread(threading.Thread):
                 continue
 
             data = received[0]
-            ipv6_addr = received[1]
 
-            packet = parse_packet(data)
+            packet = parse_packet_header(data)
 
             if packet.payload.is_control_packet():
+                ipv6_addr = received[1]
                 self.add_link_knowledge(packet, ipv6_addr)
 
             self.packet_queue.put(packet)
@@ -93,7 +94,7 @@ class Router(threading.Thread):
         # Control packet handler
         self.forwarding_table = ForwardingTable()
         self.control_plane = RouterControlPlane(self.net_interface, self.packet_queue, self.my_address, battery,
-                                                self.forwarding_table, config.max_radius)
+                                                self.forwarding_table)
         # Thread for continuous polling of network interface for packets
         self.incoming_message_thread = IncomingMessageParserThread(
             self.net_interface, self.packet_queue)
@@ -143,17 +144,16 @@ class Router(threading.Thread):
     def run(self) -> None:
         """Initializes locator then begins regular processing"""
         logger.info("Router thread starting")
-        self.control_plane.initialize_locator()
 
         # Begin processing
         logger.info("Beginning regular processing")
         while self.running:
-            packet = self.packet_queue.get(timeout=SECONDS_BETWEEN_SHUTDOWN_CHECKS)
+            try:
+                packet = self.packet_queue.get(timeout=SECONDS_BETWEEN_SHUTDOWN_CHECKS)
 
-            if packet is not None:
                 logger.info("Data has arrived on one of the queues")
                 self.handle_packet(packet)
-            else:
+            except Empty as e:
                 logger.info("No packets have arrived in the past {} seconds".format(SECONDS_BETWEEN_SHUTDOWN_CHECKS))
 
     def handle_data_packet(self, packet: ILNPPacket):
@@ -164,14 +164,19 @@ class Router(threading.Thread):
             self.arrived_data_queue.put((packet.payload.body, packet.src.id))
             return
 
-        next_hop = self.forwarding_table.get_next_hop(packet.dest.id)
+        destination_is_local = packet.dest.loc == self.my_address.loc
+        is_from_me = packet.src.id = self.my_address.id
+
+        next_hop = self.forwarding_table.get_next_hop(packet.dest, destination_is_local)
 
         if next_hop is not None:
             logger.info("Found next hop, forwarding to {}".format(next_hop))
             self.net_interface.send(bytes(packet), next_hop)
-        elif packet.src.id == self.my_address.id:
-            logger.info("No next hop found for packet originating from this node.")
-            logger.info("Requesting route reactive routing.")
+        elif destination_is_local:
+            logger.info("No node exists with that ID in this locator.")
+            logger.info("Discarding packet")
+        elif is_from_me:
+            logger.info("Finding route for packet destined for external locator")
             self.control_plane.find_route(packet)
         else:
             logger.info("No next hop found for packet. Dropping packet.")
