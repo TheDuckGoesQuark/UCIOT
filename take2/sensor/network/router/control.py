@@ -100,10 +100,16 @@ class RouterControlPlane(threading.Thread):
         pass
 
     def handle_control_packet(self, packet: ILNPPacket):
-        control_type = parse_type(memoryview(packet.payload.body))
+        control_type = packet.payload.header.payload_type
 
         if control_type is Hello.TYPE:
             logger.info("Received hello message!")
+            self.__handle_hello(packet)
 
-    def perform_locator_discovery(self, packet):
+    def perform_locator_discovery(self, packet: ILNPPacket):
+        pass
+
+    def __handle_hello(self, packet: ILNPPacket):
+        src_id = packet.src.id
+
         pass

@@ -250,9 +250,17 @@ A proactive protocol was chosen for routing within locators as it would provide 
 
 \section{Intra-Zone Routing Protocol}
 
-Initially, each node would broadcast its presence to its neighbours in order to learn what links were available to it using a \emph{Join} message. 
+\subsection{Initialization}
 
-Once the entire local network topology is available, data packets would be routed using the following logic:
+Initially, each node broadcasts its presence to its neighbours in order to learn what links were available to it using a \emph{Hello} message, containing its lambda value. 
+
+Neighbouring nodes reply with their current link state database (LSB) in a \emph{LSBMessage}. This message contains the neighbouring nodes knowledge of the internal (within the locator) topology, as well as the links to external networks (other locators). Whilst still in the intiliziation phases, neighbours will flood their entire LSBs to their neighbours, and once the messages they receive contain match their own LSBs, they can be considered initialized. This ensures that every node in the network has the same database and is aware of all other nodes in the network.
+
+Nodes that exist on the border of locators will discard LSBs they receive from the locators they are not part of. They will however use these messages to learn what other locators can be reached from their neighbours, eventually providing them with next hops for all locators in the WSN.
+
+\subsection{Routing Once Converged}
+
+Once converged and the entire local topology is available, data packets would be routed using the following logic:
 
 \begin{enumerate}
 	\item If the packet destination ID matches the current node, then it will add the payload of the packet to the received queue. 

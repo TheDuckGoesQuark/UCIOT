@@ -1,7 +1,6 @@
 import struct
 
 import logging
-from functools import reduce
 from typing import List, Dict
 
 from sensor.network.router.serializable import Serializable
@@ -160,6 +159,91 @@ class RouteError(Serializable):
         return RouteError(lost_link_locator)
 
 
+class Link(Serializable):
+    FORMAT = "!QQI"
+    SIZE = struct.calcsize(FORMAT)
+
+    def __init__(self, a, b, cost):
+        self.a = a
+        self.b = b
+        self.cost = cost
+
+    def __bytes__(self):
+        return struct.pack(self.FORMAT, self.a, self.b, self.cost)
+
+    def size_bytes(self):
+        return self.SIZE
+
+    @classmethod
+    def from_bytes(cls, raw_bytes):
+        return Link(*struct.unpack(cls.FORMAT, raw_bytes))
+
+
+def link_list_to_bytes(link_list: List[Link]) -> bytearray:
+    byte_arr = bytearray(len(link_list) * Link.SIZE)
+    offset = 0
+    for link in link_list:
+        byte_arr[offset:offset + Link.SIZE] = bytes(link)
+        offset += Link.SIZE
+
+    return byte_arr
+
+
+def link_list_from_bytes(list_bytes: memoryview, n_links: int) -> List[Link]:
+    offset = 0
+
+    links = []
+    for idx in range(n_links):
+        link_bytes = list_bytes[offset:offset + Link.SIZE]
+        link = Link.from_bytes(link_bytes)
+        links.append(link)
+        offset += Link.SIZE
+
+    return links
+
+
+class LSBMessage(Serializable):
+    """For sharing link state databases"""
+
+    TYPE = 5
+    FORMAT = "!HBB"
+    FIXED_PART_SIZE = struct.calcsize(FORMAT)
+
+    def __init__(self, seq_number: int, internal_links: List[Link], external_links: List[Link]):
+        self.seq_number = seq_number
+        self.internal_links = internal_links
+        self.external_links = external_links
+
+    def __bytes__(self) -> bytes:
+        internal_list_bytes = link_list_to_bytes(self.internal_links)
+        external_list_bytes = link_list_to_bytes(self.external_links)
+
+        return struct.pack(self.FORMAT, self.seq_number, len(self.internal_links), len(self.external_links)) \
+               + internal_list_bytes + external_list_bytes
+
+    def size_bytes(self) -> int:
+        return self.FIXED_PART_SIZE
+
+    def __str__(self):
+        return str(vars(self))
+
+    @classmethod
+    def from_bytes(cls, raw_bytes: memoryview) -> 'LSBMessage':
+        seq_number, num_internal, num_external = struct.unpack(cls.FORMAT, raw_bytes[:cls.FIXED_PART_SIZE])
+
+        # Parse internal links list
+        offset = cls.FIXED_PART_SIZE
+        end = offset + Link.SIZE * num_internal
+        internal_links = link_list_from_bytes(raw_bytes[offset:end], num_internal)
+
+        # Parse external links list
+        offset = end
+        end = offset + Link.SIZE * num_external
+        external_links = link_list_from_bytes(raw_bytes[offset:end], num_external)
+
+        return LSBMessage(seq_number, internal_links, external_links)
+
+
 DATA_TYPE = 0
 
 TYPE_TO_CLASS: Dict[int, Serializable] = {
@@ -168,6 +252,7 @@ TYPE_TO_CLASS: Dict[int, Serializable] = {
     RouteRequest.TYPE: RouteRequest,
     RouteReply.TYPE: RouteReply,
     RouteError.TYPE: RouteError,
+    LSBMessage.TYPE: LSBMessage,
 }
 
 
@@ -219,6 +304,9 @@ class ControlMessage(Serializable):
 
     def size_bytes(self):
         return ControlHeader.SIZE + self.header.payload_length
+
+    def is_control_message(self):
+        return self.header.payload_type != DATA_TYPE
 
 
 def build_data_message(data_bytes) -> ControlMessage:

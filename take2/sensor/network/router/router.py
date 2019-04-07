@@ -131,12 +131,12 @@ class Router(threading.Thread):
         :param dest_id: id of node to be sent to
         """
         logger.info("Wrapping data to be sent")
-        message_bytes = bytes(build_data_message(data))
+        message = build_data_message(data)
 
         src_addr = self.my_address
         dest_loc = self.forwarding_table.get_locator_for_id(dest_id)
         dest_addr = ILNPAddress(dest_loc, dest_id)
-        packet = ILNPPacket(src_addr, dest_addr, payload=message_bytes, payload_length=len(message_bytes))
+        packet = ILNPPacket(src_addr, dest_addr, payload=message, payload_length=message.size_bytes())
 
         self.packet_queue.put(packet)
 
@@ -170,6 +170,7 @@ class Router(threading.Thread):
         is_from_me = packet.src.id = self.my_address.id
 
         if packet.dest.loc is None and is_from_me:
+            logger.info("No destination locator set.")
             self.control_plane.perform_locator_discovery(packet)
             return
 
@@ -190,7 +191,7 @@ class Router(threading.Thread):
 
     def handle_packet(self, packet: ILNPPacket):
         """Passes the first packet from each of the queues to the relevant handler"""
-        if packet.payload.is_control_packet():
+        if packet.payload.is_control_message():
             self.control_plane.handle_control_packet(packet)
         else:
             self.handle_data_packet(packet)
