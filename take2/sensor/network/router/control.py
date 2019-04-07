@@ -7,13 +7,14 @@ from typing import Dict
 from sensor.battery import Battery
 from sensor.network.router.ilnp import ILNPAddress, ILNPPacket
 from sensor.network.router.forwardingtable import ForwardingTable
-from sensor.network.router.internal.lsmessages import Hello
+from sensor.network.router.controlmessages import Hello, ControlMessage, ControlHeader
 from sensor.network.router.netinterface import NetworkInterface
-from sensor.network.router.transportwrapper import build_control_wrapper
 
 logger = logging.getLogger(__name__)
 
-LOAD_PERCENTAGE = 50
+NO_NEXT_HEADER_VALUE = 59
+
+# Internal Configuration
 KEEP_ALIVE_INTERVAL_SECS = 3
 MAX_AGE_OF_LINK = KEEP_ALIVE_INTERVAL_SECS * 3
 
@@ -22,6 +23,11 @@ MAX_LAMBDA = (2 ** (4 * 8)) - 1
 
 # All nodes multicast address as in IPv6
 ALL_LINK_LOCAL_NODES_ADDRESS = ILNPAddress(int("ff01000000000000", 16), int("1", 16))
+
+
+def parse_type(raw_bytes: memoryview) -> int:
+    """Parses type from control message"""
+    return int(raw_bytes[0])
 
 
 class RouterControlPlane(threading.Thread):
@@ -76,9 +82,11 @@ class RouterControlPlane(threading.Thread):
         """Broadcasts hello message containing this nodes current lambda"""
         logger.info("Sending keepalive")
         keepalive = Hello(self.__calc_my_lambda())
-        t_wrap = build_control_wrapper(bytes(keepalive))
+        header = ControlHeader(keepalive.TYPE, keepalive.size_bytes())
+        control_message = ControlMessage(header, keepalive)
+
         packet = ILNPPacket(self.my_address, ALL_LINK_LOCAL_NODES_ADDRESS, hop_limit=0,
-                            payload_length=t_wrap.size_bytes(), payload=bytes(t_wrap))
+                            payload_length=control_message.size_bytes(), payload=bytes(control_message))
 
         self.net_interface.broadcast(bytes(packet))
 
@@ -92,6 +100,10 @@ class RouterControlPlane(threading.Thread):
         pass
 
     def handle_control_packet(self, packet: ILNPPacket):
+        control_type = parse_type(memoryview(packet.payload.body))
 
+        if control_type is Hello.TYPE:
+            logger.info("Received hello message!")
+
+    def perform_locator_discovery(self, packet):
         pass
-

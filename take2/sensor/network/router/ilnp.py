@@ -1,8 +1,8 @@
 import struct
 from typing import Union, Optional
 
+from sensor.network.router.controlmessages import ControlMessage
 from sensor.network.router.serializable import Serializable
-from sensor.network.router.transportwrapper import TransportWrapper
 
 
 class ILNPAddress:
@@ -22,7 +22,7 @@ class ILNPPacket(Serializable):
     def __init__(self, src: ILNPAddress, dest: ILNPAddress, next_header: int = 0,
                  hop_limit: int = 32, version: int = 6, traffic_class: int = 0,
                  flow_label: int = 0, payload_length: int = 0,
-                 payload: Optional[Union[bytes, bytearray, TransportWrapper]] = None):
+                 payload: Optional[Union[bytes, bytearray, ControlMessage]] = None):
         # First octet
         self.version: int = version
         self.traffic_class: int = traffic_class
@@ -39,7 +39,7 @@ class ILNPPacket(Serializable):
         # Fourth Octet
         self.dest: ILNPAddress = dest
 
-        self.payload: Optional[Union[bytes, bytearray, TransportWrapper]] = payload
+        self.payload: Optional[Union[bytes, bytearray, ControlMessage]] = payload
 
     def __str__(self):
         barrier = ("-" * 21) + "\n"

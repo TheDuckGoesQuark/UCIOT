@@ -7,11 +7,12 @@ logger = logging.getLogger(__name__)
 
 
 class ForwardingTable:
-    """Stores a map of next hops for each destination id and locator"""
+    """Stores a map of next hops for each destination id and locator, and caches the locators for often requested IDs"""
 
     def __init__(self):
         self.next_hop_internal: Dict[int, int] = {}
         self.next_hop_to_locator: Dict[int, int] = {}
+        self.locator_cache: Dict[int, int] = {}
 
     def __str__(self):
         return str(vars(self))
@@ -47,4 +48,12 @@ class ForwardingTable:
         logger.info("Adding LOC:{}, NH:{} to table".format(dest_loc, next_hop))
         self.next_hop_to_locator[dest_loc] = next_hop
 
+    def record_locator_for_id(self, node_id, node_locator):
+        self.locator_cache[node_id] = node_locator
+
+    def get_locator_for_id(self, node_id) -> Optional[int]:
+        if node_id in self.locator_cache :
+            return self.locator_cache[node_id]
+        else:
+            return None
 

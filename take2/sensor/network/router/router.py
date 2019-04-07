@@ -1,28 +1,26 @@
 import logging
-import select
 import threading
 from _queue import Empty
 from multiprocessing import Queue
-from typing import Tuple, List
+from typing import Tuple
 
 from sensor.battery import Battery
 from sensor.config import Configuration
-from sensor.network.router.external.aodvmessages import parse_type
 from sensor.network.router.forwardingtable import ForwardingTable
 from sensor.network.router.ilnp import ILNPPacket, ILNPAddress
-from sensor.network.router.internal.lsmessages import Hello
+from sensor.network.router.controlmessages import Hello, ControlMessage, build_data_message
 from sensor.network.router.netinterface import NetworkInterface
 from sensor.network.router.control import RouterControlPlane
-from sensor.network.router.transportwrapper import build_data_wrapper, TransportWrapper
 
 logger = logging.getLogger(__name__)
 
 SECONDS_BETWEEN_SHUTDOWN_CHECKS = 3
 
 
-def parse_packet_header(data) -> ILNPPacket:
+def parse_packet(data) -> ILNPPacket:
+    """Parses contents of packet"""
     packet = ILNPPacket.from_bytes(data)
-    packet.payload = TransportWrapper.from_bytes(packet.payload)
+    packet.payload = ControlMessage.from_bytes(packet.payload)
     return packet
 
 
@@ -51,7 +49,7 @@ class IncomingMessageParserThread(threading.Thread):
 
     def add_link_knowledge(self, packet: ILNPPacket, ipv6_addr: str):
         """If packet type is only ever sent one hop, it can provide a mapping for sending directly to neighbour links"""
-        message_type = parse_type(memoryview(packet.payload.body))
+        message_type = packet.payload.TYPE
 
         if message_type is Hello.TYPE:
             logger.info("Registering node {} ({}) as link local neighbour.".format(packet.src.id, ipv6_addr))
@@ -67,7 +65,7 @@ class IncomingMessageParserThread(threading.Thread):
 
             data = received[0]
 
-            packet = parse_packet_header(data)
+            packet = parse_packet(data)
 
             if packet.payload.is_control_packet():
                 ipv6_addr = received[1]
@@ -83,15 +81,19 @@ class Router(threading.Thread):
 
     def __init__(self, config: Configuration, battery: Battery):
         super().__init__()
+        # Myself
         self.my_address = ILNPAddress(config.my_locator, config.my_id)
 
         # Data for this ID, with the ID that sent it
         self.arrived_data_queue: Queue[Tuple[bytes, int]] = Queue()
+
         # Interface for sending data
         self.net_interface: NetworkInterface = NetworkInterface(config, battery)
+
         # Data received from net interface needing processed
         self.packet_queue: Queue[ILNPPacket] = Queue()
-        # Control packet handler
+
+        # Control packet handler, which manages the forwarding table
         self.forwarding_table = ForwardingTable()
         self.control_plane = RouterControlPlane(self.net_interface, self.packet_queue, self.my_address, battery,
                                                 self.forwarding_table)
@@ -129,12 +131,12 @@ class Router(threading.Thread):
         :param dest_id: id of node to be sent to
         """
         logger.info("Wrapping data to be sent")
-        t_wrap = build_data_wrapper(data)
+        message_bytes = bytes(build_data_message(data))
 
-        # Locator can't be assigned immediately, since it could change before packet gets processed
-        src_addr = ILNPAddress(None, self.my_address.id)
-        dest_addr = ILNPAddress(None, dest_id)
-        packet = ILNPPacket(src_addr, dest_addr, payload=t_wrap, payload_length=t_wrap.size_bytes())
+        src_addr = self.my_address
+        dest_loc = self.forwarding_table.get_locator_for_id(dest_id)
+        dest_addr = ILNPAddress(dest_loc, dest_id)
+        packet = ILNPPacket(src_addr, dest_addr, payload=message_bytes, payload_length=len(message_bytes))
 
         self.packet_queue.put(packet)
 
@@ -164,9 +166,14 @@ class Router(threading.Thread):
             self.arrived_data_queue.put((packet.payload.body, packet.src.id))
             return
 
-        destination_is_local = packet.dest.loc == self.my_address.loc
+        # Locator discovery might be necessary for packets coming from me
         is_from_me = packet.src.id = self.my_address.id
 
+        if packet.dest.loc is None and is_from_me:
+            self.control_plane.perform_locator_discovery(packet)
+            return
+
+        destination_is_local = packet.dest.loc == self.my_address.loc
         next_hop = self.forwarding_table.get_next_hop(packet.dest, destination_is_local)
 
         if next_hop is not None:

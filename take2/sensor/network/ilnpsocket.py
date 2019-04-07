@@ -7,7 +7,6 @@ from sensor.network.router.router import Router
 
 logger = logging.getLogger(__name__)
 
-NO_NEXT_HEADER_VALUE = 59
 
 
 class ILNPSocket:
