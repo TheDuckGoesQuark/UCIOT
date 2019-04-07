@@ -55,6 +55,7 @@ class NetworkInterface:
         self.id_to_ipv6: Dict[int:str] = {}
         self.battery = battery
         self.ipv6_groups = config.mcast_groups
+        self.my_ipv6_group = config.my_ipv6_group
         self.port = config.port
         self.sock = create_mcast_socket(config.port, self.ipv6_groups, config.loopback)
         self.buffer_size: int = config.packet_buffer_size_bytes
@@ -79,17 +80,15 @@ class NetworkInterface:
 
     def broadcast(self, bytes_to_send: bytes):
         """
-        Sends the supplied bytes to all multicast groups this node belong to
+        Sends the supplied bytes to the multicast group this node belong to
         :param bytes_to_send: bytes to be sent
         """
         if self.battery.remaining() <= 0:
             raise IOError("Not enough battery to send packets")
 
         logger.info("Broadcasting message")
-        for addr in self.ipv6_groups:
-            logger.info("Sending to {}".format(addr))
-            self.sock.sendto(bytes_to_send, (addr, self.port))
-
+        logger.info("Sending to {}".format(self.my_ipv6_group))
+        self.sock.sendto(bytes_to_send, (self.my_ipv6_group, self.port))
         self.battery.decrement()
         logger.info("Finished broadcasting message")
 

@@ -27,17 +27,18 @@ class Configuration:
         if not uid:
             uid = get_default_id()
 
+        # ILNP Conf
+        self.my_id: int = fields.getint('my_id')
+        self.my_locator: int = fields.getint('my_locator')
+        self.max_radius: int = fields.getint('max_radius')
+
         # Raw Socket Conf
         self.port: int = fields.getint('port', 8080)
         self.packet_buffer_size_bytes: int = fields.getint('packet_buffer_size_bytes', 512)
         self.loopback: bool = fields.getboolean("loopback", True)
         self.mcast_groups: List[str] = \
             [build_ipv6_multicast_address(uid, group_id) for group_id in fields.get('mcast_groups').split(',')]
-
-        # ILNP Conf
-        self.my_id: int = fields.getint('my_id')
-        self.my_locator: int = fields.getint('my_locator')
-        self.max_radius: int = fields.getint('max_radius')
+        self.my_ipv6_group = build_ipv6_multicast_address(uid, format(self.my_id, 'x'))
 
         # Experiment Conf
         self.max_sends = fields.getint('max_packet_sends')

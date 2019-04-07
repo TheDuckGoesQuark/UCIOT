@@ -69,6 +69,9 @@ class RouterControlPlane(threading.Thread):
         """Broadcast hello messages with my lambda to inform neighbours of presence"""
         self.__send_keepalive()
 
+    def __calc_my_lambda(self):
+        return int(1 - (1 - self.battery.percentage()) ** 2) * MAX_LAMBDA
+
     def __send_keepalive(self):
         """Broadcasts hello message containing this nodes current lambda"""
         logger.info("Sending keepalive")
@@ -80,15 +83,15 @@ class RouterControlPlane(threading.Thread):
         self.net_interface.broadcast(bytes(packet))
 
     def __remove_expired_links(self, expired):
-        pass
-
-    def __calc_my_lambda(self):
-        return int(1 - (1 - self.battery.percentage()) ** 2) * MAX_LAMBDA
-
-    def handle_control_packet(self, packet: ILNPPacket):
+        # TODO
         pass
 
     def find_route(self, packet: ILNPPacket):
         """Uses AODV to find a route to the packets destination"""
+        # TODO
+        pass
+
+    def handle_control_packet(self, packet: ILNPPacket):
+
         pass
 
