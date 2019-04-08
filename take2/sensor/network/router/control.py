@@ -7,7 +7,8 @@ from typing import Dict, List
 from sensor.battery import Battery
 from sensor.network.router.ilnp import ILNPAddress, ILNPPacket
 from sensor.network.router.forwardingtable import ForwardingTable, ZonedNetworkGraph
-from sensor.network.router.controlmessages import Hello, ControlMessage, ControlHeader, LSDBMessage, InternalLink
+from sensor.network.router.controlmessages import Hello, ControlMessage, ControlHeader, LSDBMessage, InternalLink, \
+    ExpiredLinkList
 from sensor.network.router.netinterface import NetworkInterface
 from sensor.network.router.util import BoundedSequenceGenerator
 
@@ -54,6 +55,10 @@ class NeighbourLinks:
 
         return expired_ids
 
+    def age_neighbours(self):
+        for neighbour in self.neighbour_link_ages:
+            self.neighbour_link_ages[neighbour] += KEEP_ALIVE_INTERVAL_SECS
+
 
 class RouterControlPlane(threading.Thread):
     def __init__(self, net_interface: NetworkInterface, my_address: ILNPAddress,
@@ -89,14 +94,14 @@ class RouterControlPlane(threading.Thread):
         while self.running:
             time.sleep(KEEP_ALIVE_INTERVAL_SECS)
             self.__send_keepalive()
+            self.neighbours.age_neighbours()
             logger.info("Current neighbours: {}".format(vars(self.neighbours)))
             logger.info("Current network graph: {}".format(str(self.network_graph)))
 
             logger.info("Removing expired links")
             expired = self.neighbours.pop_expired_neighbours()
-
             logger.info("links expired: {}".format(expired))
-            self.__remove_expired_links(expired)
+            self.__handle_expired_links(expired)
 
     def initialize(self):
         """Broadcast hello messages with my lambda to inform neighbours of presence"""
@@ -194,3 +199,17 @@ class RouterControlPlane(threading.Thread):
             self.__broadcast_lsdb()
         else:
             logger.info("No new information. Discarding")
+
+    def __handle_expired_links(self, expired):
+        """Broadcasts information about lost links and removes them from our network graph"""
+        for expired_node_id in expired:
+            self.network_graph.remove_link(self.my_address.id, expired_node_id)
+
+        expired_message = ExpiredLinkList(expired)
+        header = ControlHeader(expired_message.TYPE, expired_message.size_bytes())
+        control_message = ControlMessage(header, expired_message)
+        packet = ILNPPacket(self.my_address, ALL_LINK_LOCAL_NODES_ADDRESS,
+                            payload_length=control_message.size_bytes(), payload=control_message)
+
+        self.net_interface.broadcast(bytes(packet))
+

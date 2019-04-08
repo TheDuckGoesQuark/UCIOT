@@ -69,6 +69,7 @@ class NetworkInterface:
         :raises KeyError if next hop id is not known on this link
         """
         if self.battery.remaining() <= 0:
+            self.close()
             raise IOError("Not enough battery to send packets")
 
         ip_next_hop = self.id_to_ipv6[next_hop_id]
@@ -84,6 +85,7 @@ class NetworkInterface:
         :param bytes_to_send: bytes to be sent
         """
         if self.battery.remaining() <= 0:
+            self.close()
             raise IOError("Not enough battery to send packets")
 
         logger.info("Broadcasting message")

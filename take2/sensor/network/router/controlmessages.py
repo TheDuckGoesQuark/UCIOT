@@ -288,6 +288,42 @@ class LSDBMessage(Serializable):
         return LSDBMessage(seq_number, internal_links, external_links)
 
 
+class ExpiredLinkList(Serializable):
+    """For informing other nodes that a link has been lost"""
+
+    TYPE = 6
+    FIXED_FORMAT = "!B3x"
+    ENTRY_FORMAT = "!{}Q"
+    SIZE = struct.calcsize(FIXED_FORMAT)
+
+    def __init__(self, lost_link_ids: List[int]):
+        self.lost_link_ids = lost_link_ids
+
+    def __bytes__(self) -> bytes:
+        entry_format = self.ENTRY_FORMAT.format(len(self.lost_link_ids))
+        list_bytes = struct.pack(entry_format, *self.lost_link_ids)
+        return struct.pack(self.FIXED_FORMAT, len(self.lost_link_ids)) + list_bytes
+
+    def size_bytes(self) -> int:
+        # Replace brackets with number of entries
+        entry_format = self.ENTRY_FORMAT.format(len(self.lost_link_ids))
+        # Calculate the size based on the number of entries
+        return self.SIZE + struct.calcsize(entry_format)
+
+    def __str__(self):
+        return str(vars(self))
+
+    @classmethod
+    def from_bytes(cls, raw_bytes: memoryview) -> 'ExpiredLinkList':
+        n_entries = struct.unpack(cls.FIXED_FORMAT, raw_bytes[:cls.SIZE])[0]
+
+        entry_format = cls.ENTRY_FORMAT.format(n_entries)
+        offset = cls.SIZE
+        entries = list(struct.unpack(entry_format, raw_bytes[offset:]))
+
+        return ExpiredLinkList(entries)
+
+
 DATA_TYPE = 0
 
 TYPE_TO_CLASS: Dict[int, Serializable] = {
@@ -297,6 +333,7 @@ TYPE_TO_CLASS: Dict[int, Serializable] = {
     RouteReply.TYPE: RouteReply,
     RouteError.TYPE: RouteError,
     LSDBMessage.TYPE: LSDBMessage,
+    ExpiredLinkList.TYPE: ExpiredLinkList
 }
 
 

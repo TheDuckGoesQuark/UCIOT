@@ -66,6 +66,13 @@ class InternalNode:
         if len(self.locator_links[linked_locator].bridge_node_costs) == 0:
             del self.locator_links[linked_locator]
 
+    def get_locator_of_bridge_node(self, bridge_node_id: int) -> Optional[int]:
+        for locator_link in self.locator_links.values():
+            if bridge_node_id in locator_link.bridge_node_costs:
+                return locator_link.locator
+
+        return None
+
     def is_border_node(self) -> bool:
         return len(self.locator_links) > 0
 
@@ -194,6 +201,11 @@ class ZonedNetworkGraph:
         # Remove from graph
         del self.id_to_node[node_id]
 
+    def remove_internal_link(self, node_a: InternalNode, node_b: InternalNode):
+        """Removes the link between two nodes"""
+        node_a.remove_internal_link(node_b)
+        node_b.remove_internal_link(node_a)
+
     def __remove_border_node(self, border_node: InternalNode):
         """Removes this node as a potential bridge to all its locators,"""
         for locator in border_node.locator_links:
@@ -301,6 +313,18 @@ class ZonedNetworkGraph:
                               for border_id, locator, bridge_id, bridge_lambda in locator_links]
 
         return LSDBMessage(sequence_number, internal_link_list, external_link_list)
+
+    def remove_link(self, node_a_id: int, node_b_id: int):
+        """Removes the link between node a and node b. Node a is assumed to be an internal node in all cases"""
+        node_a: InternalNode = self.get_node(node_a_id)
+        node_b: InternalNode = self.get_node(node_b_id)
+
+        node_b_is_in_a_different_locator = node_b is None
+        if node_b_is_in_a_different_locator:
+            locator = node_a.get_locator_of_bridge_node(node_b_id)
+            self.remove_external_link(node_a_id, locator, node_b_id)
+        else:
+            self.remove_internal_link(node_a, node_b)
 
 
 class ForwardingTable:
