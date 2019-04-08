@@ -8,7 +8,6 @@ from sensor.network.router.router import Router
 logger = logging.getLogger(__name__)
 
 
-
 class ILNPSocket:
     def __init__(self, config: Configuration, battery: Battery):
         """

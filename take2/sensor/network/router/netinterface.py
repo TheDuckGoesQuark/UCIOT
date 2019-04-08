@@ -113,16 +113,19 @@ class NetworkInterface:
         :raises TimeoutError
         """
         # Select provides timeout to socket polling
-        ready, _, _ = select.select([self.sock], [], [], timeout)
+        try:
+            ready, _, _ = select.select([self.sock], [], [], timeout)
 
-        if len(ready) == 0:
-            return None
+            if len(ready) == 0:
+                return None
 
-        buffer = bytearray(self.buffer_size)
-        n_bytes_read, addr_info = self.sock.recvfrom_into(buffer, len(buffer))
-        src_ipv6_addr = addr_info[0]
+            buffer = bytearray(self.buffer_size)
+            n_bytes_read, addr_info = self.sock.recvfrom_into(buffer, len(buffer))
+            src_ipv6_addr = addr_info[0]
 
-        return buffer[:n_bytes_read], src_ipv6_addr
+            return buffer[:n_bytes_read], src_ipv6_addr
+        except ValueError:
+            self.close()
 
     def close(self):
         """Closes underlying socket"""

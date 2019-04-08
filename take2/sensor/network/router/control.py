@@ -93,7 +93,11 @@ class RouterControlPlane(threading.Thread):
         self.running = True
         while self.running:
             time.sleep(KEEP_ALIVE_INTERVAL_SECS)
-            self.__send_keepalive()
+            try:
+                self.__send_keepalive()
+            except Exception:
+                self.running = False
+
             self.neighbours.age_neighbours()
             logger.info("Current neighbours: {}".format(vars(self.neighbours)))
             logger.info("Current network graph: {}".format(str(self.network_graph)))

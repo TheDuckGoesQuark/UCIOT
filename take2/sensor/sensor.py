@@ -33,6 +33,7 @@ class Sensor:
 
     def run_as_sensor(self):
         while self.running and not self.socket.is_closed():
+            logger.info("Sensor waiting for reading")
             sleep(self.interval)
             try:
                 reading = self.take_reading()
@@ -42,6 +43,7 @@ class Sensor:
 
     def run_as_sink(self):
         while self.running and not self.socket.is_closed():
+            logger.info("Sleeping between readings")
             sleep(self.interval)
             try:
                 data_bytes, source_id = self.socket.receive_from(self.interval)
@@ -49,6 +51,7 @@ class Sensor:
                 print("Received reading {} from {}".format(sensor_reading, source_id))
             except IOError as e:
                 logger.warning("Terminating: " + e)
+                self.running = False
 
     def stop(self):
         logger.info("Stopping underlying services.")

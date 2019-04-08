@@ -204,8 +204,8 @@ class ExternalLink(Serializable):
         return self.SIZE
 
     @classmethod
-    def from_bytes(cls, raw_bytes):
-        return InternalLink(*struct.unpack(cls.FORMAT, raw_bytes))
+    def from_bytes(cls, raw_bytes)->'ExternalLink':
+        return ExternalLink(*struct.unpack(cls.FORMAT, raw_bytes))
 
 
 def link_list_to_bytes(link_list: List[Union[InternalLink, ExternalLink]], entry_class) -> bytearray:

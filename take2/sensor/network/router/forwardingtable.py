@@ -222,12 +222,12 @@ class ZonedNetworkGraph:
 
         difference_found = False
         for link in internal_links:
-            if self.contains_internal_link(link):
+            if not self.contains_internal_link(link):
                 self.add_internal_link(link.a, link.a_lambda, link.b, link.b_lambda)
                 difference_found = True
 
         for link in external_links:
-            if self.contains_external_link(link):
+            if not self.contains_external_link(link):
                 self.add_external_link(
                     link.border_node_id, link.locator, link.bridge_node_id, link.bridge_lambda
                 )
@@ -272,7 +272,7 @@ class ZonedNetworkGraph:
         """Deconstructs graph into list of weighted links"""
         # {(node_a_id, node_b_id):(node_a_lambda, node_b_lambda)}
         internal_links: Dict[Tuple[int, int], Tuple[int, int]] = {}
-        # {(border_node_id, bridge_node_id):(bridge_node_locator, bridge_node_lambda)}
+        # {(border_node_id, bridge_node_id, bridge_node_locator, bridge_node_lambda)}
         locator_links: Set[Tuple[int, int, int, int]] = set()
 
         # Produce description of internal links

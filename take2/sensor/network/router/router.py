@@ -56,7 +56,12 @@ class IncomingMessageParserThread(threading.Thread):
             self.net_interface.add_id_ipv6_mapping(packet.src.id, ipv6_addr)
 
     def run(self):
-        while not self.stopped and not self.net_interface.is_closed():
+        while not self.stopped:
+            if self.net_interface.is_closed():
+                logger.info("Router detected network interfaced is closed.")
+                self.stopped = True
+                continue
+
             logger.info("Checking for packets from interface")
             received = self.net_interface.receive(SECONDS_BETWEEN_SHUTDOWN_CHECKS)
 
@@ -114,11 +119,11 @@ class Router(threading.Thread):
         logger.info("Waiting on network interface to close")
         self.net_interface.close()
         logger.info("Waiting on incoming message thread to terminate")
+        self.incoming_message_thread.stopped = True
         self.incoming_message_thread.join()
         logger.info("Waiting on control plane thread terminating")
+        self.control_plane.running = False
         self.control_plane.join()
-        logger.info("Joining router thread")
-        super().join()
         logger.info("Finished terminating routing thread")
 
     def send(self, data, dest_id):
@@ -147,7 +152,7 @@ class Router(threading.Thread):
 
         # Begin processing
         logger.info("Beginning regular processing")
-        while self.running:
+        while self.running and not self.net_interface.is_closed():
             try:
                 packet = self.packet_queue.get(timeout=SECONDS_BETWEEN_SHUTDOWN_CHECKS)
 
@@ -155,6 +160,9 @@ class Router(threading.Thread):
                 self.handle_packet(packet)
             except Empty as e:
                 logger.info("No packets have arrived in the past {} seconds".format(SECONDS_BETWEEN_SHUTDOWN_CHECKS))
+
+        self.running = False
+        self.join()
 
     def handle_data_packet(self, packet: ILNPPacket):
         """Attempt basic routing of packet using available resources"""

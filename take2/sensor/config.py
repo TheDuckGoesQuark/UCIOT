@@ -30,7 +30,6 @@ class Configuration:
         # ILNP Conf
         self.my_id: int = fields.getint('my_id')
         self.my_locator: int = fields.getint('my_locator')
-        self.max_radius: int = fields.getint('max_radius')
 
         # Raw Socket Conf
         self.port: int = fields.getint('port', 8080)
