@@ -2,13 +2,14 @@ import logging
 import threading
 import time
 from multiprocessing import Queue
-from typing import Dict
+from typing import Dict, List
 
 from sensor.battery import Battery
 from sensor.network.router.ilnp import ILNPAddress, ILNPPacket
 from sensor.network.router.forwardingtable import ForwardingTable
-from sensor.network.router.controlmessages import Hello, ControlMessage, ControlHeader
+from sensor.network.router.controlmessages import Hello, ControlMessage, ControlHeader, LSBMessage, Link
 from sensor.network.router.netinterface import NetworkInterface
+from sensor.network.router.util import BoundedSequenceGenerator
 
 logger = logging.getLogger(__name__)
 
@@ -30,22 +31,50 @@ def parse_type(raw_bytes: memoryview) -> int:
     return int(raw_bytes[0])
 
 
+class NeighbourLinks:
+    def __init__(self):
+        self.neighbour_link_ages: Dict[int, int] = {}
+
+    def __contains__(self, item):
+        return item in self.neighbour_link_ages
+
+    def get_neighbour_age(self, node_id: int) -> int:
+        return self.neighbour_link_ages[node_id]
+
+    def add_neighbour(self, neighbour_id: int):
+        self.neighbour_link_ages[neighbour_id] = 0
+
+    def refresh_neighbour(self, neighbour_id: int):
+        self.add_neighbour(neighbour_id)
+
+    def pop_expired_neighbours(self) -> List[int]:
+        expired_ids = [node_id for node_id, age in self.neighbour_link_ages.items() if age >= MAX_AGE_OF_LINK]
+        for expired_id in expired_ids:
+            del self.neighbour_link_ages[expired_id]
+
+        return expired_ids
+
+
 class RouterControlPlane(threading.Thread):
-    def __init__(self, net_interface: NetworkInterface, packet_queue: Queue, my_address: ILNPAddress,
+    def __init__(self, net_interface: NetworkInterface, my_address: ILNPAddress,
                  battery: Battery, forwarding_table: ForwardingTable):
         super().__init__()
         self.battery = battery
         self.my_address = my_address
 
+        # Forwarding table provides quick look-up for forwarding packets to internal and external nodes
+        self.forwarding_table = forwarding_table
+
         # Tracks neighbours and time since last keepalive
-        self.neighbours: Dict[int, int] = {}
+        self.neighbours: NeighbourLinks = NeighbourLinks()
         self.net_interface = net_interface
-        self.packet_queue = packet_queue
+
+        # Status flags
         self.running = False
         self.initialized = False
 
-        # Forwarding table provides quick look-up for forwarding packets to internal and external nodes
-        self.forwarding_table = forwarding_table
+        # Tracks last LSB sequence value
+        self.lsb_sequence_generator = BoundedSequenceGenerator(511)
 
     def join(self, timeout=None) -> None:
         self.running = False
@@ -110,6 +139,20 @@ class RouterControlPlane(threading.Thread):
         pass
 
     def __handle_hello(self, packet: ILNPPacket):
+        """Refreshes neighbours link to stop expiry process, or adds neighbour"""
         src_id = packet.src.id
+        if src_id in self.neighbours:
+            self.neighbours.refresh_neighbour(src_id)
+        else:
+            self.handle_new_neighbour(packet.src)
 
-        pass
+    def handle_new_neighbour(self, src_address:ILNPAddress):
+        self.neighbours.add_neighbour(src_address.id)
+
+        link = Link()
+        lsbmsg = LSBMessage(next(self.lsb_sequence_generator), [], [])
+        header = ControlHeader(LSBMessage.TYPE, lsbmsg.size_bytes())
+        control_message = ControlMessage(header, lsbmsg)
+        packet = ILNPPacket(self.my_address, src_address,
+                            payload_length=control_message.size_bytes(), payload=bytes(control_message))
+

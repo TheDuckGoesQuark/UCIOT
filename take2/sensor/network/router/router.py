@@ -1,7 +1,7 @@
 import logging
 import threading
-from _queue import Empty
 from multiprocessing import Queue
+from queue import Empty
 from typing import Tuple
 
 from sensor.battery import Battery
@@ -95,8 +95,7 @@ class Router(threading.Thread):
 
         # Control packet handler, which manages the forwarding table
         self.forwarding_table = ForwardingTable()
-        self.control_plane = RouterControlPlane(self.net_interface, self.packet_queue, self.my_address, battery,
-                                                self.forwarding_table)
+        self.control_plane = RouterControlPlane(self.net_interface, self.my_address, battery, self.forwarding_table)
         # Thread for continuous polling of network interface for packets
         self.incoming_message_thread = IncomingMessageParserThread(
             self.net_interface, self.packet_queue)

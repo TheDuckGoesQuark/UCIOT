@@ -1,81 +1,9 @@
 import collections
 from typing import List, Dict, Deque, Tuple, Optional, Set
 
-from ilnpsocket.underlay.routing.ilnp import ILNPPacket
+from sensor.network.router.ilnp import ILNPPacket
 
 NUM_REQUEST_IDS = 512
-
-
-class NetworkGraph:
-    def __init__(self, initial_locators: Set[int]):
-        self.nodes: Dict[int, Set[int]] = {}
-
-        # Connect all initial locators to each other
-        for locator in initial_locators:
-            self.nodes[locator] = {loc for loc in initial_locators if loc != locator}
-
-    def __str__(self):
-        return str(self.nodes)
-
-    def get_shortest_path(self, start: int, end: int, path: Optional[List[int]] = None) -> Optional[List[int]]:
-        """Finds a path between the start and end node. Not necessarily the shortest"""
-        if path is None:
-            path = []
-
-        path = path + [start]
-
-        if start == end:
-            return path
-        if not self.node_exists(start):
-            return None
-
-        shortest: Optional[List[int]] = None
-        for node in self.nodes[start]:
-            if node not in path:
-                new_path = self.get_shortest_path(node, end, path)
-                if new_path:
-                    if shortest is None or len(new_path) < len(shortest):
-                        shortest = new_path
-
-        return shortest
-
-    def node_exists(self, node: int) -> bool:
-        return node in self.nodes
-
-    def add_node(self, node):
-        self.nodes[node] = set()
-
-    def add_vertex(self, start, end):
-        if not self.node_exists(start):
-            self.add_node(start)
-
-        if not self.node_exists(end):
-            self.add_node(end)
-
-        self.nodes[start].add(end)
-        self.nodes[end].add(start)
-
-    def remove_vertex(self, start, end):
-        if self.node_exists(start) and self.node_exists(end):
-            self.nodes[start].remove(end)
-
-    def add_path(self, locators: List[int]):
-        path_length = len(locators)
-        for idx, node in enumerate(locators):
-            if idx != path_length - 1:
-                self.add_vertex(node, locators[idx + 1])
-
-    def remove_node(self, dest_loc):
-        if not self.node_exists(dest_loc):
-            return
-
-        connected_nodes: Set = self.nodes[dest_loc]
-        # Remove all references to this node
-        for node in connected_nodes:
-            self.nodes[node].remove(dest_loc)
-
-        # Remove this node
-        del self.nodes[dest_loc]
 
 
 class RecentRequestBuffer:
@@ -184,15 +112,3 @@ class DestinationQueues:
         return self.dest_queues.pop(dest_loc)
 
 
-class RequestIdGenerator:
-    def __init__(self):
-        self.current = 0
-
-    def __next__(self):
-        val = self.current
-        self.current = (self.current + 1) % NUM_REQUEST_IDS
-        return val
-
-    def __iter__(self):
-        self.current = 0
-        return self
