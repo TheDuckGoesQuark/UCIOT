@@ -25,9 +25,9 @@ if [[ ${nMachines} -lt ${nConfigs} ]]; then
     exit 1
 fi
 
-project_path="/cs/home/jm354/Documents/Uni/Y4/SH/UCIOT"
+project_path="/cs/home/jm354/Documents/Uni/Y4/SH/UCIOT/take2"
 run_script="${project_path}/test_scripts/run_with_config.sh"
-main="${project_path}/__main__.py"
+main="${project_path}/main.py"
 
 if [[ ! -d "${project_path}/logs" ]]; then
     mkdir "${project_path}/logs"
