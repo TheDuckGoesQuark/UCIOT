@@ -173,6 +173,9 @@ class InternalLink(Serializable):
     def __bytes__(self):
         return struct.pack(self.FORMAT, self.a, self.a_lambda, self.b, self.b_lambda)
 
+    def __str__(self):
+        return str(vars(self))
+
     def size_bytes(self):
         return self.SIZE
 
@@ -193,6 +196,9 @@ class ExternalLink(Serializable):
 
     def __bytes__(self):
         return struct.pack(self.FORMAT, self.border_node_id, self.locator, self.bridge_node_id, self.bridge_lambda)
+
+    def __str__(self):
+        return str(vars(self))
 
     def size_bytes(self):
         return self.SIZE
@@ -249,10 +255,21 @@ class LSDBMessage(Serializable):
                + internal_list_bytes + external_list_bytes
 
     def size_bytes(self) -> int:
-        return self.FIXED_PART_SIZE
+        return self.FIXED_PART_SIZE + \
+               len(self.internal_links) * InternalLink.SIZE + \
+               len(self.external_links) * ExternalLink.SIZE
 
     def __str__(self):
-        return str(vars(self))
+        string = ""
+        string += "\nInternal"
+        for link in self.internal_links:
+            string += "\n{}".format(str(link))
+
+        string += "\nExternal"
+        for link in self.external_links:
+            string += "\n{}".format(str(link))
+
+        return string
 
     @classmethod
     def from_bytes(cls, raw_bytes: memoryview) -> 'LSDBMessage':

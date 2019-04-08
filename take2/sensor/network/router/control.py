@@ -6,7 +6,7 @@ from typing import Dict, List
 
 from sensor.battery import Battery
 from sensor.network.router.ilnp import ILNPAddress, ILNPPacket
-from sensor.network.router.forwardingtable import ForwardingTable, ZonedNetworkGraph, lsdb_message_from_network_graph
+from sensor.network.router.forwardingtable import ForwardingTable, ZonedNetworkGraph
 from sensor.network.router.controlmessages import Hello, ControlMessage, ControlHeader, LSDBMessage, InternalLink
 from sensor.network.router.netinterface import NetworkInterface
 from sensor.network.router.util import BoundedSequenceGenerator
@@ -64,7 +64,7 @@ class RouterControlPlane(threading.Thread):
 
         # Forwarding table provides quick look-up for forwarding packets to internal and external nodes
         self.forwarding_table = forwarding_table
-        self.network_graph = ZonedNetworkGraph()
+        self.network_graph = ZonedNetworkGraph(self.my_address.id, self.__calc_my_lambda())
 
         # Tracks neighbours and time since last keepalive
         self.neighbours: NeighbourLinks = NeighbourLinks()
@@ -87,16 +87,13 @@ class RouterControlPlane(threading.Thread):
 
         self.running = True
         while self.running:
-            if not self.initialized:
-                continue
-
             time.sleep(KEEP_ALIVE_INTERVAL_SECS)
             self.__send_keepalive()
+            logger.info("Current neighbours: {}".format(vars(self.neighbours)))
+            logger.info("Current network graph: {}".format(str(self.network_graph)))
+
             logger.info("Removing expired links")
-            expired = [neighbour for neighbour, age in self.neighbours.items() if age > MAX_AGE_OF_LINK]
-            self.neighbours = {neighbour: age + KEEP_ALIVE_INTERVAL_SECS
-                               for neighbour, age in self.neighbours.items()
-                               if age <= MAX_AGE_OF_LINK}
+            expired = self.neighbours.pop_expired_neighbours()
 
             logger.info("links expired: {}".format(expired))
             self.__remove_expired_links(expired)
@@ -178,7 +175,7 @@ class RouterControlPlane(threading.Thread):
     def __broadcast_lsdb(self):
         """Broadcasts my LSDB to neighbouring nodes"""
         logger.info("Broadcasting my LSDB")
-        lsdb = lsdb_message_from_network_graph(self.network_graph, next(self.lsb_sequence_generator))
+        lsdb = self.network_graph.to_lsdb_message(next(self.lsb_sequence_generator))
         header = ControlHeader(LSDBMessage.TYPE, lsdb.size_bytes())
         control_message = ControlMessage(header, lsdb)
         packet = ILNPPacket(self.my_address, ALL_LINK_LOCAL_NODES_ADDRESS,

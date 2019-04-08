@@ -49,7 +49,7 @@ class IncomingMessageParserThread(threading.Thread):
 
     def add_link_knowledge(self, packet: ILNPPacket, ipv6_addr: str):
         """If packet type is only ever sent one hop, it can provide a mapping for sending directly to neighbour links"""
-        message_type = packet.payload.TYPE
+        message_type = packet.payload.header.payload_type
 
         if message_type is Hello.TYPE:
             logger.info("Registering node {} ({}) as link local neighbour.".format(packet.src.id, ipv6_addr))
@@ -67,7 +67,7 @@ class IncomingMessageParserThread(threading.Thread):
 
             packet = parse_packet(data)
 
-            if packet.payload.is_control_packet():
+            if packet.payload.is_control_message():
                 ipv6_addr = received[1]
                 self.add_link_knowledge(packet, ipv6_addr)
 
@@ -97,8 +97,7 @@ class Router(threading.Thread):
         self.forwarding_table = ForwardingTable()
         self.control_plane = RouterControlPlane(self.net_interface, self.my_address, battery, self.forwarding_table)
         # Thread for continuous polling of network interface for packets
-        self.incoming_message_thread = IncomingMessageParserThread(
-            self.net_interface, self.packet_queue)
+        self.incoming_message_thread = IncomingMessageParserThread(self.net_interface, self.packet_queue)
 
         self.incoming_message_thread.daemon = True
         self.incoming_message_thread.start()

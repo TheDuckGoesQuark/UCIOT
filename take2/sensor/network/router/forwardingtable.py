@@ -104,17 +104,26 @@ def floyd_warshall(g) \
 class ZonedNetworkGraph:
     """Weighted graph of network, with full internal topology, and links to neighbouring networks"""
 
-    def __init__(self):
+    def __init__(self, my_id: int, my_lambda: int):
         self.id_to_node: Dict[int, InternalNode] = {}
         self.locator_to_border_node_ids: Dict[int, List[int]] = {}
+
+        self.add_node(my_id, my_lambda)
 
     def __iter__(self):
         return iter(self.id_to_node.values())
 
+    def __str__(self):
+        lsdb = self.to_lsdb_message(0)
+        return str(lsdb)
+
     def get_border_node_ids(self) -> Set[int]:
         """Flattens locator to border node ids to provide the set of all border nodes"""
-        return reduce(lambda current_set, next_list: current_set.update(next_list),
-                      self.locator_to_border_node_ids.values(), set())
+        border_node_set = set()
+        for border_node_list in self.locator_to_border_node_ids.values():
+            border_node_set.update(border_node_list)
+
+        return border_node_set
 
     def add_node(self, node_id: int, node_lambda: int):
         """Add a new node to the network"""
@@ -247,53 +256,51 @@ class ZonedNetworkGraph:
         external_link = border_node.locator_links[link.locator]
         return link.bridge_node_id in external_link.bridge_node_costs.keys()
 
+    def to_lsdb_message(self, sequence_number: int) -> LSDBMessage:
+        """Deconstructs graph into list of weighted links"""
+        # {(node_a_id, node_b_id):(node_a_lambda, node_b_lambda)}
+        internal_links: Dict[Tuple[int, int], Tuple[int, int]] = {}
+        # {(border_node_id, bridge_node_id):(bridge_node_locator, bridge_node_lambda)}
+        locator_links: Set[Tuple[int, int, int, int]] = set()
 
-def lsdb_message_from_network_graph(network: ZonedNetworkGraph, sequence_number: int) -> LSDBMessage:
-    """Deconstructs graph into list of weighted links"""
-    # {(node_a_id, node_b_id):(node_a_lambda, node_b_lambda)}
-    internal_links: Dict[Tuple[int, int], Tuple[int, int]] = {}
-    # {(border_node_id, bridge_node_id):(bridge_node_locator, bridge_node_lambda)}
-    locator_links: Set[Tuple[int, int, int, int]] = set()
+        # Produce description of internal links
+        for node in self.get_internal_nodes():
+            node_id = node.get_id()
 
-    # Produce description of internal links
-    for node in network.get_internal_nodes():
-        node_id = node.get_id()
+            for neighbour in node.get_internal_neighbours():
+                # Links are (lowest_id, highest_id) tuple for quick uniqueness check
+                neighbour_id = neighbour.get_id()
 
-        for neighbour in node.get_internal_neighbours():
-            # Links are (lowest_id, highest_id) tuple for quick uniqueness check
-            neighbour_id = neighbour.get_id()
+                if neighbour_id < node_id:
+                    min_id = neighbour_id
+                    min_id_lambda = neighbour.node_lambda
+                    max_id = node_id
+                    max_id_lambda = node.node_lambda
+                else:
+                    min_id = node_id
+                    min_id_lambda = node.node_lambda
+                    max_id = neighbour_id
+                    max_id_lambda = neighbour.node_lambda
 
-            if neighbour_id < node_id:
-                min_id = neighbour_id
-                min_id_lambda = neighbour.node_lambda
-                max_id = node_id
-                max_id_lambda = node.node_lambda
-            else:
-                min_id = node_id
-                min_id_lambda = node.node_lambda
-                max_id = neighbour_id
-                max_id_lambda = neighbour.node_lambda
+                internal_links[(min_id, max_id)] = (min_id_lambda, max_id_lambda)
 
-            internal_links[(min_id, max_id)] = (min_id_lambda, max_id_lambda)
+        # Produce description of external links
+        border_node_ids: Set[int] = self.get_border_node_ids()
+        for border_node_id in border_node_ids:
+            border_node = self.get_node(border_node_id)
+            locator_links_for_this_node = border_node.locator_links.values()
 
-    # Produce description of external links
-    border_node_ids: Set[int] = network.get_border_node_ids()
-    for border_node_id in border_node_ids:
-        border_node = network.get_node(border_node_id)
-        locator_links = border_node.locator_links.values()
+            locator_link: LocatorLink
+            for locator_link in locator_links_for_this_node:
+                # For each node in the other locator that this node can reach
+                for bridge_node_id, bridge_node_lambda in locator_link.bridge_node_costs.items():
+                    locator_links.add((border_node_id, bridge_node_id, locator_link.locator, bridge_node_lambda))
 
-        # For each locator this node can reach
-        locator_link: LocatorLink
-        for locator_link in locator_links:
-            # For each node in the other locator that this node can reach
-            for bridge_node_id, bridge_node_lambda in locator_link.bridge_node_costs.items():
-                locator_links.add((border_node_id, bridge_node_id, locator_link.locator, bridge_node_lambda))
+        internal_link_list = [InternalLink(a, cost_a, b, cost_b) for (a, b), (cost_a, cost_b) in internal_links.items()]
+        external_link_list = [ExternalLink(border_id, locator, bridge_id, bridge_lambda)
+                              for border_id, locator, bridge_id, bridge_lambda in locator_links]
 
-    internal_link_list = [InternalLink(a, cost_a, b, cost_b) for (a, b), (cost_a, cost_b) in internal_links.items()]
-    external_link_list = [ExternalLink(border_id, locator, bridge_id, bridge_lambda)
-                          for border_id, locator, bridge_id, bridge_lambda in locator_links]
-
-    return LSDBMessage(sequence_number, internal_link_list, external_link_list)
+        return LSDBMessage(sequence_number, internal_link_list, external_link_list)
 
 
 class ForwardingTable:
