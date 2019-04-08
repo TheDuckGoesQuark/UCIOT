@@ -7,7 +7,7 @@ from typing import Dict, List
 from sensor.battery import Battery
 from sensor.network.router.ilnp import ILNPAddress, ILNPPacket
 from sensor.network.router.forwardingtable import ForwardingTable, ZonedNetworkGraph
-from sensor.network.router.controlmessages import Hello, ControlMessage, ControlHeader, LSBMessage, Link
+from sensor.network.router.controlmessages import Hello, ControlMessage, ControlHeader, LSBMessage, InternalLink
 from sensor.network.router.netinterface import NetworkInterface
 from sensor.network.router.util import BoundedSequenceGenerator
 
@@ -149,7 +149,7 @@ class RouterControlPlane(threading.Thread):
 
     def handle_new_neighbour(self, packet: ILNPPacket):
         neighbour_address = packet.src
-        hello :Hello = packet.payload.body
+        hello: Hello = packet.payload.body
 
         self.neighbours.add_neighbour(neighbour_address.id)
 
@@ -160,6 +160,6 @@ class RouterControlPlane(threading.Thread):
         lsbmsg = LSBMessage(next(self.lsb_sequence_generator), [], [])
         header = ControlHeader(LSBMessage.TYPE, lsbmsg.size_bytes())
         control_message = ControlMessage(header, lsbmsg)
+
         packet = ILNPPacket(self.my_address, neighbour_address,
                             payload_length=control_message.size_bytes(), payload=bytes(control_message))
-

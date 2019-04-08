@@ -1,74 +1,73 @@
 import logging
-from typing import Dict, Optional, Tuple, List
+from functools import reduce
+from typing import Dict, Optional, Tuple, List, Set
 
-from sensor.network.router.controlmessages import Link, LSBMessage
+from sensor.network.router.controlmessages import InternalLink, LSBMessage, ExternalLink
 from sensor.network.router.ilnp import ILNPAddress
 
 logger = logging.getLogger(__name__)
 
 
-class ExternalLink:
+class LocatorLink:
     """Represents a link to another locator, and all available next hops to reach that locator"""
 
     def __init__(self, locator: int):
         self.locator = locator
         # Next hop ids and their cost
-        self.bridge_node_ids: Dict[int, int] = {}
+        self.bridge_node_costs: Dict[int, int] = {}
 
     def add_bridge_node(self, node_id, cost):
-        self.bridge_node_ids[node_id] = cost
+        self.bridge_node_costs[node_id] = cost
 
     def remove_bridge_node(self, node_id):
-        del self.bridge_node_ids[node_id]
+        del self.bridge_node_costs[node_id]
 
 
 class InternalNode:
     """Each node has internal links with other nodes, and external links with other locators"""
 
-    def __init__(self, node_id: int):
+    def __init__(self, node_id: int, node_lambda: int):
         self.node_id = node_id
+        self.node_lambda = node_lambda
         # Internal nodes and their link cost
-        self.internal_link_costs: Dict[InternalNode, int] = {}
+        self.linked_nodes: Set[InternalNode] = set()
         # Locators this node can reach and the link cost
-        self.external_link_costs: Dict[int, ExternalLink] = {}
+        self.locator_links: Dict[int, LocatorLink] = {}
 
-    def add_internal_neighbour(self, neighbour_node: 'InternalNode', cost: int):
-        self.internal_link_costs[neighbour_node] = cost
+    def add_internal_neighbour(self, neighbour_node: 'InternalNode'):
+        self.linked_nodes.add(neighbour_node)
 
-    def get_internal_neighbours(self):
-        return self.internal_link_costs.keys()
+    def get_internal_neighbours(self) -> Set['InternalNode']:
+        return self.linked_nodes
 
-    def get_id(self):
+    def get_id(self) -> int:
         return self.node_id
 
-    def get_internal_link_weight(self, neighbour_node: 'InternalNode'):
-        return self.internal_link_costs[neighbour_node]
-
-    def remove_internal_link(self, expired: 'InternalNode'):
-        del self.internal_link_costs[expired]
+    def remove_internal_link(self, node_to_remove: 'InternalNode'):
+        self.linked_nodes.remove(node_to_remove)
 
     def add_external_link(self, linked_locator: int, node_id: int, cost: int):
-        if linked_locator not in self.external_link_costs:
-            self.external_link_costs[linked_locator] = ExternalLink(linked_locator)
+        if linked_locator not in self.locator_links:
+            self.locator_links[linked_locator] = LocatorLink(linked_locator)
 
-        self.external_link_costs[linked_locator].add_bridge_node(node_id, cost)
+        self.locator_links[linked_locator].add_bridge_node(node_id, cost)
 
     def get_linked_locators(self):
-        return self.external_link_costs.keys()
+        return self.locator_links.keys()
 
-    def get_links_to_linked_locators(self, linked_locator: int) -> ExternalLink:
-        return self.external_link_costs[linked_locator]
+    def get_links_to_locator(self, linked_locator: int) -> LocatorLink:
+        return self.locator_links[linked_locator]
 
-    def remove_external_link(self, linked_locator: int, linking_node_id: int):
-        # Remove the linkingg node as a bridge to that locator
-        del self.external_link_costs[linked_locator].bridge_node_ids[linking_node_id]
+    def remove_link_to_locator(self, linked_locator: int, linking_node_id: int):
+        # Remove the linking node as a bridge to that locator
+        del self.locator_links[linked_locator].bridge_node_costs[linking_node_id]
 
         # Remove the external link if no more bridging nodes exist
-        if len(self.external_link_costs[linked_locator].bridge_node_ids) == 0:
-            del self.external_link_costs[linked_locator]
+        if len(self.locator_links[linked_locator].bridge_node_costs) == 0:
+            del self.locator_links[linked_locator]
 
     def is_border_node(self) -> bool:
-        return len(self.external_link_costs) > 0
+        return len(self.locator_links) > 0
 
 
 def floyd_warshall(g) \
@@ -112,9 +111,14 @@ class ZonedNetworkGraph:
     def __iter__(self):
         return iter(self.id_to_node.values())
 
-    def add_node(self, node_id: int):
+    def get_border_node_ids(self) -> Set[int]:
+        """Flattens locator to border node ids to provide the set of all border nodes"""
+        return reduce(lambda current_set, next_list: current_set.update(next_list),
+                      self.locator_to_border_node_ids.values(), set())
+
+    def add_node(self, node_id: int, node_lambda: int):
         """Add a new node to the network"""
-        node = InternalNode(node_id)
+        node = InternalNode(node_id, node_lambda)
         self.id_to_node[node_id] = node
 
     def get_node(self, node_id) -> Optional[InternalNode]:
@@ -123,16 +127,16 @@ class ZonedNetworkGraph:
 
     def get_internal_neighbour_ids(self, node_id) -> List[int]:
         node = self.get_node(node_id)
-        return [neighbour.node_id for neighbour in node.internal_link_costs]
+        return [neighbour.node_id for neighbour in node.linked_nodes]
 
-    def add_internal_link(self, from_node_id, to_node_id, cost=0):
+    def add_internal_link(self, from_node_id: int, from_node_lambda: int, to_node_id: int, to_node_lambda: int):
         if from_node_id not in self.id_to_node:
-            self.add_node(from_node_id)
+            self.add_node(from_node_id, from_node_lambda)
         if to_node_id not in self.id_to_node:
-            self.add_node(to_node_id)
+            self.add_node(to_node_id, to_node_lambda)
 
-        self.id_to_node[from_node_id].add_internal_neighbour(self.get_node(to_node_id), cost)
-        self.id_to_node[to_node_id].add_internal_neighbour(self.get_node(from_node_id), cost)
+        self.id_to_node[from_node_id].add_internal_neighbour(self.get_node(to_node_id))
+        self.id_to_node[to_node_id].add_internal_neighbour(self.get_node(from_node_id))
 
     def add_external_link(self, border_node_id: int, external_locator: int, external_note_id: int, cost: int):
         local_node = self.get_node(border_node_id)
@@ -150,7 +154,7 @@ class ZonedNetworkGraph:
         local_node = self.get_node(border_node_id)
 
         # Remove link to node in other locator
-        local_node.remove_external_link(external_locator, external_node_id)
+        local_node.remove_link_to_locator(external_locator, external_node_id)
 
         # Check if this node can still act as a bridge to that locator
         if external_locator not in local_node.get_linked_locators():
@@ -171,7 +175,7 @@ class ZonedNetworkGraph:
         """Removes a node that is in the same network"""
         expired: InternalNode = self.get_node(node_id)
         # Remove links from internal neighbours
-        for external_neighbour in expired.internal_link_costs:
+        for external_neighbour in expired.linked_nodes:
             external_neighbour.remove_internal_link(expired)
 
         # Remove records of links to external neighbours via the node being deleted
@@ -183,34 +187,56 @@ class ZonedNetworkGraph:
 
     def __remove_border_node(self, border_node: InternalNode):
         """Removes this node as a potential bridge to all its locators,"""
-        for locator in border_node.external_link_costs:
+        for locator in border_node.locator_links:
             self.__remove_node_as_locator_link(locator, border_node)
 
 
-def lsb_message_from_network_graph(network: ZonedNetworkGraph, sequence_number: int) -> LSBMessage[Link]:
+def lsb_message_from_network_graph(network: ZonedNetworkGraph, sequence_number: int) -> LSBMessage:
     """Deconstructs graph into list of weighted links"""
-    internal_links = set()
-    external_links = set()
+    # {(node_a_id, node_b_id):(node_a_lambda, node_b_lambda)}
+    internal_links: Dict[Tuple[int, int], Tuple[int, int]] = {}
+    # {(border_node_id, bridge_node_id):(bridge_node_locator, bridge_node_lambda)}
+    locator_links: Set[Tuple[int, int, int, int]] = set()
 
+    # Produce description of internal links
     for node in network.get_internal_nodes():
         node_id = node.get_id()
 
-        for neighbour, cost in node.internal_link_costs.items():
+        for neighbour in node.get_internal_neighbours():
             # Links are (lowest_id, highest_id) tuple for quick uniqueness check
             neighbour_id = neighbour.get_id()
-            min_id = min(neighbour_id, node_id)
-            max_id = max(neighbour_id, node_id)
-            internal_links.add((min_id, max_id, cost))
 
-    for locator, border_node_ids in network.locator_to_border_node_ids:
-        for border_node_id in border_node_ids:
-            external_links.add((locator, border_node_id))
+            if neighbour_id < node_id:
+                min_id = neighbour_id
+                min_id_lambda = neighbour.node_lambda
+                max_id = node_id
+                max_id_lambda = node.node_lambda
+            else:
+                min_id = node_id
+                min_id_lambda = node.node_lambda
+                max_id = neighbour_id
+                max_id_lambda = neighbour.node_lambda
 
-    internal_link_list = [Link(a, b, cost) for a, b, cost in internal_links]
-    external_link_list = [Link(loc, border, 0) for loc, border in external_links]
-    lsb = LSBMessage(sequence_number, internal_link_list, external_link_list)
+            internal_links[(min_id, max_id)] = (min_id_lambda, max_id_lambda)
 
-    return lsb
+    # Produce description of external links
+    border_node_ids: Set[int] = network.get_border_node_ids()
+    for border_node_id in border_node_ids:
+        border_node = network.get_node(border_node_id)
+        locator_links = border_node.locator_links.values()
+
+        # For each locator this node can reach
+        locator_link: LocatorLink
+        for locator_link in locator_links:
+            # For each node in the other locator that this node can reach
+            for bridge_node_id, bridge_node_lambda in locator_link.bridge_node_costs.items():
+                locator_links.add((border_node_id, bridge_node_id, locator_link.locator, bridge_node_lambda))
+
+    internal_link_list = [InternalLink(a, cost_a, b, cost_b) for (a, b), (cost_a, cost_b) in internal_links.items()]
+    external_link_list = [ExternalLink(border_id, locator, bridge_id, bridge_lambda)
+                          for border_id, locator, bridge_id, bridge_lambda in locator_links]
+
+    return LSBMessage(sequence_number, internal_link_list, external_link_list)
 
 
 class ForwardingTable:

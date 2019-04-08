@@ -1,9 +1,10 @@
 import struct
-
 import logging
-from typing import List, Dict
+from typing import List, Dict, Union
 
 from sensor.network.router.serializable import Serializable
+
+logger = logging.getLogger(__name__)
 
 LOCATOR_SIZE: int = struct.calcsize("!Q")
 
@@ -42,13 +43,13 @@ class RouteList(Serializable):
     def from_bytes(cls, packet_bytes: memoryview) -> 'RouteList':
         n_bytes_in_list = len(packet_bytes)
         if n_bytes_in_list == 0:
-            logging.debug("Empty route list read")
+            logger.debug("Empty route list read")
             return RouteList([])
         else:
             num_locs = n_bytes_in_list // LOCATOR_SIZE
-            logging.debug("Expecting %d locators", num_locs)
+            logger.debug("Expecting %d locators", num_locs)
             list_format = cls.LOCATOR_FORMAT.format(num_locs)
-            logging.debug("Format string: %s", list_format)
+            logger.debug("Format string: %s", list_format)
             locators = list(struct.unpack(list_format, packet_bytes))
             return RouteList(locators)
 
@@ -159,45 +160,71 @@ class RouteError(Serializable):
         return RouteError(lost_link_locator)
 
 
-class Link(Serializable):
-    FORMAT = "!QQI"
+class InternalLink(Serializable):
+    FORMAT = "!QIQI"
     SIZE = struct.calcsize(FORMAT)
 
-    def __init__(self, a, b, cost):
+    def __init__(self, a, a_lambda, b, b_lambda):
         self.a = a
+        self.a_lambda = a_lambda
         self.b = b
-        self.cost = cost
+        self.b_lambda = b_lambda
 
     def __bytes__(self):
-        return struct.pack(self.FORMAT, self.a, self.b, self.cost)
+        return struct.pack(self.FORMAT, self.a, self.a_lambda, self.b, self.b_lambda)
 
     def size_bytes(self):
         return self.SIZE
 
     @classmethod
     def from_bytes(cls, raw_bytes):
-        return Link(*struct.unpack(cls.FORMAT, raw_bytes))
+        return InternalLink(*struct.unpack(cls.FORMAT, raw_bytes))
 
 
-def link_list_to_bytes(link_list: List[Link]) -> bytearray:
-    byte_arr = bytearray(len(link_list) * Link.SIZE)
+class ExternalLink(Serializable):
+    FORMAT = "!QQQI"
+    SIZE = struct.calcsize(FORMAT)
+
+    def __init__(self, border_node_id, locator, bridge_node_id, bridge_lambda):
+        self.border_node_id = border_node_id
+        self.locator = locator
+        self.bridge_node_id = bridge_node_id
+        self.bridge_lambda = bridge_lambda
+
+    def __bytes__(self):
+        return struct.pack(self.FORMAT, self.border_node_id, self.locator, self.bridge_node_id, self.bridge_lambda)
+
+    def size_bytes(self):
+        return self.SIZE
+
+    @classmethod
+    def from_bytes(cls, raw_bytes):
+        return InternalLink(*struct.unpack(cls.FORMAT, raw_bytes))
+
+
+def link_list_to_bytes(link_list: List[Union[InternalLink, ExternalLink]], entry_class) -> bytearray:
+    entry_size = entry_class.SIZE
+
+    byte_arr = bytearray(len(link_list) * entry_size)
     offset = 0
     for link in link_list:
-        byte_arr[offset:offset + Link.SIZE] = bytes(link)
-        offset += Link.SIZE
+        byte_arr[offset:offset + entry_size] = bytes(link)
+        offset += entry_size
 
     return byte_arr
 
 
-def link_list_from_bytes(list_bytes: memoryview, n_links: int) -> List[Link]:
+def link_list_from_bytes(list_bytes: memoryview, n_links: int, entry_class) \
+        -> List[Union[InternalLink, ExternalLink]]:
     offset = 0
+    entry_size = entry_class.SIZE
 
     links = []
     for idx in range(n_links):
-        link_bytes = list_bytes[offset:offset + Link.SIZE]
-        link = Link.from_bytes(link_bytes)
+        link_bytes = list_bytes[offset:offset + entry_size]
+        link = entry_class.from_bytes(link_bytes)
         links.append(link)
-        offset += Link.SIZE
+        offset += entry_size
 
     return links
 
@@ -209,14 +236,14 @@ class LSBMessage(Serializable):
     FORMAT = "!HBB"
     FIXED_PART_SIZE = struct.calcsize(FORMAT)
 
-    def __init__(self, seq_number: int, internal_links: List[Link], external_links: List[Link]):
+    def __init__(self, seq_number: int, internal_links: List[InternalLink], external_links: List[ExternalLink]):
         self.seq_number = seq_number
-        self.internal_links = internal_links
-        self.external_links = external_links
+        self.internal_links: List[InternalLink] = internal_links
+        self.external_links: List[ExternalLink] = external_links
 
     def __bytes__(self) -> bytes:
-        internal_list_bytes = link_list_to_bytes(self.internal_links)
-        external_list_bytes = link_list_to_bytes(self.external_links)
+        internal_list_bytes = link_list_to_bytes(self.internal_links, InternalLink)
+        external_list_bytes = link_list_to_bytes(self.external_links, ExternalLink)
 
         return struct.pack(self.FORMAT, self.seq_number, len(self.internal_links), len(self.external_links)) \
                + internal_list_bytes + external_list_bytes
@@ -233,13 +260,13 @@ class LSBMessage(Serializable):
 
         # Parse internal links list
         offset = cls.FIXED_PART_SIZE
-        end = offset + Link.SIZE * num_internal
-        internal_links = link_list_from_bytes(raw_bytes[offset:end], num_internal)
+        end = offset + InternalLink.SIZE * num_internal
+        internal_links = link_list_from_bytes(raw_bytes[offset:end], num_internal, InternalLink)
 
         # Parse external links list
         offset = end
-        end = offset + Link.SIZE * num_external
-        external_links = link_list_from_bytes(raw_bytes[offset:end], num_external)
+        end = offset + ExternalLink.SIZE * num_external
+        external_links = link_list_from_bytes(raw_bytes[offset:end], num_external, ExternalLink)
 
         return LSBMessage(seq_number, internal_links, external_links)
 
