@@ -56,7 +56,7 @@ class IncomingMessageParserThread(threading.Thread):
             self.net_interface.add_id_ipv6_mapping(packet.src.id, ipv6_addr)
 
     def run(self):
-        while not self.stopped:
+        while not self.stopped and not self.net_interface.is_closed():
             logger.info("Checking for packets from interface")
             received = self.net_interface.receive(SECONDS_BETWEEN_SHUTDOWN_CHECKS)
 

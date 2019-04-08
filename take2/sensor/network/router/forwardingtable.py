@@ -310,7 +310,7 @@ class ZonedNetworkGraph:
 
         internal_link_list = [InternalLink(a, cost_a, b, cost_b) for (a, b), (cost_a, cost_b) in internal_links.items()]
         external_link_list = [ExternalLink(border_id, locator, bridge_id, bridge_lambda)
-                              for border_id, locator, bridge_id, bridge_lambda in locator_links]
+                              for border_id, bridge_id, locator, bridge_lambda in locator_links]
 
         return LSDBMessage(sequence_number, internal_link_list, external_link_list)
 
