@@ -254,7 +254,14 @@ A proactive protocol was chosen for routing within locators as it would provide 
 
 Initially, each node broadcasts its presence to its neighbours in order to learn what links were available to it using a \emph{Hello} message, containing its lambda value. 
 
-Neighbouring nodes reply with their current link state database (LSB) in a \emph{LSBMessage}. This message contains the neighbouring nodes knowledge of the internal (within the locator) topology, as well as the links to external networks (other locators). Whilst still in the intiliziation phases, neighbours will flood their entire LSBs to their neighbours, and once the messages they receive contain match their own LSBs, they can be considered initialized. This ensures that every node in the network has the same database and is aware of all other nodes in the network.
+Neighbouring nodes reply with their current link state database (LSB) in a \emph{LSBMessage}. This message contains the neighbouring nodes knowledge of the internal (within the locator) topology, as well as the links to external networks (other locators). Figure \ref{fig:lsbexchange} gives a simple example of this communication. Whilst still in the intiliziation phases, neighbours will flood their entire LSBs to their neighbours, and once the messages they receive contain match their own LSBs, they can be considered initialized. This ensures that every node in the network has the same database and is aware of all other nodes in the network.
+
+\begin{figure}[!ht]
+	\centering
+	\includegraphics[width=\linewidth]{images/ldb}
+	\caption{Exchange of LSB messages when a new node joins.}
+	\label{fig:lsbexchange}
+\end{figure}
 
 Nodes that exist on the border of locators will discard LSBs they receive from the locators they are not part of. They will however use these messages to learn what other locators can be reached from their neighbours, eventually providing them with next hops for all locators in the WSN.
 
