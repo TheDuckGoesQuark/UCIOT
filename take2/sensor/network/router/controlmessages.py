@@ -229,7 +229,7 @@ def link_list_from_bytes(list_bytes: memoryview, n_links: int, entry_class) \
     return links
 
 
-class LSBMessage(Serializable):
+class LSDBMessage(Serializable):
     """For sharing link state databases"""
 
     TYPE = 5
@@ -255,7 +255,7 @@ class LSBMessage(Serializable):
         return str(vars(self))
 
     @classmethod
-    def from_bytes(cls, raw_bytes: memoryview) -> 'LSBMessage':
+    def from_bytes(cls, raw_bytes: memoryview) -> 'LSDBMessage':
         seq_number, num_internal, num_external = struct.unpack(cls.FORMAT, raw_bytes[:cls.FIXED_PART_SIZE])
 
         # Parse internal links list
@@ -268,7 +268,7 @@ class LSBMessage(Serializable):
         end = offset + ExternalLink.SIZE * num_external
         external_links = link_list_from_bytes(raw_bytes[offset:end], num_external, ExternalLink)
 
-        return LSBMessage(seq_number, internal_links, external_links)
+        return LSDBMessage(seq_number, internal_links, external_links)
 
 
 DATA_TYPE = 0
@@ -279,7 +279,7 @@ TYPE_TO_CLASS: Dict[int, Serializable] = {
     RouteRequest.TYPE: RouteRequest,
     RouteReply.TYPE: RouteReply,
     RouteError.TYPE: RouteError,
-    LSBMessage.TYPE: LSBMessage,
+    LSDBMessage.TYPE: LSDBMessage,
 }
 
 

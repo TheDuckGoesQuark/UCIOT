@@ -6,8 +6,8 @@ from typing import Dict, List
 
 from sensor.battery import Battery
 from sensor.network.router.ilnp import ILNPAddress, ILNPPacket
-from sensor.network.router.forwardingtable import ForwardingTable, ZonedNetworkGraph, lsb_message_from_network_graph
-from sensor.network.router.controlmessages import Hello, ControlMessage, ControlHeader, LSBMessage, InternalLink
+from sensor.network.router.forwardingtable import ForwardingTable, ZonedNetworkGraph, lsdb_message_from_network_graph
+from sensor.network.router.controlmessages import Hello, ControlMessage, ControlHeader, LSDBMessage, InternalLink
 from sensor.network.router.netinterface import NetworkInterface
 from sensor.network.router.util import BoundedSequenceGenerator
 
@@ -135,6 +135,9 @@ class RouterControlPlane(threading.Thread):
         if control_type is Hello.TYPE:
             logger.info("Received hello message!")
             self.__handle_hello(packet)
+        if control_type is LSDBMessage.TYPE:
+            logger.info("Received LSDBMessage!")
+            self.__handle_lsdb_message(packet)
 
     def perform_locator_discovery(self, packet: ILNPPacket):
         pass
@@ -143,8 +146,10 @@ class RouterControlPlane(threading.Thread):
         """Refreshes neighbours link to stop expiry process, or adds neighbour"""
         src_id = packet.src.id
         if src_id in self.neighbours:
+            logger.info("Refreshing neighbour link {}".format(src_id))
             self.neighbours.refresh_neighbour(src_id)
         else:
+            logger.info("New neighbour! {}".format(src_id))
             self.__handle_new_neighbour(packet)
 
     def __handle_new_neighbour(self, packet: ILNPPacket):
@@ -152,27 +157,43 @@ class RouterControlPlane(threading.Thread):
         neighbour_address = packet.src
         hello: Hello = packet.payload.body
 
+        logger.info("Adding neighbour")
         self.neighbours.add_neighbour(neighbour_address.id)
 
         # is local node
         if neighbour_address.loc == self.my_address.loc:
+            logger.info("Adding as internal link")
             self.network_graph.add_internal_link(
                 self.my_address.id, self.__calc_my_lambda(), neighbour_address.id, hello.lambda_val
             )
-            self.__broadcast_lsdb(packet.src)
+            self.__broadcast_lsdb()
         # is remote node
         else:
+            logger.info("Adding as external link")
             self.network_graph.add_external_link(
                 self.my_address.id, neighbour_address.loc, neighbour_address.id, hello.lambda_val
             )
-            self.__broadcast_lsdb(packet.src)
+            self.__broadcast_lsdb()
 
-    def __broadcast_lsdb(self, neighbour_address: ILNPAddress):
+    def __broadcast_lsdb(self):
         """Broadcasts my LSDB to neighbouring nodes"""
-        lsdb = lsb_message_from_network_graph(self.network_graph, next(self.lsb_sequence_generator))
-        header = ControlHeader(LSBMessage.TYPE, lsdb.size_bytes())
+        logger.info("Broadcasting my LSDB")
+        lsdb = lsdb_message_from_network_graph(self.network_graph, next(self.lsb_sequence_generator))
+        header = ControlHeader(LSDBMessage.TYPE, lsdb.size_bytes())
         control_message = ControlMessage(header, lsdb)
-        packet = ILNPPacket(self.my_address, neighbour_address,
+        packet = ILNPPacket(self.my_address, ALL_LINK_LOCAL_NODES_ADDRESS,
                             payload_length=control_message.size_bytes(), payload=control_message)
 
         self.net_interface.broadcast(bytes(packet))
+
+    def __handle_lsdb_message(self, packet):
+        """Handles LSDB messages"""
+        lsdbmessage: LSDBMessage = packet.payload.body
+
+        # From local network and contains new information
+        if packet.src.loc == self.my_address.loc and self.network_graph.add_all(lsdbmessage):
+            logger.info("Change detected from local network LSDB")
+            self.lsb_sequence_generator.set_to_last_seen(lsdbmessage.seq_number)
+            self.__broadcast_lsdb()
+        else:
+            logger.info("No new information. Discarding")

@@ -2,7 +2,7 @@ import logging
 from functools import reduce
 from typing import Dict, Optional, Tuple, List, Set
 
-from sensor.network.router.controlmessages import InternalLink, LSBMessage, ExternalLink
+from sensor.network.router.controlmessages import InternalLink, LSDBMessage, ExternalLink
 from sensor.network.router.ilnp import ILNPAddress
 
 logger = logging.getLogger(__name__)
@@ -190,8 +190,65 @@ class ZonedNetworkGraph:
         for locator in border_node.locator_links:
             self.__remove_node_as_locator_link(locator, border_node)
 
+    def add_all(self, lsdbmessage: LSDBMessage) -> bool:
+        """
+        Adds all links in the lsdb message to this network graph
+        :param lsdbmessage: message containing an lsdb
+        :return: true if this message contained a link that wasn't already recorded
+        """
+        internal_links = lsdbmessage.internal_links
+        external_links = lsdbmessage.external_links
 
-def lsb_message_from_network_graph(network: ZonedNetworkGraph, sequence_number: int) -> LSBMessage:
+        difference_found = False
+        for link in internal_links:
+            if self.contains_internal_link(link):
+                self.add_internal_link(link.a, link.a_lambda, link.b, link.b_lambda)
+                difference_found = True
+
+        for link in external_links:
+            if self.contains_external_link(link):
+                self.add_external_link(
+                    link.border_node_id, link.locator, link.bridge_node_id, link.bridge_lambda
+                )
+                difference_found = True
+
+        return difference_found
+
+    def contains_internal_link(self, link: InternalLink) -> bool:
+        """
+        Checks for the existence of the nodes described in the link, and for a link between them
+        :param link:
+        :return: True if link exists
+        """
+        node_a = self.get_node(link.a)
+        if node_a is None:
+            return False
+
+        node_b = self.get_node(link.b)
+        if node_b is None:
+            return False
+
+        return node_b in node_a.get_internal_neighbours()
+
+    def contains_external_link(self, link: ExternalLink) -> bool:
+        """
+        Checks for the existence of external link
+        :param link:
+        :return: True if link exists
+        """
+        border_node = self.get_node(link.border_node_id)
+        if border_node is None:
+            return False
+
+        linked_locators = border_node.get_linked_locators()
+        if link.locator not in linked_locators:
+            return False
+
+        external_link = border_node.locator_links[link.locator]
+        return link.bridge_node_id in external_link.bridge_node_costs.keys()
+
+
+def lsdb_message_from_network_graph(network: ZonedNetworkGraph, sequence_number: int) -> LSDBMessage:
     """Deconstructs graph into list of weighted links"""
     # {(node_a_id, node_b_id):(node_a_lambda, node_b_lambda)}
     internal_links: Dict[Tuple[int, int], Tuple[int, int]] = {}
@@ -236,7 +293,7 @@ def lsb_message_from_network_graph(network: ZonedNetworkGraph, sequence_number: 
     external_link_list = [ExternalLink(border_id, locator, bridge_id, bridge_lambda)
                           for border_id, locator, bridge_id, bridge_lambda in locator_links]
 
-    return LSBMessage(sequence_number, internal_link_list, external_link_list)
+    return LSDBMessage(sequence_number, internal_link_list, external_link_list)
 
 
 class ForwardingTable:

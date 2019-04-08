@@ -4,10 +4,13 @@ class BoundedSequenceGenerator:
         self.max_value = max_value
 
     def __next__(self):
-        val = self.current
         self.current = (self.current + 1) % self.max_value
+        val = self.current
         return val
 
     def __iter__(self):
         self.current = 0
         return self
+
+    def set_to_last_seen(self, seq_number: int):
+        self.current = seq_number
