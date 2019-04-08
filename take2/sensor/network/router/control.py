@@ -6,7 +6,7 @@ from typing import Dict, List
 
 from sensor.battery import Battery
 from sensor.network.router.ilnp import ILNPAddress, ILNPPacket
-from sensor.network.router.forwardingtable import ForwardingTable, ZonedNetworkGraph
+from sensor.network.router.forwardingtable import ForwardingTable, ZonedNetworkGraph, lsb_message_from_network_graph
 from sensor.network.router.controlmessages import Hello, ControlMessage, ControlHeader, LSBMessage, InternalLink
 from sensor.network.router.netinterface import NetworkInterface
 from sensor.network.router.util import BoundedSequenceGenerator
@@ -145,21 +145,34 @@ class RouterControlPlane(threading.Thread):
         if src_id in self.neighbours:
             self.neighbours.refresh_neighbour(src_id)
         else:
-            self.handle_new_neighbour(packet)
+            self.__handle_new_neighbour(packet)
 
-    def handle_new_neighbour(self, packet: ILNPPacket):
+    def __handle_new_neighbour(self, packet: ILNPPacket):
+        """Adds neighbour as either external or internal link depending on locator, and broadcasts updated LSDB"""
         neighbour_address = packet.src
         hello: Hello = packet.payload.body
 
         self.neighbours.add_neighbour(neighbour_address.id)
 
+        # is local node
         if neighbour_address.loc == self.my_address.loc:
+            self.network_graph.add_internal_link(
+                self.my_address.id, self.__calc_my_lambda(), neighbour_address.id, hello.lambda_val
+            )
+            self.__broadcast_lsdb(packet.src)
+        # is remote node
+        else:
             self.network_graph.add_external_link(
-                self.my_address.id, neighbour_address.loc, neighbour_address.id, hello.lambda_val)
+                self.my_address.id, neighbour_address.loc, neighbour_address.id, hello.lambda_val
+            )
+            self.__broadcast_lsdb(packet.src)
 
-        lsbmsg = LSBMessage(next(self.lsb_sequence_generator), [], [])
-        header = ControlHeader(LSBMessage.TYPE, lsbmsg.size_bytes())
-        control_message = ControlMessage(header, lsbmsg)
-
+    def __broadcast_lsdb(self, neighbour_address: ILNPAddress):
+        """Broadcasts my LSDB to neighbouring nodes"""
+        lsdb = lsb_message_from_network_graph(self.network_graph, next(self.lsb_sequence_generator))
+        header = ControlHeader(LSBMessage.TYPE, lsdb.size_bytes())
+        control_message = ControlMessage(header, lsdb)
         packet = ILNPPacket(self.my_address, neighbour_address,
-                            payload_length=control_message.size_bytes(), payload=bytes(control_message))
+                            payload_length=control_message.size_bytes(), payload=control_message)
+
+        self.net_interface.broadcast(bytes(packet))
