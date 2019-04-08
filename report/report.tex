@@ -286,6 +286,10 @@ This method ensures that packets arriving from external locators will receive be
 	\item Data packets are only sent to other locators once a route has been established.
 \end{enumerate}
 
+\subsection{Handling Failure}
+
+Whenever a link is detected as being lost due to the lack of keepalive messages after a period of time, then this information will be shared within the network. A \emph{ExpiredLink} message will be broadcast, and flooded by nodes within the same locator in order to remove the link from their network, or to inform the other nodes that a neighbouring locator is no longer accessible via a given link.
+
 \section{Inter-Zone Routing Protocl}
 
 AODV is a reactive protocol that is used differently for inter-zone and inter-zone routing. Inside locators, the hop list will consist of node IDs, providing exact routes between the source and destination. Between locators, the hop list will consist of locators, and the exact hop-by-hop routing will be provided by each zone internally.
