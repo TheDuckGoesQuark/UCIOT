@@ -314,17 +314,28 @@ class ZonedNetworkGraph:
 
         return LSDBMessage(sequence_number, internal_link_list, external_link_list)
 
-    def remove_link(self, node_a_id: int, node_b_id: int):
-        """Removes the link between node a and node b. Node a is assumed to be an internal node in all cases"""
+    def remove_link(self, node_a_id: int, node_b_id: int) -> bool:
+        """
+        Removes the link between node a and node b.
+        Node a is assumed to be an internal node in all cases
+        :returns true if a change was made i.e. this link existed and was removed
+        """
         node_a: InternalNode = self.get_node(node_a_id)
         node_b: InternalNode = self.get_node(node_b_id)
 
         node_b_is_in_a_different_locator = node_b is None
         if node_b_is_in_a_different_locator:
+            # Find what locator this node is in
             locator = node_a.get_locator_of_bridge_node(node_b_id)
-            self.remove_external_link(node_a_id, locator, node_b_id)
-        else:
+            if locator is not None:
+                self.remove_external_link(node_a_id, locator, node_b_id)
+                return True
+        elif node_b in node_a.get_internal_neighbours():
             self.remove_internal_link(node_a, node_b)
+            return True
+
+        # Link must have already been removed woah
+        return False
 
 
 class ForwardingTable:

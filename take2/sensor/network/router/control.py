@@ -101,7 +101,8 @@ class RouterControlPlane(threading.Thread):
             logger.info("Removing expired links")
             expired = self.neighbours.pop_expired_neighbours()
             logger.info("links expired: {}".format(expired))
-            self.__handle_expired_links(expired)
+            if len(expired) > 0:
+                self.__handle_expired_links(expired)
 
     def initialize(self):
         """Broadcast hello messages with my lambda to inform neighbours of presence"""
@@ -122,10 +123,6 @@ class RouterControlPlane(threading.Thread):
 
         self.net_interface.broadcast(bytes(packet))
 
-    def __remove_expired_links(self, expired):
-        # TODO
-        pass
-
     def find_route(self, packet: ILNPPacket):
         """Uses AODV to find a route to the packets destination"""
         # TODO
@@ -137,9 +134,12 @@ class RouterControlPlane(threading.Thread):
         if control_type is Hello.TYPE:
             logger.info("Received hello message!")
             self.__handle_hello(packet)
-        if control_type is LSDBMessage.TYPE:
+        elif control_type is LSDBMessage.TYPE:
             logger.info("Received LSDBMessage!")
             self.__handle_lsdb_message(packet)
+        elif control_type is ExpiredLinkList.TYPE:
+            logger.info("Received ExpiredLinkList!")
+            self.__handle_expired_link_list_message(packet)
 
     def perform_locator_discovery(self, packet: ILNPPacket):
         pass
@@ -200,6 +200,21 @@ class RouterControlPlane(threading.Thread):
         else:
             logger.info("No new information. Discarding")
 
+    def __handle_expired_link_list_message(self, packet: ILNPPacket):
+        if packet.src.loc != self.my_address.loc:
+            logger.info("Link failure in other network. None of my concern")
+            return
+
+        central_node_id: int = packet.src.id
+        expired_message: ExpiredLinkList = packet.payload.body
+        learned_something = False
+        for expired_node_id in expired_message.lost_link_ids:
+            learned_something |= self.network_graph.remove_link(central_node_id, expired_node_id)
+
+        if learned_something:
+            packet.decrement_hop_limit()
+            self.net_interface.broadcast(bytes(packet))
+
     def __handle_expired_links(self, expired):
         """Broadcasts information about lost links and removes them from our network graph"""
         for expired_node_id in expired:
@@ -212,4 +227,3 @@ class RouterControlPlane(threading.Thread):
                             payload_length=control_message.size_bytes(), payload=control_message)
 
         self.net_interface.broadcast(bytes(packet))
-
