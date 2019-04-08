@@ -6,7 +6,7 @@ from typing import Dict, List
 
 from sensor.battery import Battery
 from sensor.network.router.ilnp import ILNPAddress, ILNPPacket
-from sensor.network.router.forwardingtable import ForwardingTable
+from sensor.network.router.forwardingtable import ForwardingTable, ZonedNetworkGraph
 from sensor.network.router.controlmessages import Hello, ControlMessage, ControlHeader, LSBMessage, Link
 from sensor.network.router.netinterface import NetworkInterface
 from sensor.network.router.util import BoundedSequenceGenerator
@@ -64,6 +64,7 @@ class RouterControlPlane(threading.Thread):
 
         # Forwarding table provides quick look-up for forwarding packets to internal and external nodes
         self.forwarding_table = forwarding_table
+        self.network_graph = ZonedNetworkGraph()
 
         # Tracks neighbours and time since last keepalive
         self.neighbours: NeighbourLinks = NeighbourLinks()
@@ -144,15 +145,21 @@ class RouterControlPlane(threading.Thread):
         if src_id in self.neighbours:
             self.neighbours.refresh_neighbour(src_id)
         else:
-            self.handle_new_neighbour(packet.src)
+            self.handle_new_neighbour(packet)
 
-    def handle_new_neighbour(self, src_address:ILNPAddress):
-        self.neighbours.add_neighbour(src_address.id)
+    def handle_new_neighbour(self, packet: ILNPPacket):
+        neighbour_address = packet.src
+        hello :Hello = packet.payload.body
 
-        link = Link()
+        self.neighbours.add_neighbour(neighbour_address.id)
+
+        if neighbour_address.loc == self.my_address.loc:
+            self.network_graph.add_external_link(
+                self.my_address.id, neighbour_address.loc, neighbour_address.id, hello.lambda_val)
+
         lsbmsg = LSBMessage(next(self.lsb_sequence_generator), [], [])
         header = ControlHeader(LSBMessage.TYPE, lsbmsg.size_bytes())
         control_message = ControlMessage(header, lsbmsg)
-        packet = ILNPPacket(self.my_address, src_address,
+        packet = ILNPPacket(self.my_address, neighbour_address,
                             payload_length=control_message.size_bytes(), payload=bytes(control_message))
 
