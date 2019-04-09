@@ -63,7 +63,7 @@ class NeighbourLinks:
 class RouterControlPlane(threading.Thread):
     def __init__(self, net_interface: NetworkInterface, my_address: ILNPAddress,
                  battery: Battery, forwarding_table: ForwardingTable):
-        super().__init__()
+        super().__init__(name="Control")
         self.battery = battery
         self.my_address = my_address
 
@@ -107,6 +107,8 @@ class RouterControlPlane(threading.Thread):
             logger.info("links expired: {}".format(expired))
             if len(expired) > 0:
                 self.__handle_expired_links(expired)
+
+        logger.info("Control thread finished executing")
 
     def initialize(self):
         """Broadcast hello messages with my lambda to inform neighbours of presence"""

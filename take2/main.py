@@ -8,7 +8,7 @@ from sensor.sensor import Sensor
 CONFIG_FILE_PATH_OPT = "config_file_path"
 CONFIG_HEADER_OPT = "configuration_header"
 
-logging.basicConfig(level=logging.DEBUG, format='%(process)d - %(name)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.DEBUG, format='%(process)d - %(threadName)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 

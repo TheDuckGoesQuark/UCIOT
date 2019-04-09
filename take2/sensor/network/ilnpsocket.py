@@ -30,10 +30,7 @@ class ILNPSocket:
         :param data: data to send
         :param dest_id: identifier of node to send to
         """
-        if self.battery.remaining() <= 0:
-            self.close()
-            raise IOError("Battery low: socket closing")
-        elif self.is_closed():
+        if self.is_closed():
             raise IOError("Socket is closed.")
         else:
             self.router_thread.send(data, dest_id)
@@ -44,7 +41,10 @@ class ILNPSocket:
         :param timeout: if not None, socket will block until the given value in seconds before returning.
         :return: bytes received and source identifier of data
         """
-        return self.router_thread.receive_from(timeout)
+        if self.is_closed():
+            raise IOError("Socket is closed.")
+        else:
+            return self.router_thread.receive_from(blocking=True, timeout=timeout)
 
     def is_closed(self) -> bool:
         return not self.router_thread.running

@@ -47,10 +47,14 @@ class Sensor:
             sleep(self.interval)
             try:
                 data_bytes, source_id = self.socket.receive_from(self.interval)
-                sensor_reading = SensorReading.from_bytes(data_bytes)
-                print("Received reading {} from {}".format(sensor_reading, source_id))
+                if data_bytes is not None:
+                    sensor_reading = SensorReading.from_bytes(data_bytes)
+                    logger.info("Received reading {} from {}".format(sensor_reading, source_id))
+                else:
+                    logger.info("No readings in the past {} seconds".format(self.interval))
+
             except IOError as e:
-                logger.warning("Terminating: " + e)
+                logger.warning("Terminating: " + str(e))
                 self.running = False
 
     def stop(self):

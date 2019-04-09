@@ -61,6 +61,10 @@ class NetworkInterface:
         self.buffer_size: int = config.packet_buffer_size_bytes
         self.closed = False
 
+    def handle_battery_failure(self):
+        self.close()
+        raise IOError("Not enough battery to send or receive packets")
+
     def send(self, bytes_to_send: bytes, next_hop_id: int):
         """
         Sends the supplied bytes to only the specified node id
@@ -69,8 +73,7 @@ class NetworkInterface:
         :raises KeyError if next hop id is not known on this link
         """
         if self.battery.remaining() <= 0:
-            self.close()
-            raise IOError("Not enough battery to send packets")
+            self.handle_battery_failure()
 
         ip_next_hop = self.id_to_ipv6[next_hop_id]
 
@@ -85,8 +88,7 @@ class NetworkInterface:
         :param bytes_to_send: bytes to be sent
         """
         if self.battery.remaining() <= 0:
-            self.close()
-            raise IOError("Not enough battery to send packets")
+            self.handle_battery_failure()
 
         logger.info("Broadcasting message")
         logger.info("Sending to {}".format(self.my_ipv6_group))
@@ -112,6 +114,9 @@ class NetworkInterface:
         :return: received bytes and origin ipv6 address as two element tuple
         :raises TimeoutError
         """
+        if self.battery.remaining() <= 0:
+            self.handle_battery_failure()
+
         # Select provides timeout to socket polling
         try:
             ready, _, _ = select.select([self.sock], [], [], timeout)
@@ -136,5 +141,5 @@ class NetworkInterface:
         self.closed = True
 
     def is_closed(self) -> bool:
-        """Checks if the underlyin sockets are closed"""
+        """Checks if the underlying sockets are closed"""
         return self.closed

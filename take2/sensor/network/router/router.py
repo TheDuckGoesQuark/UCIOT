@@ -2,7 +2,7 @@ import logging
 import threading
 from multiprocessing import Queue
 from queue import Empty
-from typing import Tuple
+from typing import Tuple, Optional
 
 from sensor.battery import Battery
 from sensor.config import Configuration
@@ -36,7 +36,7 @@ class IncomingMessageParserThread(threading.Thread):
     """
 
     def __init__(self, net_interface: NetworkInterface, packet_queue: Queue):
-        super().__init__()
+        super().__init__(name="IncomingMessageParserThread")
         self.net_interface: NetworkInterface = net_interface
         self.packet_queue: Queue = packet_queue
         self.stopped: bool = False
@@ -63,7 +63,11 @@ class IncomingMessageParserThread(threading.Thread):
                 continue
 
             logger.info("Checking for packets from interface")
-            received = self.net_interface.receive(SECONDS_BETWEEN_SHUTDOWN_CHECKS)
+            try:
+                received = self.net_interface.receive(SECONDS_BETWEEN_SHUTDOWN_CHECKS)
+            except Exception:
+                self.stopped = True
+                received = None
 
             if received is None:
                 continue
@@ -78,6 +82,8 @@ class IncomingMessageParserThread(threading.Thread):
 
             self.packet_queue.put(packet)
 
+        logger.info("Packet parser thread finished executing")
+
 
 class Router(threading.Thread):
     """
@@ -85,7 +91,7 @@ class Router(threading.Thread):
     """
 
     def __init__(self, config: Configuration, battery: Battery):
-        super().__init__()
+        super().__init__(name="Router")
         # Myself
         self.my_address = ILNPAddress(config.my_locator, config.my_id)
 
@@ -133,6 +139,9 @@ class Router(threading.Thread):
         :param data: data to be sent
         :param dest_id: id of node to be sent to
         """
+        if not self.running:
+            raise IOError("Router is not running.")
+
         logger.info("Wrapping data to be sent")
         message = build_data_message(data)
 
@@ -143,8 +152,11 @@ class Router(threading.Thread):
 
         self.packet_queue.put(packet)
 
-    def receive_from(self, blocking=True, timeout=None) -> Tuple[bytes, int]:
-        return self.arrived_data_queue.get(blocking, timeout)
+    def receive_from(self, blocking=True, timeout=None) -> Tuple[Optional[bytes], Optional[int]]:
+        try:
+            return self.arrived_data_queue.get(blocking, timeout)
+        except Empty as e:
+            return None, None
 
     def run(self) -> None:
         """Initializes locator then begins regular processing"""
@@ -152,7 +164,11 @@ class Router(threading.Thread):
 
         # Begin processing
         logger.info("Beginning regular processing")
-        while self.running and not self.net_interface.is_closed():
+        while self.running:
+            if self.net_interface.is_closed():
+                self.running = False
+                continue
+
             try:
                 packet = self.packet_queue.get(timeout=SECONDS_BETWEEN_SHUTDOWN_CHECKS)
 
@@ -162,7 +178,7 @@ class Router(threading.Thread):
                 logger.info("No packets have arrived in the past {} seconds".format(SECONDS_BETWEEN_SHUTDOWN_CHECKS))
 
         self.running = False
-        self.join()
+        logger.info("Router thread finished executing.")
 
     def handle_data_packet(self, packet: ILNPPacket):
         """Attempt basic routing of packet using available resources"""
