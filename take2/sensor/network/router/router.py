@@ -148,6 +148,7 @@ class Router(threading.Thread):
         src_addr = self.my_address
         dest_loc = self.forwarding_table.get_locator_for_id(dest_id)
         dest_addr = ILNPAddress(dest_loc, dest_id)
+        logger.info("Sending data from {} to {}".format(str(src_addr), str(dest_addr)))
         packet = ILNPPacket(src_addr, dest_addr, payload=message, payload_length=message.size_bytes())
 
         self.packet_queue.put(packet)
@@ -171,6 +172,7 @@ class Router(threading.Thread):
 
             try:
                 packet = self.packet_queue.get(timeout=SECONDS_BETWEEN_SHUTDOWN_CHECKS)
+                self.forwarding_table.record_locator_for_id(packet.src.id, packet.src.loc)
 
                 logger.info("Data has arrived on one of the queues")
                 self.handle_packet(packet)
@@ -189,10 +191,9 @@ class Router(threading.Thread):
             return
 
         # Locator discovery might be necessary for packets coming from me
-        is_from_me = packet.src.id = self.my_address.id
-
+        is_from_me = packet.src.id == self.my_address.id
         if packet.dest.loc is None and is_from_me:
-            logger.info("No destination locator set.")
+            logger.info("Don't know locator, need to find.")
             self.control_plane.perform_locator_discovery(packet)
             return
 
@@ -201,6 +202,7 @@ class Router(threading.Thread):
 
         if next_hop is not None:
             logger.info("Found next hop, forwarding to {}".format(next_hop))
+            packet.decrement_hop_limit()
             self.net_interface.send(bytes(packet), next_hop)
         elif destination_is_local:
             logger.info("No node exists with that ID in this locator.")

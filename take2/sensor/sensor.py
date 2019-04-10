@@ -56,6 +56,9 @@ class Sensor:
             except IOError as e:
                 logger.warning("Terminating: " + str(e))
                 self.running = False
+            except TypeError as e:
+                logger.warning("ERROR ON GET: " + str(e))
+
 
     def stop(self):
         logger.info("Stopping underlying services.")

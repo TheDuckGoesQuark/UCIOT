@@ -204,7 +204,7 @@ class ExternalLink(Serializable):
         return self.SIZE
 
     @classmethod
-    def from_bytes(cls, raw_bytes)->'ExternalLink':
+    def from_bytes(cls, raw_bytes) -> 'ExternalLink':
         return ExternalLink(*struct.unpack(cls.FORMAT, raw_bytes))
 
 
@@ -374,7 +374,7 @@ class ControlMessage(Serializable):
         message_class = TYPE_TO_CLASS[header.payload_type]
 
         if message_class is None:
-            body = body_bytes
+            body = raw_bytes[header.SIZE:]
         else:
             body = message_class.from_bytes(body_bytes)
 

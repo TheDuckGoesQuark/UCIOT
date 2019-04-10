@@ -6,7 +6,7 @@ from typing import Dict, List
 
 from sensor.battery import Battery
 from sensor.network.router.ilnp import ILNPAddress, ILNPPacket
-from sensor.network.router.forwardingtable import ForwardingTable, ZonedNetworkGraph
+from sensor.network.router.forwardingtable import ForwardingTable, ZonedNetworkGraph, update_forwarding_table
 from sensor.network.router.controlmessages import Hello, ControlMessage, ControlHeader, LSDBMessage, InternalLink, \
     ExpiredLinkList
 from sensor.network.router.netinterface import NetworkInterface
@@ -77,7 +77,7 @@ class RouterControlPlane(threading.Thread):
 
         # Status flags
         self.running = False
-        self.initialized = False
+        self.update_available = False
 
         # Tracks last LSB sequence value
         self.lsb_sequence_generator = BoundedSequenceGenerator(511)
@@ -107,6 +107,10 @@ class RouterControlPlane(threading.Thread):
             logger.info("links expired: {}".format(expired))
             if len(expired) > 0:
                 self.__handle_expired_links(expired)
+                self.update_available = True
+
+            if self.update_available:
+                self.__recalculate_forwarding_table()
 
         logger.info("Control thread finished executing")
 
@@ -183,6 +187,8 @@ class RouterControlPlane(threading.Thread):
             )
             self.__broadcast_lsdb()
 
+        self.update_available = True
+
     def __broadcast_lsdb(self):
         """Broadcasts my LSDB to neighbouring nodes"""
         logger.info("Broadcasting my LSDB")
@@ -203,6 +209,7 @@ class RouterControlPlane(threading.Thread):
             logger.info("Change detected from local network LSDB")
             self.lsb_sequence_generator.set_to_last_seen(lsdbmessage.seq_number)
             self.__broadcast_lsdb()
+            self.update_available = True
         else:
             logger.info("No new information. Discarding")
 
@@ -220,6 +227,7 @@ class RouterControlPlane(threading.Thread):
         if learned_something:
             packet.decrement_hop_limit()
             self.net_interface.broadcast(bytes(packet))
+            self.update_available = True
 
     def __handle_expired_links(self, expired):
         """Broadcasts information about lost links and removes them from our network graph"""
@@ -233,3 +241,8 @@ class RouterControlPlane(threading.Thread):
                             payload_length=control_message.size_bytes(), payload=control_message)
 
         self.net_interface.broadcast(bytes(packet))
+
+    def __recalculate_forwarding_table(self):
+        """Recalculates next hops for the forwarding table based on the internal network graph"""
+        logger.info("Recalculating forwarding table")
+        update_forwarding_table(self.network_graph, self.my_address.id, self.forwarding_table)

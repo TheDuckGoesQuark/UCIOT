@@ -13,14 +13,17 @@ class LocatorLink:
 
     def __init__(self, locator: int):
         self.locator = locator
-        # Next hop ids and their cost
-        self.bridge_node_costs: Dict[int, int] = {}
+        # Next hop ids and their lambda
+        self.bridge_node_lambdas: Dict[int, int] = {}
+
+    def get_bridge_node_lambdas(self) -> Dict[int, int]:
+        return self.bridge_node_lambdas
 
     def add_bridge_node(self, node_id, cost):
-        self.bridge_node_costs[node_id] = cost
+        self.bridge_node_lambdas[node_id] = cost
 
     def remove_bridge_node(self, node_id):
-        del self.bridge_node_costs[node_id]
+        del self.bridge_node_lambdas[node_id]
 
 
 class InternalNode:
@@ -60,52 +63,21 @@ class InternalNode:
 
     def remove_link_to_locator(self, linked_locator: int, linking_node_id: int):
         # Remove the linking node as a bridge to that locator
-        del self.locator_links[linked_locator].bridge_node_costs[linking_node_id]
+        del self.locator_links[linked_locator].bridge_node_lambdas[linking_node_id]
 
         # Remove the external link if no more bridging nodes exist
-        if len(self.locator_links[linked_locator].bridge_node_costs) == 0:
+        if len(self.locator_links[linked_locator].bridge_node_lambdas) == 0:
             del self.locator_links[linked_locator]
 
     def get_locator_of_bridge_node(self, bridge_node_id: int) -> Optional[int]:
         for locator_link in self.locator_links.values():
-            if bridge_node_id in locator_link.bridge_node_costs:
+            if bridge_node_id in locator_link.bridge_node_lambdas:
                 return locator_link.locator
 
         return None
 
     def is_border_node(self) -> bool:
         return len(self.locator_links) > 0
-
-
-def floyd_warshall(g) \
-        -> Tuple[Dict[InternalNode, Dict[InternalNode, float]], Dict[InternalNode, Dict[InternalNode, int]]]:
-    """Return dictionaries distance and next_v.
-    distance[u][v] is the shortest distance from vertex u to v.
-    next_v[u][v] is the next vertex after vertex v in the shortest path from u
-    to v. It is None if there is no path between them. next_v[u][u] should be
-    None for all u.
-    g is a Graph object which can have negative edge weights.
-    """
-    distance: Dict[InternalNode, Dict[InternalNode, float]] = {v: dict.fromkeys(g, float('inf')) for v in g}
-    next_v: Dict[InternalNode, Dict[InternalNode, int]] = {v: dict.fromkeys(g, None) for v in g}
-
-    for v in g:
-        for n in v.get_internal_neighbours():
-            distance[v][n] = v.get_internal_link_weight(n)
-            next_v[v][n] = n
-
-    for v in g:
-        distance[v][v] = 0
-        next_v[v][v] = None
-
-    for p in g:
-        for v in g:
-            for w in g:
-                if distance[v][w] > distance[v][p] + distance[p][w]:
-                    distance[v][w] = distance[v][p] + distance[p][w]
-                    next_v[v][w] = next_v[v][p]
-
-    return distance, next_v
 
 
 class ZonedNetworkGraph:
@@ -118,11 +90,14 @@ class ZonedNetworkGraph:
         self.add_node(my_id, my_lambda)
 
     def __iter__(self):
-        return iter(self.id_to_node.values())
+        return iter(self.get_all_nodes())
 
     def __str__(self):
         lsdb = self.to_lsdb_message(0)
         return str(lsdb)
+
+    def get_all_nodes(self):
+        return self.id_to_node.values()
 
     def get_border_node_ids(self) -> Set[int]:
         """Flattens locator to border node ids to provide the set of all border nodes"""
@@ -266,7 +241,7 @@ class ZonedNetworkGraph:
             return False
 
         external_link = border_node.locator_links[link.locator]
-        return link.bridge_node_id in external_link.bridge_node_costs.keys()
+        return link.bridge_node_id in external_link.bridge_node_lambdas.keys()
 
     def to_lsdb_message(self, sequence_number: int) -> LSDBMessage:
         """Deconstructs graph into list of weighted links"""
@@ -305,7 +280,7 @@ class ZonedNetworkGraph:
             locator_link: LocatorLink
             for locator_link in locator_links_for_this_node:
                 # For each node in the other locator that this node can reach
-                for bridge_node_id, bridge_node_lambda in locator_link.bridge_node_costs.items():
+                for bridge_node_id, bridge_node_lambda in locator_link.bridge_node_lambdas.items():
                     locator_links.add((border_node_id, bridge_node_id, locator_link.locator, bridge_node_lambda))
 
         internal_link_list = [InternalLink(a, cost_a, b, cost_b) for (a, b), (cost_a, cost_b) in internal_links.items()]
@@ -363,24 +338,24 @@ class ForwardingTable:
         else:
             return None
 
-    def find_next_hop_for_locator(self, dest_loc) -> Optional[int]:
+    def find_next_hop_for_locator(self, dest_loc: int) -> Optional[int]:
         """Finds the next hop to reach the given locator"""
         if dest_loc in self.next_hop_to_locator:
             return self.next_hop_to_locator[dest_loc]
         else:
             return None
 
-    def add_internal_entry(self, dest_id, next_hop):
+    def add_internal_entry(self, dest_id: int, next_hop: int):
         """Adds or replaces the next hop to reach the given id"""
         logger.info("Adding ID:{}, NH:{} to table".format(dest_id, next_hop))
         self.next_hop_internal[dest_id] = next_hop
 
-    def add_external_entry(self, dest_loc, next_hop):
+    def add_external_entry(self, dest_loc: int, next_hop: int):
         """Adds or replaces the next hop to reach the given locator"""
         logger.info("Adding LOC:{}, NH:{} to table".format(dest_loc, next_hop))
         self.next_hop_to_locator[dest_loc] = next_hop
 
-    def record_locator_for_id(self, node_id, node_locator):
+    def record_locator_for_id(self, node_id: int, node_locator: int):
         self.locator_cache[node_id] = node_locator
 
     def get_locator_for_id(self, node_id) -> Optional[int]:
@@ -388,3 +363,89 @@ class ForwardingTable:
             return self.locator_cache[node_id]
         else:
             return None
+
+    def clear(self):
+        self.next_hop_internal.clear()
+        self.next_hop_to_locator.clear()
+
+
+def get_distance_and_next_hops(network_graph: ZonedNetworkGraph, root_node_id: int):
+    """Get possible next hops that provide same distance to destination for all destinations"""
+    # { end node: cost}
+    distance_from_root: Dict[InternalNode, float] = {v: float('inf') for v in network_graph}
+    # { end node: [next hops that are the same distance] }
+    next_hops_for_destination: Dict[InternalNode, List[InternalNode]] = {}
+
+    root = network_graph.get_node(root_node_id)
+    # Nodes to be visited
+    queue = []
+
+    # Initialise next hop with one hop neighbours
+    depth = 1
+    for neighbour in root.get_internal_neighbours():
+        distance_from_root[neighbour] = depth
+        next_hops_for_destination[neighbour] = [neighbour]
+        queue.append(neighbour)
+
+    while queue:
+        depth += 1
+        current = queue.pop()
+        for neighbour in current.get_internal_neighbours():
+            # If not already seen
+            if neighbour not in distance_from_root:
+                distance_from_root[neighbour] = depth
+                next_hops_for_destination[neighbour] = next_hops_for_destination[current]
+                queue.append(neighbour)
+            # If seen, but an alternative path is found at the same distance, record other next hop
+            elif distance_from_root[neighbour] == depth \
+                    and next_hops_for_destination[current] not in next_hops_for_destination[neighbour]:
+                next_hops_for_destination[neighbour].extend(next_hops_for_destination[current])
+
+    return distance_from_root, next_hops_for_destination
+
+
+def update_forwarding_table(network_graph: ZonedNetworkGraph, root_node_id: int, forwarding_table: ForwardingTable):
+    forwarding_table.clear()
+
+    distance_from_root: Dict[InternalNode, float]
+    next_hops_for_destination: Dict[InternalNode, List[InternalNode]]
+    distance_from_root, next_hops_for_destination = get_distance_and_next_hops(network_graph, root_node_id)
+
+    destination: InternalNode
+    next_hops: List[InternalNode]
+    current_distance_to_locator: Dict[int, float] = {}
+    for destination, next_hops in next_hops_for_destination.items():
+        # If more options, choose the one with the best lambda
+        if len(next_hops) > 0:
+            next_hop = reduce(lambda best, nxt: nxt if best is None or nxt.node_lambda > best.node_lambda else best,
+                              next_hops, None)
+        else:
+            next_hop = next_hops.pop()
+
+        # Add entry to internal forwarding table
+        forwarding_table.add_internal_entry(destination.node_id, next_hop.node_id)
+
+        # If this is a border node that can get us to a locator
+        if destination.is_border_node():
+            linked_locators = destination.get_linked_locators()
+            for locator in linked_locators:
+                # Replace if better connection to that locator exists
+                if locator not in current_distance_to_locator \
+                        or current_distance_to_locator[locator] > distance_from_root[destination]:
+                    current_distance_to_locator[locator] = distance_from_root[destination]
+                    forwarding_table.add_external_entry(locator, next_hop.node_id)
+
+    # Finally, add next hop for other locators if I am the border node.
+    root = network_graph.get_node(root_node_id)
+    if root.is_border_node():
+        logger.info("Adding my external links")
+        for locator in root.get_linked_locators():
+            logger.info("Choosing best next hop for loc {}".format(locator))
+            # Gets best next hop from available links to that locator
+            best = None
+            for node_id, node_lambda in root.get_links_to_locator(locator).get_bridge_node_lambdas().items():
+                if best is None or node_lambda > best[1]:
+                    best = (node_id, node_lambda)
+
+            logger.info("Chose {}".format(best[0]))
+            forwarding_table.add_external_entry(locator, best[0])
