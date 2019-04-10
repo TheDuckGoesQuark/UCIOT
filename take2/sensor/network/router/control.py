@@ -7,7 +7,8 @@ from sensor.battery import Battery
 from sensor.network.router.interzone import ExternalRequestHandler
 from sensor.network.router.ilnp import ILNPAddress, ILNPPacket, ALL_LINK_LOCAL_NODES_ADDRESS
 from sensor.network.router.forwardingtable import ForwardingTable, ZonedNetworkGraph, update_forwarding_table
-from sensor.network.router.controlmessages import Hello, ControlMessage, ControlHeader, LSDBMessage, ExpiredLinkList
+from sensor.network.router.controlmessages import Hello, ControlMessage, ControlHeader, LSDBMessage, ExpiredLinkList, \
+    LocatorRouteRequest, LocatorRouteReply, LocatorLinkError
 from sensor.network.router.netinterface import NetworkInterface
 from sensor.network.router.util import BoundedSequenceGenerator
 
@@ -152,6 +153,17 @@ class RouterControlPlane(threading.Thread):
         elif control_type is ExpiredLinkList.TYPE:
             logger.info("Received ExpiredLinkList!")
             self.__handle_expired_link_list_message(packet)
+        elif control_type is LocatorRouteRequest.TYPE:
+            logger.info("Received locator route request")
+            self.external_request_handler.handle_locator_route_request(packet)
+        elif control_type is LocatorRouteReply.TYPE:
+            logger.info("Received locator route reply")
+            self.external_request_handler.handle_locator_route_reply(packet)
+        elif control_type is LocatorLinkError.TYPE:
+            logger.info("Received locator link error")
+            self.external_request_handler.handle_locator_link_error(packet)
+        else:
+            logger.info("Unknown message received")
 
     def __handle_hello(self, packet: ILNPPacket):
         """Refreshes neighbours link to stop expiry process, or adds neighbour"""
