@@ -1,4 +1,5 @@
 import collections
+import logging
 from typing import List, Dict, Deque, Tuple, Optional, Set
 
 from sensor.network.router.controlmessages import LocatorRouteRequest, LocatorHopList, ControlHeader, ControlMessage
@@ -6,6 +7,8 @@ from sensor.network.router.forwardingtable import ForwardingTable
 from sensor.network.router.ilnp import ILNPPacket, ILNPAddress
 from sensor.network.router.netinterface import NetworkInterface
 from sensor.network.router.util import BoundedSequenceGenerator
+
+logger = logging.getLogger(__name__)
 
 NUM_REQUESTS_TO_REMEMBER = 15
 
@@ -64,10 +67,12 @@ class CurrentRequestBuffer:
 
     def add_new_request(self, destination_id: int, request_id: int):
         """Records the given request"""
+        logger.info("Recording new request {} for destination {}".format(request_id, destination_id))
         self.records[destination_id] = RequestRecord(0, request_id)
 
     def add_packet_to_destination_buffer(self, packet: ILNPPacket):
         """Adds the given packet to the queue waiting for its destination ID"""
+        logger.info("Buffering packet while waiting for request response")
         self.get_destination_request(packet.dest.id).add_packet(packet)
 
     def get_destination_request(self, destination_id: int) -> Optional[RequestRecord]:
@@ -109,22 +114,36 @@ class ExternalRequestHandler:
         """
         dest_id = packet.dest.id
 
-        if dest_id not in self.current_requests:
-            self.__initiate_destination_request(packet)
+        if dest_id in self.current_requests:
+            self.current_requests.add_packet_to_destination_buffer(packet)
+        else:
+            request_id = self.__initiate_destination_request(packet)
+            if request_id is not None:
+                self.current_requests.add_packet_to_destination_buffer(packet)
+            else:
+                logger.info("No neighbours to send destination request to. Discarding packet.")
 
-        self.current_requests.add_packet_to_destination_buffer(packet)
-
-    def __build_rreq(self, dest_id: int) -> ILNPPacket:
-        rreq_id = next(self.request_id_generator)
-        rreq = LocatorRouteRequest(rreq_id, True, LocatorHopList([]))
+    def __build_rreq(self, request_id: int, dest_id: int, first_hop_locator: int) -> ILNPPacket:
+        logger.info("Building route request for {} via locator {}".format(dest_id, first_hop_locator))
+        initial_list = LocatorHopList([first_hop_locator])
+        rreq = LocatorRouteRequest(request_id, True, initial_list)
         header = ControlHeader(rreq.TYPE, rreq.size_bytes())
         control = ControlMessage(header, rreq)
         return ILNPPacket(self.my_address, ILNPAddress(0, dest_id), payload=control,
                           payload_length=control.size_bytes())
 
-    def __initiate_destination_request(self, packet: ILNPPacket):
-        request = self.__build_rreq(packet.dest.id)
-        next_hops = set()
-        for locator, next_hop in self.forwarding_table.locator_cache.items():
-            self.net_interface
-        self.current_requests.add_new_request(packet.dest.id, rreq_id)
+    def __initiate_destination_request(self, packet: ILNPPacket) -> Optional[int]:
+        """Sends a destination request via each of the neighbouring locators"""
+        logger.info("Initiating destination request")
+
+        if len(self.forwarding_table.next_hop_to_locator) == 0:
+            logger.info("No neighbour locators to send destination request to.")
+            logger.info("Discarding.")
+            return None
+
+        request_id = next(self.request_id_generator)
+        for locator, next_hop in self.forwarding_table.next_hop_to_locator.items():
+            request: ILNPPacket = self.__build_rreq(request_id, packet.dest.id, locator)
+            self.net_interface.send(bytes(request), next_hop)
+
+        self.current_requests.add_new_request(packet.dest.id, request_id)

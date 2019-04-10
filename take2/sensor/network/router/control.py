@@ -81,7 +81,8 @@ class RouterControlPlane(threading.Thread):
         self.lsb_sequence_generator = BoundedSequenceGenerator(511)
 
         # Handler for locator requests
-        self.external_request_handler = ExternalRequestHandler(self.net_interface)
+        self.external_request_handler = ExternalRequestHandler(self.net_interface, self.my_address,
+                                                               self.forwarding_table)
 
     def join(self, timeout=None) -> None:
         self.running = False
@@ -102,6 +103,7 @@ class RouterControlPlane(threading.Thread):
             self.neighbours.age_neighbours()
             logger.info("Current neighbours: {}".format(vars(self.neighbours)))
             logger.info("Current network graph: {}".format(str(self.network_graph)))
+            logger.info("Current forwarding table: {}".format(str(self.forwarding_table)))
 
             logger.info("Removing expired links")
             expired = self.neighbours.pop_expired_neighbours()

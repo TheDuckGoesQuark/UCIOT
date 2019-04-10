@@ -372,11 +372,13 @@ class ForwardingTable:
 def get_distance_and_next_hops(network_graph: ZonedNetworkGraph, root_node_id: int):
     """Get possible next hops that provide same distance to destination for all destinations"""
     # { end node: cost}
-    distance_from_root: Dict[InternalNode, float] = {v: float('inf') for v in network_graph}
+    distance_from_root: Dict[InternalNode, float] = {}
     # { end node: [next hops that are the same distance] }
     next_hops_for_destination: Dict[InternalNode, List[InternalNode]] = {}
 
     root = network_graph.get_node(root_node_id)
+    distance_from_root[root] = 0
+    next_hops_for_destination[root] = None
     # Nodes to be visited
     queue = []
 
@@ -416,7 +418,9 @@ def update_forwarding_table(network_graph: ZonedNetworkGraph, root_node_id: int,
     current_distance_to_locator: Dict[int, float] = {}
     for destination, next_hops in next_hops_for_destination.items():
         # If more options, choose the one with the best lambda
-        if len(next_hops) > 0:
+        if next_hops is None:
+            continue
+        elif len(next_hops) > 0:
             next_hop = reduce(lambda best, nxt: nxt if best is None or nxt.node_lambda > best.node_lambda else best,
                               next_hops, None)
         else:

@@ -69,7 +69,7 @@ class ILNPPacket(Serializable):
         src: ILNPAddress = ILNPAddress(values[4], values[5])
         dest: ILNPAddress = ILNPAddress(values[6], values[7])
 
-        payload = packet_bytes[cls.HEADER_SIZE:cls.HEADER_SIZE + payload_length]
+        payload = bytes(packet_bytes[cls.HEADER_SIZE:cls.HEADER_SIZE + payload_length])
 
         return ILNPPacket(src, dest, next_header, hop_limit, version, traffic_class, flow_label, payload_length,
                           payload)

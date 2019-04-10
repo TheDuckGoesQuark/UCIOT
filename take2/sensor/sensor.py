@@ -1,4 +1,5 @@
 import logging
+import os
 from time import sleep
 
 from sensor.battery import Battery
@@ -7,6 +8,8 @@ from sensor.datagenerator import MockDataGenerator, SensorReading
 from sensor.network.ilnpsocket import ILNPSocket
 
 logger = logging.getLogger(name=__name__)
+
+killswitch_dir = os.path.expanduser("~/killswitch")
 
 
 class Sensor:
@@ -17,6 +20,9 @@ class Sensor:
         self.is_sink = config.sink_id == config.my_id
         self.mock_gen = MockDataGenerator(config.my_id)
         self.running = True
+
+    def killswitch_engaged(self):
+        return os.path.isdir(killswitch_dir)
 
     def take_reading(self):
         logger.info("Taking reading")
@@ -32,7 +38,7 @@ class Sensor:
         self.stop()
 
     def run_as_sensor(self):
-        while self.running and not self.socket.is_closed():
+        while self.running and not self.socket.is_closed() and not self.killswitch_engaged():
             logger.info("Sensor waiting for reading")
             sleep(self.interval)
             try:
@@ -42,7 +48,7 @@ class Sensor:
                 logger.warning("Terminating: " + str(e))
 
     def run_as_sink(self):
-        while self.running and not self.socket.is_closed():
+        while self.running and not self.socket.is_closed() and not self.killswitch_engaged():
             logger.info("Sleeping between readings")
             sleep(self.interval)
             try:
@@ -58,7 +64,6 @@ class Sensor:
                 self.running = False
             except TypeError as e:
                 logger.warning("ERROR ON GET: " + str(e))
-
 
     def stop(self):
         logger.info("Stopping underlying services.")

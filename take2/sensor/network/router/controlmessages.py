@@ -32,12 +32,12 @@ class Hello(Serializable):
 
 
 class LocatorHopList(Serializable):
-    """List of next hop locators and border node ID in the path"""
-    FORMAT: str = "!QQ"
+    """List of next hop locators"""
+    FORMAT: str = "!Q"
     SIZE: int = struct.calcsize(FORMAT)
 
-    def __init__(self, locators: List[Tuple[int, int]]):
-        self.locator_hops: List[Tuple[int, int]] = locators
+    def __init__(self, locators: List[int]):
+        self.locator_hops: List[int,] = locators
 
     @classmethod
     def from_bytes(cls, packet_bytes: memoryview) -> 'LocatorHopList':
@@ -66,16 +66,17 @@ class LocatorHopList(Serializable):
     def __bytes__(self) -> bytes:
         arr = bytearray(len(self) * self.SIZE)
         offset = 0
-        for locator, border_node_id in self.locator_hops:
-            arr[offset:offset + self.SIZE] = struct.pack(self.FORMAT, locator, border_node_id)
+        for locator in self.locator_hops:
+            arr[offset:offset + self.SIZE] = struct.pack(self.FORMAT, locator)
+            offset += self.SIZE
 
-        return arr
+        return bytes(arr)
 
     def size_bytes(self):
         return len(self) * self.SIZE
 
-    def append(self, loc: int, border_node_id: int):
-        self.locator_hops.append((loc, border_node_id))
+    def append(self, loc: int):
+        self.locator_hops.append(loc)
 
 
 class LocatorRouteRequest(Serializable):
@@ -247,11 +248,11 @@ class LSDBMessage(Serializable):
         self.external_links: List[ExternalLink] = external_links
 
     def __bytes__(self) -> bytes:
-        internal_list_bytes = link_list_to_bytes(self.internal_links, InternalLink)
-        external_list_bytes = link_list_to_bytes(self.external_links, ExternalLink)
+        list_bytes: bytearray = link_list_to_bytes(self.internal_links, InternalLink)
+        list_bytes.extend(link_list_to_bytes(self.external_links, ExternalLink))
 
         return struct.pack(self.FORMAT, self.seq_number, len(self.internal_links), len(self.external_links)) \
-               + internal_list_bytes + external_list_bytes
+               + bytes(list_bytes)
 
     def size_bytes(self) -> int:
         return self.FIXED_PART_SIZE + \
@@ -291,34 +292,36 @@ class ExpiredLinkList(Serializable):
     """For informing other nodes that a link has been lost"""
 
     TYPE = 6
-    FIXED_FORMAT = "!B3x"
-    ENTRY_FORMAT = "!{}Q"
-    SIZE = struct.calcsize(FIXED_FORMAT)
+    FORMAT = "!Q"
+    SIZE = struct.calcsize(FORMAT)
 
     def __init__(self, lost_link_ids: List[int]):
         self.lost_link_ids = lost_link_ids
 
+    def __len__(self):
+        return len(self.lost_link_ids)
+
     def __bytes__(self) -> bytes:
-        entry_format = self.ENTRY_FORMAT.format(len(self.lost_link_ids))
-        list_bytes = struct.pack(entry_format, *self.lost_link_ids)
-        return struct.pack(self.FIXED_FORMAT, len(self.lost_link_ids)) + list_bytes
+        arr = bytearray(self.size_bytes())
+        offset = 0
+        for locator in self.lost_link_ids:
+            arr[offset:offset + self.SIZE] = struct.pack(self.FORMAT, locator)
+            offset += self.SIZE
+
+        return bytes(arr)
 
     def size_bytes(self) -> int:
-        # Replace brackets with number of entries
-        entry_format = self.ENTRY_FORMAT.format(len(self.lost_link_ids))
-        # Calculate the size based on the number of entries
-        return self.SIZE + struct.calcsize(entry_format)
+        return len(self) * self.SIZE
 
     def __str__(self):
         return str(vars(self))
 
     @classmethod
     def from_bytes(cls, raw_bytes: memoryview) -> 'ExpiredLinkList':
-        n_entries = struct.unpack(cls.FIXED_FORMAT, raw_bytes[:cls.SIZE])[0]
+        entries = []
 
-        entry_format = cls.ENTRY_FORMAT.format(n_entries)
-        offset = cls.SIZE
-        entries = list(struct.unpack(entry_format, raw_bytes[offset:]))
+        for locator in struct.iter_unpack(cls.FORMAT, raw_bytes):
+            entries.append(locator)
 
         return ExpiredLinkList(entries)
 

@@ -165,8 +165,9 @@ class Router(threading.Thread):
 
         # Begin processing
         logger.info("Beginning regular processing")
+        number_of_quiet_periods = 0
         while self.running:
-            if self.net_interface.is_closed():
+            if self.net_interface.is_closed() or number_of_quiet_periods > 5:
                 self.running = False
                 continue
 
@@ -178,6 +179,10 @@ class Router(threading.Thread):
                 self.handle_packet(packet)
             except Empty as e:
                 logger.info("No packets have arrived in the past {} seconds".format(SECONDS_BETWEEN_SHUTDOWN_CHECKS))
+                number_of_quiet_periods += 1
+            except IOError as e:
+                logger.info("Detected IO error.")
+                self.running = False
 
         self.running = False
         logger.info("Router thread finished executing.")
