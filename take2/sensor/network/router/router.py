@@ -194,7 +194,7 @@ class Router(threading.Thread):
         is_from_me = packet.src.id == self.my_address.id
         if packet.dest.loc is None and is_from_me:
             logger.info("Don't know locator, need to find.")
-            self.control_plane.perform_locator_discovery(packet)
+            self.control_plane.find_route(packet)
             return
 
         destination_is_local = packet.dest.loc == self.my_address.loc

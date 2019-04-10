@@ -1,7 +1,11 @@
 import collections
 from typing import List, Dict, Deque, Tuple, Optional, Set
 
-from sensor.network.router.ilnp import ILNPPacket
+from sensor.network.router.controlmessages import LocatorRouteRequest, LocatorHopList, ControlHeader, ControlMessage
+from sensor.network.router.forwardingtable import ForwardingTable
+from sensor.network.router.ilnp import ILNPPacket, ILNPAddress
+from sensor.network.router.netinterface import NetworkInterface
+from sensor.network.router.util import BoundedSequenceGenerator
 
 NUM_REQUESTS_TO_REMEMBER = 15
 
@@ -87,3 +91,40 @@ class CurrentRequestBuffer:
                 destinations_due_retry.append(dest_id)
 
         return destinations_due_retry
+
+
+class ExternalRequestHandler:
+    def __init__(self, net_interface: NetworkInterface, my_address: ILNPAddress, forwarding_table: ForwardingTable):
+        self.my_address: ILNPAddress = my_address
+        self.forwarding_table: ForwardingTable = forwarding_table
+        self.recently_seen_requests: RecentlySeenRequests = RecentlySeenRequests()
+        self.current_requests: CurrentRequestBuffer = CurrentRequestBuffer()
+        self.net_interface: NetworkInterface = net_interface
+        self.request_id_generator: BoundedSequenceGenerator = BoundedSequenceGenerator(511)
+
+    def find_route(self, packet: ILNPPacket):
+        """
+        initializes route request for the packet destination,
+        or adds it to the queue of packets already waiting for that destination
+        """
+        dest_id = packet.dest.id
+
+        if dest_id not in self.current_requests:
+            self.__initiate_destination_request(packet)
+
+        self.current_requests.add_packet_to_destination_buffer(packet)
+
+    def __build_rreq(self, dest_id: int) -> ILNPPacket:
+        rreq_id = next(self.request_id_generator)
+        rreq = LocatorRouteRequest(rreq_id, True, LocatorHopList([]))
+        header = ControlHeader(rreq.TYPE, rreq.size_bytes())
+        control = ControlMessage(header, rreq)
+        return ILNPPacket(self.my_address, ILNPAddress(0, dest_id), payload=control,
+                          payload_length=control.size_bytes())
+
+    def __initiate_destination_request(self, packet: ILNPPacket):
+        request = self.__build_rreq(packet.dest.id)
+        next_hops = set()
+        for locator, next_hop in self.forwarding_table.locator_cache.items():
+            self.net_interface
+        self.current_requests.add_new_request(packet.dest.id, rreq_id)

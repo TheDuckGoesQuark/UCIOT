@@ -14,6 +14,10 @@ class ILNPAddress:
         return "{}:{}".format(self.loc, self.id)
 
 
+# All nodes multicast address as in IPv6
+ALL_LINK_LOCAL_NODES_ADDRESS = ILNPAddress(int("ff01000000000000", 16), int("1", 16))
+
+
 class ILNPPacket(Serializable):
     MAX_PAYLOAD_SIZE: int = 65535
     ILNPv6_HEADER_FORMAT: str = "!IHBB4Q"

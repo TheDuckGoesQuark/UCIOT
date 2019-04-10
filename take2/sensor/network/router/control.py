@@ -1,14 +1,13 @@
 import logging
 import threading
 import time
-from multiprocessing import Queue
 from typing import Dict, List
 
 from sensor.battery import Battery
-from sensor.network.router.ilnp import ILNPAddress, ILNPPacket
+from sensor.network.router.interzone import ExternalRequestHandler
+from sensor.network.router.ilnp import ILNPAddress, ILNPPacket, ALL_LINK_LOCAL_NODES_ADDRESS
 from sensor.network.router.forwardingtable import ForwardingTable, ZonedNetworkGraph, update_forwarding_table
-from sensor.network.router.controlmessages import Hello, ControlMessage, ControlHeader, LSDBMessage, InternalLink, \
-    ExpiredLinkList
+from sensor.network.router.controlmessages import Hello, ControlMessage, ControlHeader, LSDBMessage, ExpiredLinkList
 from sensor.network.router.netinterface import NetworkInterface
 from sensor.network.router.util import BoundedSequenceGenerator
 
@@ -22,9 +21,6 @@ MAX_AGE_OF_LINK = KEEP_ALIVE_INTERVAL_SECS * 3
 
 # Max lambda is given by the range of 4 bytes
 MAX_LAMBDA = (2 ** (4 * 8)) - 1
-
-# All nodes multicast address as in IPv6
-ALL_LINK_LOCAL_NODES_ADDRESS = ILNPAddress(int("ff01000000000000", 16), int("1", 16))
 
 
 def parse_type(raw_bytes: memoryview) -> int:
@@ -62,8 +58,6 @@ class NeighbourLinks:
             self.neighbour_link_ages[neighbour] += KEEP_ALIVE_INTERVAL_SECS
 
 
-
-
 class RouterControlPlane(threading.Thread):
     def __init__(self, net_interface: NetworkInterface, my_address: ILNPAddress,
                  battery: Battery, forwarding_table: ForwardingTable):
@@ -85,6 +79,9 @@ class RouterControlPlane(threading.Thread):
 
         # Tracks last LSB sequence value
         self.lsb_sequence_generator = BoundedSequenceGenerator(511)
+
+        # Handler for locator requests
+        self.external_request_handler = ExternalRequestHandler(self.net_interface)
 
     def join(self, timeout=None) -> None:
         self.running = False
@@ -138,7 +135,8 @@ class RouterControlPlane(threading.Thread):
         self.net_interface.broadcast(bytes(packet))
 
     def find_route(self, packet: ILNPPacket):
-        """Finds route to known locator"""
+        """Finds route to an external ID"""
+        self.external_request_handler.find_route(packet)
 
     def handle_control_packet(self, packet: ILNPPacket):
         control_type = packet.payload.header.payload_type
@@ -152,9 +150,6 @@ class RouterControlPlane(threading.Thread):
         elif control_type is ExpiredLinkList.TYPE:
             logger.info("Received ExpiredLinkList!")
             self.__handle_expired_link_list_message(packet)
-
-    def perform_locator_discovery(self, packet: ILNPPacket):
-        """Finds route to unknown locator"""
 
     def __handle_hello(self, packet: ILNPPacket):
         """Refreshes neighbours link to stop expiry process, or adds neighbour"""
