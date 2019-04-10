@@ -33,6 +33,8 @@ def parse_type(raw_bytes: memoryview) -> int:
 
 
 class NeighbourLinks:
+    """Tracks all link local neighbours and the time since their last keepalive"""
+
     def __init__(self):
         self.neighbour_link_ages: Dict[int, int] = {}
 
@@ -58,6 +60,8 @@ class NeighbourLinks:
     def age_neighbours(self):
         for neighbour in self.neighbour_link_ages:
             self.neighbour_link_ages[neighbour] += KEEP_ALIVE_INTERVAL_SECS
+
+
 
 
 class RouterControlPlane(threading.Thread):
@@ -134,9 +138,7 @@ class RouterControlPlane(threading.Thread):
         self.net_interface.broadcast(bytes(packet))
 
     def find_route(self, packet: ILNPPacket):
-        """Uses AODV to find a route to the packets destination"""
-        # TODO
-        pass
+        """Finds route to known locator"""
 
     def handle_control_packet(self, packet: ILNPPacket):
         control_type = packet.payload.header.payload_type
@@ -152,7 +154,7 @@ class RouterControlPlane(threading.Thread):
             self.__handle_expired_link_list_message(packet)
 
     def perform_locator_discovery(self, packet: ILNPPacket):
-        pass
+        """Finds route to unknown locator"""
 
     def __handle_hello(self, packet: ILNPPacket):
         """Refreshes neighbours link to stop expiry process, or adds neighbour"""

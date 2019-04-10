@@ -3,17 +3,19 @@ from typing import List, Dict, Deque, Tuple, Optional, Set
 
 from sensor.network.router.ilnp import ILNPPacket
 
-NUM_REQUEST_IDS = 512
+NUM_REQUESTS_TO_REMEMBER = 15
 
 
-class RecentRequestBuffer:
+class RecentlySeenRequests:
+    """Stores a circular FIFO queue of recently seen request IDs"""
+
     def __init__(self):
-        self.recently_seen: Deque[Tuple[int, int]] = collections.deque(15 * [()])
+        self.recently_seen: Deque[Tuple[int, int]] = collections.deque(NUM_REQUESTS_TO_REMEMBER * [()])
 
-    def __str__(self):
+    def __str__(self) -> str:
         return str([str(x) for x in self.recently_seen])
 
-    def add(self, src_id, request_id):
+    def add(self, src_id: int, request_id: int):
         self.recently_seen.appendleft((src_id, request_id))
 
     def __contains__(self, src_id_request_id: Tuple[int, int]) -> bool:
@@ -21,94 +23,67 @@ class RecentRequestBuffer:
 
 
 class RequestRecord:
-    def __init__(self, dest_loc: int, num_attempts: int):
-        self.dest_loc: int = dest_loc
-        self.num_attempts: int = num_attempts
-        self.time_since_last_attempt: int = 0
+    """Record of previous request for a route to the given ID, and how many times they've been retried"""
 
-    def increment_num_attempts(self):
+    def __init__(self, num_attempts: int, last_request_id: int):
+        self.num_attempts: int = num_attempts
+        self.last_request_id = last_request_id
+        self.time_since_last_attempt: int = 0
+        self.waiting_packets: List[ILNPPacket] = []
+
+    def record_retry(self, new_request_id: int):
+        """Increase the number of attempts that have been to find this ID"""
         self.num_attempts = self.num_attempts + 1
+        self.last_request_id = new_request_id
 
     def increment_time_since_last_attempt(self):
+        """Increase the time since a retry was last tried"""
         self.time_since_last_attempt = self.time_since_last_attempt + 1
 
+    def add_packet(self, packet: ILNPPacket):
+        self.waiting_packets.append(packet)
 
-class RequestRecords:
+
+class CurrentRequestBuffer:
+    """Tracks request made for a given destination"""
+
     def __init__(self):
-        self.records: List[Optional[RequestRecord]] = [None] * NUM_REQUEST_IDS
+        # { dest id : request record }
+        self.records: Dict[int, RequestRecord] = {}
 
     def __str__(self):
-        return str([str(record) for record in self.records])
+        return str([(dest_id, str(record)) for dest_id, record in self.records.items()])
 
-    def __contains__(self, request_id: int) -> bool:
-        return self.records[request_id] is not None
+    def __contains__(self, destination_id: int) -> bool:
+        """Returns true if a request for that destination is recorded"""
+        return destination_id in self.records
 
-    def add(self, request_id: int, dest_loc: int, num_attempts: int = 0):
-        self.records[request_id] = RequestRecord(dest_loc, num_attempts)
+    def add_new_request(self, destination_id: int, request_id: int):
+        """Records the given request"""
+        self.records[destination_id] = RequestRecord(0, request_id)
 
-    def pop(self, request_id: int):
-        record = self.records[request_id]
-        self.records[request_id] = None
-        return record
+    def add_packet_to_destination_buffer(self, packet: ILNPPacket):
+        """Adds the given packet to the queue waiting for its destination ID"""
+        self.get_destination_request(packet.dest.id).add_packet(packet)
 
-    def pop_by_dest(self, dest_loc: int):
-        requests_for_dest = [request_id for request_id, request in enumerate(self.records)
-                             if request is not None and request.dest_loc == dest_loc]
+    def get_destination_request(self, destination_id: int) -> Optional[RequestRecord]:
+        """Retrieves the request record for the given destination"""
+        return self.records.get(destination_id, None)
 
-        for request in requests_for_dest:
-            self.pop(request)
+    def record_retried_request(self, destination_id, new_request_id):
+        request = self.get_destination_request(destination_id)
+        request.record_retry(new_request_id)
 
     def age_records(self):
-        for record in self.records:
-            if record is not None:
-                record.increment_time_since_last_attempt()
+        """Increases the time since retry for all requests"""
+        for request_record in self.records.values():
+            request_record.increment_time_since_last_attempt()
 
-    def pop_records_older_than(self, age: int) -> List[RequestRecord]:
-        old_records = []
+    def get_destination_ids_with_requests_older_than(self, age: int) -> List[int]:
+        """Returns the destination ids for all requests older than the given value"""
+        destinations_due_retry = []
+        for dest_id, record in self.records.items():
+            if record.time_since_last_attempt > age:
+                destinations_due_retry.append(dest_id)
 
-        for request_id in range(len(self.records)):
-            if request_id not in self:
-                continue
-            elif self.records[request_id].time_since_last_attempt > age:
-                old_records.append(self.pop(request_id))
-
-        return old_records
-
-
-class DestinationQueues:
-    """
-    Maintains list of packets waiting for route to destination, and the request id of the RREQ that is fetching the
-    route.
-    """
-
-    def __init__(self):
-        self.dest_queues: Dict[int, List[ILNPPacket]] = {}
-
-    def __contains__(self, dest_loc: int) -> bool:
-        return dest_loc in self.dest_queues
-
-    def __getitem__(self, dest_loc: int) -> List[ILNPPacket]:
-        return self.dest_queues[dest_loc]
-
-    def __str__(self):
-        return str({dest: [str(packet) for packet in queue] for dest, queue in self.dest_queues.items()})
-
-    def add_packet(self, packet: ILNPPacket):
-        """
-        Adds packet to existing queue for destination, or creates one and adds it if doesn't already exist
-        :param packet: packet to add to queue
-        """
-        dest_loc = packet.dest.loc
-
-        if dest_loc not in self:
-            self.dest_queues[dest_loc] = [packet]
-        else:
-            self.dest_queues[dest_loc].append(packet)
-
-    def remove_dest_queue(self, dest_loc: int):
-        del self.dest_queues[dest_loc]
-
-    def pop_dest_queue(self, dest_loc: int) -> List[ILNPPacket]:
-        return self.dest_queues.pop(dest_loc)
-
-
+        return destinations_due_retry
