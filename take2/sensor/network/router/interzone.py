@@ -100,6 +100,9 @@ class CurrentRequestBuffer:
 
         return destinations_due_retry
 
+    def remove_request_for_destination(self, original_destination_id: int):
+        self.records.pop(original_destination_id, None)
+
 
 def get_difference_counts(path_one: List[int], path_two: List[int]) -> Tuple[int, int]:
     """Returns the number of elements shared and not shared between the two lists"""
@@ -265,7 +268,7 @@ class ExternalRequestHandler:
                     reply = cached_path
 
                 logger.info("Replying with path: {}".format(reply))
-                self.___reply_with_cached_path(reply, packet.src)
+                self.___reply_with_cached_path(reply, packet.src, packet.dest.id)
             else:
                 logger.info("No cached path, forwarding")
                 self.__forward_locator_route_request(packet)
@@ -284,7 +287,7 @@ class ExternalRequestHandler:
         """Replies to request with reverse of their path"""
         request: LocatorRouteRequest = packet.payload.body
         path: List[int] = request.locator_hop_list.locator_hops
-        reply = LocatorRouteReply(LocatorHopList(path))
+        reply = LocatorRouteReply(self.my_address.id, LocatorHopList(path))
         header = ControlHeader(reply.TYPE, reply.size_bytes())
         message = ControlMessage(header, reply)
         reply_packet = ILNPPacket(self.my_address, packet.src, payload_length=message.size_bytes(),
@@ -294,9 +297,9 @@ class ExternalRequestHandler:
         self.net_interface.send(bytes(reply_packet), self.forwarding_table.find_next_hop_for_locator(next_hop_locator))
         self.monitor.record_sent_packet(True, False)
 
-    def ___reply_with_cached_path(self, path: List[int], dest_address: ILNPAddress):
+    def ___reply_with_cached_path(self, path: List[int], dest_address: ILNPAddress, original_destination_id: int):
         """Replies to request with cached path"""
-        reply = LocatorRouteReply(LocatorHopList(path))
+        reply = LocatorRouteReply(original_destination_id, LocatorHopList(path))
         header = ControlHeader(reply.TYPE, reply.size_bytes())
         message = ControlMessage(header, reply)
         reply_packet = ILNPPacket(self.my_address, dest_address, payload_length=message.size_bytes(),
@@ -344,9 +347,88 @@ class ExternalRequestHandler:
                     self.net_interface.send(bytes(packet), self.forwarding_table.find_next_hop_for_locator(locator))
                     self.monitor.record_sent_packet(True, True)
 
-    def handle_locator_route_reply(self, packet: ILNPPacket):
-        logger.info("Handling locator route reply ")
+    def __handle_locator_reply_for_my_locator(self, packet: ILNPPacket):
+        logger.info("Reply for someone in my locator")
+        next_hop = self.forwarding_table.find_next_hop_for_local_node(packet.dest.id)
+        if next_hop is None:
+            logger.info("Node doesn't exist in this locator.")
+        else:
+            logger.info("Forwarding to {}".format(next_hop))
+            self.net_interface.send(bytes(packet), next_hop)
+            self.monitor.record_sent_packet(True, True)
 
-    def handle_locator_link_error(self, packet):
+    def __handle_locator_reply_for_other_locator(self, packet: ILNPPacket):
+        logger.info("Reply for node in different locator")
+        # Find my locator in hop list
+        reply: LocatorRouteReply = packet.payload.body
+        hop_list: List[int] = reply.route_list.locator_hops
+        try:
+            index_of_my_locator: int = hop_list.index(self.my_address.loc)
+        except ValueError as e:
+            logger.info("Locator not in path, discarding packet")
+            return
+
+        if index_of_my_locator == 0:
+            logger.info("Final hop, sending to destination locator")
+            predecessor_locator = packet.dest.loc
+        else:
+            predecessor_locator: int = hop_list[index_of_my_locator - 1]
+            logger.info("Intermediate hop. Sending to previous locator in path ({})".format(predecessor_locator))
+
+        next_hop = self.forwarding_table.find_next_hop_for_locator(predecessor_locator)
+        if next_hop is None:
+            logger.info("No next hop to locator {}".format(predecessor_locator))
+        else:
+            logger.info("Forwarding to {}".format(next_hop))
+            self.net_interface.send(bytes(packet), next_hop)
+            self.monitor.record_sent_packet(True, True)
+
+    def __handle_locator_reply_for_me(self, packet: ILNPPacket):
+        reply: LocatorRouteReply = packet.payload.body
+        if reply.original_destination_id in self.current_requests:
+            # Cache path
+            hop_list = reply.route_list.locator_hops
+            destination_locator = hop_list[len(hop_list) - 1]
+            self.path_cache.record_path(destination_locator, hop_list)
+
+            # Register locator for id in forwarding table for future requests
+            self.forwarding_table.record_locator_for_id(reply.original_destination_id, destination_locator)
+
+            # Find next hop id to locator by finding next hop to first locator in list
+            next_hop_id = self.forwarding_table.find_next_hop_for_locator(hop_list[0])
+            self.forwarding_table.add_external_entry(destination_locator, next_hop_id)
+
+            # Send waiting packets
+            request_record: RequestRecord = self.current_requests.get_destination_request(reply.original_destination_id)
+            self.current_requests.remove_request_for_destination(reply.original_destination_id)
+            for waiting_packet in request_record.waiting_packets:
+                logger.info("Forwarding to {}".format(next_hop_id))
+                waiting_packet.dest.loc = destination_locator
+                self.net_interface.send(bytes(waiting_packet), next_hop_id)
+                self.monitor.record_sent_packet(False, False)
+        else:
+            logger.info("Reply too late or already handled. Checking if path is better")
+            hop_list = reply.route_list.locator_hops
+            destination_locator = hop_list[len(hop_list) - 1]
+            self.path_cache.record_path(destination_locator, hop_list)
+            # If path is better, main path will have changed
+            new_main_path: List[int] = self.path_cache.get_path_to_dest(destination_locator)
+
+            # Find next hop id to locator by finding next hop to first locator in list
+            next_hop_id = self.forwarding_table.find_next_hop_for_locator(new_main_path[0])
+            self.forwarding_table.add_external_entry(destination_locator, next_hop_id)
+
+    def handle_locator_route_reply(self, packet: ILNPPacket):
+        """Processes locator reply"""
+        logger.info("Handling locator route reply ")
+        if packet.dest.id == self.my_address.id:
+            logger.info("Reply for me!")
+            self.__handle_locator_reply_for_me(packet)
+        elif packet.dest.loc == self.my_address.loc:
+            self.__handle_locator_reply_for_my_locator(packet)
+        else:
+            self.__handle_locator_reply_for_other_locator(packet)
+
+    def handle_locator_link_error(self, packet: ILNPPacket):
         logger.info("Handling locator link error")
         pass

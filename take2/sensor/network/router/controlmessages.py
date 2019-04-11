@@ -116,24 +116,33 @@ class LocatorRouteRequest(Serializable):
 
 
 class LocatorRouteReply(Serializable):
+    """
+    Contains the ID of the node this reply provides a path to,
+    and the list of locators that need to be traversed to reach it.
+    The last locator in the hop list is the locator of the original destination ID
+    """
     TYPE = 3
+    FORMAT = "!Q"
+    SIZE = struct.calcsize(FORMAT)
 
-    def __init__(self, route_list: LocatorHopList):
+    def __init__(self, original_destination_id: int, route_list: LocatorHopList):
+        self.original_destination_id: int = original_destination_id
         self.route_list: LocatorHopList = route_list
 
     def __bytes__(self) -> bytes:
-        return bytes(self.route_list)
+        return struct.pack(self.FORMAT, self.original_destination_id) + bytes(self.route_list)
 
     def __str__(self):
-        return str(self.route_list)
+        return str(vars(self)) + str(self.route_list)
 
     def size_bytes(self) -> int:
-        return self.route_list.size_bytes()
+        return self.route_list.size_bytes() + self.SIZE
 
     @classmethod
     def from_bytes(cls, bytes_view: memoryview):
-        route_list = LocatorHopList.from_bytes(bytes_view)
-        return LocatorRouteReply(route_list)
+        original_dest_id = struct.unpack(cls.FORMAT, bytes_view[:cls.SIZE])[0]
+        route_list = LocatorHopList.from_bytes(bytes_view[cls.SIZE:])
+        return LocatorRouteReply(original_dest_id, route_list)
 
 
 class LocatorLinkError(Serializable):
