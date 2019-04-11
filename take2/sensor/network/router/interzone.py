@@ -230,6 +230,7 @@ class ExternalRequestHandler:
             self.net_interface.send(bytes(request), next_hop)
 
         self.current_requests.add_new_request(packet.dest.id, request_id)
+        return request_id
 
     def handle_locator_route_request(self, packet: ILNPPacket):
         logger.info("Handling route request")
@@ -335,8 +336,9 @@ class ExternalRequestHandler:
                     request_list.locator_hops[len(request_list.locator_hops) - 1] = locator
                     self.net_interface.send(bytes(packet), self.forwarding_table.find_next_hop_for_locator(locator))
 
-    def handle_locator_route_reply(self, packet):
-        pass
+    def handle_locator_route_reply(self, packet: ILNPPacket):
+        logger.info("Handling locator route reply ")
 
     def handle_locator_link_error(self, packet):
+        logger.info("Handling locator link error")
         pass

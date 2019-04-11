@@ -175,7 +175,7 @@ class Router(threading.Thread):
                 packet = self.packet_queue.get(timeout=SECONDS_BETWEEN_SHUTDOWN_CHECKS)
                 self.forwarding_table.record_locator_for_id(packet.src.id, packet.src.loc)
 
-                logger.info("Data has arrived on one of the queues")
+                logger.info("Something has arrived from {}".format(packet.src.id))
                 self.handle_packet(packet)
             except Empty as e:
                 logger.info("No packets have arrived in the past {} seconds".format(SECONDS_BETWEEN_SHUTDOWN_CHECKS))

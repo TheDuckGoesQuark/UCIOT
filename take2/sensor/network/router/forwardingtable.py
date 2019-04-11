@@ -109,6 +109,7 @@ class ZonedNetworkGraph:
 
     def add_node(self, node_id: int, node_lambda: int):
         """Add a new node to the network"""
+        logger.info("Adding node {} to network ".format(node_id))
         node = InternalNode(node_id, node_lambda)
         self.id_to_node[node_id] = node
 
@@ -126,6 +127,7 @@ class ZonedNetworkGraph:
         if to_node_id not in self.id_to_node:
             self.add_node(to_node_id, to_node_lambda)
 
+        logger.info("Adding link between {} and {}".format(from_node_id, to_node_id))
         self.id_to_node[from_node_id].add_internal_neighbour(self.get_node(to_node_id))
         self.id_to_node[to_node_id].add_internal_neighbour(self.get_node(from_node_id))
 
