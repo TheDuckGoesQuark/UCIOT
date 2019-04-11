@@ -4,7 +4,6 @@ from multiprocessing import Queue
 from queue import Empty
 from typing import Tuple, Optional
 
-from sensor import packetmonitor
 from sensor.battery import Battery
 from sensor.config import Configuration
 from sensor.packetmonitor import Monitor
@@ -64,7 +63,6 @@ class IncomingMessageParserThread(threading.Thread):
                 self.monitor.running = False
                 continue
 
-            logger.info("Checking for packets from interface")
             try:
                 received = self.net_interface.receive(SECONDS_BETWEEN_SHUTDOWN_CHECKS)
             except Exception:
@@ -142,7 +140,6 @@ class Router(threading.Thread):
         if not self.monitor.running:
             raise IOError("Router is not running.")
 
-        logger.info("Wrapping data to be sent")
         message = build_data_message(data)
 
         src_addr = self.my_address
@@ -178,7 +175,6 @@ class Router(threading.Thread):
                 logger.info("Something has arrived from {}".format(packet.src.id))
                 self.handle_packet(packet)
             except Empty as e:
-                logger.info("No packets have arrived in the past {} seconds".format(SECONDS_BETWEEN_SHUTDOWN_CHECKS))
                 number_of_quiet_periods += 1
             except IOError as e:
                 logger.info("Detected IO error.")

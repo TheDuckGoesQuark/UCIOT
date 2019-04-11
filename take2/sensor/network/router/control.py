@@ -128,7 +128,6 @@ class RouterControlPlane(threading.Thread):
 
     def __send_keepalive(self):
         """Broadcasts hello message containing this nodes current lambda"""
-        logger.info("Sending keepalive")
         keepalive = Hello(self.__calc_my_lambda())
         header = ControlHeader(keepalive.TYPE, keepalive.size_bytes())
         control_message = ControlMessage(header, keepalive)
@@ -147,22 +146,22 @@ class RouterControlPlane(threading.Thread):
         control_type = packet.payload.header.payload_type
 
         if control_type is Hello.TYPE:
-            logger.info("Received hello message!")
+            logger.info("Received hello message!: {}".format(str(packet.payload)))
             self.__handle_hello(packet)
         elif control_type is LSDBMessage.TYPE:
-            logger.info("Received LSDBMessage!")
+            logger.info("Received LSDBMessage!: {}".format(str(packet.payload)))
             self.__handle_lsdb_message(packet)
         elif control_type is ExpiredLinkList.TYPE:
-            logger.info("Received ExpiredLinkList!")
+            logger.info("Received ExpiredLinkList! {}".format(str(packet.payload)))
             self.__handle_expired_link_list_message(packet)
         elif control_type is LocatorRouteRequest.TYPE:
-            logger.info("Received locator route request")
+            logger.info("Received locator route request: {}".format(str(packet.payload)))
             self.external_request_handler.handle_locator_route_request(packet)
         elif control_type is LocatorRouteReply.TYPE:
-            logger.info("Received locator route reply")
+            logger.info("Received locator route reply: {}".format(str(packet.payload)))
             self.external_request_handler.handle_locator_route_reply(packet)
         elif control_type is LocatorLinkError.TYPE:
-            logger.info("Received locator link error")
+            logger.info("Received locator link error: {}".format(str(packet.payload)))
             self.external_request_handler.handle_locator_link_error(packet)
         else:
             logger.info("Unknown message received")

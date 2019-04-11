@@ -29,7 +29,6 @@ class Sensor:
         self.mock_gen = MockDataGenerator(config.my_id)
 
     def take_reading(self):
-        logger.info("Taking reading")
         return self.mock_gen.get_data()
 
     def start(self):
@@ -42,8 +41,9 @@ class Sensor:
         self.stop()
 
     def run_as_sensor(self):
+        logger.info("Giving network a chance to initialize")
+        sleep(5)
         while self.monitor.running and not self.socket.is_closed() and not killswitch_engaged():
-            logger.info("Sensor waiting for reading")
             sleep(self.interval)
             try:
                 reading = self.take_reading()
@@ -57,7 +57,6 @@ class Sensor:
     def run_as_sink(self):
         sink_log = SinkLog(self.sink_file)
         while self.monitor.running and not self.socket.is_closed() and not killswitch_engaged():
-            logger.info("Sleeping between readings")
             sleep(self.interval)
             try:
                 data_bytes, source_id = self.socket.receive_from(self.interval)
@@ -65,8 +64,6 @@ class Sensor:
                     sensor_reading = SensorReading.from_bytes(data_bytes)
                     sink_log.record_reading(sensor_reading)
                     logger.info("Received reading {} from {}".format(sensor_reading, source_id))
-                else:
-                    logger.info("No readings in the past {} seconds".format(self.interval))
             except Exception as e:
                 logger.warning("Terminating: " + str(e))
                 self.monitor.running = False

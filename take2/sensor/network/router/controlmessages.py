@@ -37,7 +37,7 @@ class LocatorHopList(Serializable):
     HOP_SIZE: int = struct.calcsize(FORMAT)
 
     def __init__(self, locators: List[int]):
-        self.locator_hops: List[int,] = locators
+        self.locator_hops: List[int] = locators
 
     @classmethod
     def from_bytes(cls, packet_bytes: memoryview) -> 'LocatorHopList':
@@ -47,7 +47,7 @@ class LocatorHopList(Serializable):
 
         locators = []
         for entry in struct.iter_unpack(cls.FORMAT, packet_bytes):
-            locators.append(entry)
+            locators.append(entry[0])
 
         return LocatorHopList(locators)
 
@@ -381,6 +381,9 @@ class ControlMessage(Serializable):
             body = message_class.from_bytes(body_bytes)
 
         return ControlMessage(header, body)
+
+    def __str__(self):
+        return str(self.header) + str(self.body)
 
     def __bytes__(self):
         return bytes(self.header) + bytes(self.body)
