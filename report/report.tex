@@ -128,11 +128,9 @@ copyright in this work.
 \pagenumbering{arabic}
 \setcounter{page}{1} 
 
-\part{Introduction}
+\section{Introduction}
 
 Despite the imminent exhaustion of IPv4 addresses \cite{ripe_labs}, IPv6 is still being adopted slowly \cite{google_ipv6}. Brittle solutions such as NAT are being used to expand the IPv4 address space and to avoid the transition costs involved in upgrading to IPv6. Whilst IPv6 does expand the address space greatly and introduces functionality such as multicast, the internet protocol has more intrinsic issues. The initial design for the infrastructure of the internet did not account for level of mobility that is common with network capable devices nowadays, and the attempts to retrospectively include support for such features have resulted in an incredibly complex system made of incompatible components. 
-
-\section{Issues with IP and IoT}
 
 IP addresses are used both to identify a system and to determine its topological location. \cite{briancarpenter2014} lists several of the downsides to this overloading of IP addresses, and why the protocol was still adopted despite them.
 
@@ -146,15 +144,11 @@ IoT devices are often restricted by limited battery life, memory, and computatio
 
 Given the difficulty involved in simply migrating from IPv4 to IPv6, it is very doubtful that introducing an entirely different protocol for the internet would be successful. A backwards compatible solution would likely be the only solution that would be adopted within a reasonable time frame.
 
-\section{ILNP}
-
 Both multihoming and mobility are far simpler to implement and maintain if the identity and topological locator of a host are separated, and this is how the Identifier-Locator Network Protocol functions. \cite{5586444} proposes ILNPv6, which implement ILNP with the same address space as IPv6 and the same packet structure as IPv6, but with different semantics for interpreting the addresses. ILNPv6 splits the original 128-bits used for an IPv6 address into two 64-bit fields: the upper bits representing the locator and the lower 64 bits representing the identifier. The version field in the IP header is used to differentiate between ILNPv6 and IPv6 packets, and routers that don't support ILNP can interpret the packets as IP without any issue. 
 
 The locator value identifies the subnetwork that a host belongs to, and a host can have multiple locator values, providing multihoming with smaller memory requirements for the RIB. The ID part of the address is unique to the host, and provides a fixed address which can be used at the transport layer.
 
 Though ILNPv6 is very backwards-compatible, there are still some difficult challenges involved in its deployment. \cite{ipwithoutip} describes how the tight coupling of the C socket API and IP addresses could cause issues in some legacy applications. ILNPv6 also requires some additions to the Domain Name System (DNS) to properly support multihoming.
-
-\section{Goal} \label{ssec:goal}
 
 The main goal of this project is to produce a library for a prototype communication
 protocol for Internet of Things (IoT) devices based on the identifier-locator
@@ -176,9 +170,7 @@ on devices. This will be tested through emulation of an IoT network and the ener
 \end{enumerate}
 
 \pagebreak
-\part{Context Survey}
-
-\section{Ubiquity of IoT Devices}
+\section{Context Survey}
 
 Despite the intitial motivation for WSNs being military applications, they are now being used to solve many other problems.
 
@@ -187,8 +179,6 @@ The sensitivity of crops to changes in climate and agricultures crucial role on 
 WSNs currently often require specialised applications and manually specified network configurations in order for consumers to collect and analyse the data they produce. In order to make access to the data more standardised and easily available, research is also being done to connect sensor networks to the cloud. \cite{indoor} propose enviromental sensors for urban environments with gateways to to the internet which could integrate into our own homes. By providing cheap montoring and actuating sensors to the general public, they hope to encourage healthier eating habits, as people would be able to grow their own vegetables effectively. 
 
 \cite{wsnlist} list the other applications of WSNs, and the different approaches to integrating WSNs and the internet. They recognise that providing a single gateway results in a single point of failure, and so focus on methods involving multiple or integrated gateways. This requires that sensors adopt the responsiblity of managing their networks topology instead of just forwarding towards a sink node. 
-
-\section{Integration of WSNs and Current Internet Infrastructure}
 
 Previous research involving integrating WSNs into the current internet infrastructure is typically structured around IP. For all the reasons mentioned earlier, researches have realised the benefits of building WSNs using other approaches such as the locator-identifier split.
 
@@ -202,10 +192,9 @@ Multihoming is also incredibly useful for WSNs, as it can potentially allow them
 
 A different addressing scheme is only part of the solution required for successful intergration of WSNs and the internet. IoT devices typically have limited memory and power, and so require optimised routing protocols if they are to be integrated effeciently. Due to the myriad of situations that IoT devices are used, there is no one-size-fits-all solution, and so many versions of IoT routing have been proposed.
 
-\section{Energy Effecient Routing Protocols}
-
 \cite{hassan} classifies differeent routing protocols and provides a survey of protocols for each class. Routing protocols are either proactive, reactive, or hybrid. 
 
+% TODO Try and merge these
 \subsection{Proactive} 
 Each node maintains a routing table through knowledge sharing with adjacent nodes. Typically involves high overhead due to regular flooding and beacon messages, but performs better than reactive methods as mobility increases as links are repaired quickly. In the current internet, OSPF is one of the most popular interior gateway protocols, and so naturally researchers tried to adapt it to wireless networks. This produced the Optimized Link State Routing (OLSR) protocol \cite{olsr} and Open Shortest Path First MANET Designated Routers (OSPF-MDR) protocol. Despite both making attempts to reduce enery consumption, they are defeated by reactive protocols in this area. 
 
@@ -217,9 +206,9 @@ Reactive protocols also perform well in wireless environments as lack of periodi
 Features of both proactive and reactive protocols are used. The hybrid approach is useful in scenarios where the grouping of nodes is appropriate. \cite{cluster} use a clustering approach in order to manage resources within subsets of nodes. Since not all WSNs are homogenous, this approach can take advantage of some nodes having larger energy reserves than others by electing these nodes as the coordinator of the subnetwork. \cite{vanet} also implement a hybrid routing protocol for vehicle mobile networks which uses beacons to monitor link states between nodes to allow recovery to occur when the routes created by the proactive protocol fail. They also use GPS to help route packets when their target is in a known location.
 
 \pagebreak
-\part{Protocol Design} \label{protodesign}
+\section{Protocol Design} \label{protodesign}
 
-\section{Motivation and Overview}
+\subsection{Motivation and Overview}
 
 The protocol used is a reactive zone-based routing protocol (ZBR), and is based on the work by \cite{zbrp} with added support for energy awareness. It was designed with the following assumptions:
 
@@ -248,9 +237,7 @@ A reactive protocol was chosen for communication between zones in order to limit
 
 A proactive protocol was chosen for routing within locators as it would provide node discovery, and would hopefully reduce the number of repeated route discoveries after breakages by being able to find alternative routes within zones.
 
-\section{Intra-Zone Routing Protocol}
-
-\subsection{Initialization}
+\subsection{Intra-Zone Routing Protocol}
 
 Initially, each node broadcasts its presence to its neighbours in order to learn what links were available to it using a \emph{Hello} message, containing its lambda value. 
 
@@ -264,8 +251,6 @@ Neighbouring nodes reply with their current link state database (LSB) in a \emph
 \end{figure}
 
 Nodes that exist on the border of locators will discard LSBs they receive from the locators they are not part of. They will however use these messages to learn what other locators can be reached from their neighbours, eventually providing them with next hops for all locators in the WSN.
-
-\subsection{Routing Once Converged}
 
 Once converged and the entire local topology is available, data packets would be routed using the following logic:
 
@@ -286,19 +271,15 @@ This method ensures that packets arriving from external locators will receive be
 	\item Data packets are only sent to other locators once a route has been established.
 \end{enumerate}
 
-\subsection{Handling Failure}
-
 Whenever a link is detected as being lost due to the lack of keepalive messages after a period of time, then this information will be shared within the network. A \emph{ExpiredLink} message will be broadcast, and flooded by nodes within the same locator in order to remove the link from their network, or to inform the other nodes that a neighbouring locator is no longer accessible via a given link.
 
-\section{Inter-Zone Routing Protocl}
+\subsection{Inter-Zone Routing Protocol}
 
 AODV is a reactive protocol that is used differently for inter-zone and inter-zone routing. Inside locators, the hop list will consist of node IDs, providing exact routes between the source and destination. Between locators, the hop list will consist of locators, and the exact hop-by-hop routing will be provided by each zone internally.
 
-Both approaches have three phases: discovery, maintenance, and recovery.
+AODV has three phases: discovery, maintenance, and recovery.
 
-\subsection{Discovery}
-
-AODV produces a list of hops that a packet can be sent over to reach a destination by flooding route request packets (RREQs). The route discovery process is summarised in figure \ref{fig:path}, where the leftmost node (1) is requesting a route to the rightmost node (4).
+To discover routes to a given destination, AODV produces a list of hops that a packet can be sent over to reach a destination by flooding route request packets (RREQs). The route discovery process is summarised in figure \ref{fig:path}, where the leftmost node (1) is requesting a route to the rightmost node (4).
 
 \begin{figure}[!ht]
 	\centering
@@ -377,8 +358,6 @@ This value could be ascertained by counting the number of unique source IDs of p
 	\label{fig:lambda}
 \end{figure}
 
-\subsection{Maintenance}
-
 In order to check if neighbours are still live, \emph{HELLO} messages are exchanged at regular intervals between neighbouring nodes. These messages also provide neighbour discovery as they are limited to one hop, therefore the source ID can be mapped to the arriving IPv6 address in the emulated link layer. 
 
 \begin{figure}[!ht]
@@ -392,8 +371,6 @@ Figure \ref{fig:helloflow} shows how the \emph{HELLO} messages are processed. If
 
 Cached routes will also expire after some time to trigger another route request if required. This allows nodes to learn if a path is under heavy load, and ensures that a route will be corrected if for some reason the recovery process is not completed. 
 
-\subsection{Recovery}
-
 If the keepalive process fails for a neighbour, then a node will forward a RERR to all previous nodes in any paths it takes part in, shown in figure \ref{fig:rerrflow}.
 
 \begin{figure}[h]
@@ -405,7 +382,7 @@ If the keepalive process fails for a neighbour, then a node will forward a RERR 
 
 Any packets that were sent between the failure of the link and the receiving of a route error will most likely be dropped, and future packets will be delayed as route discovery will have to take place again unless this node is aware of a disjoint path to the destination.
 
-\section{Intra-Zone Forwarding Table}
+% TODO Merge this into sections talking about that part of the protocol
 
 The intra-zone routing table is responsible for forwarding packets between the nodes of a locator. To do this, it keeps track of:
 
@@ -419,7 +396,7 @@ The intra-zone routing table is responsible for forwarding packets between the n
 
 The intra-zone routing table is built by broadcasting RREQs where each hop is an node ID, and only contains routes to actuator nodes and border nodes. 
 
-\section{Inter-zone Forwarding Table}
+% TODO Merge this into sections talking about that part of the protocol
 
 The inter-zone routing table is responsible for forwarding packets between nodes in different locators, and is maintained by nodes that exist on the borders of these locators such as those highlighted red in figure \ref{fig:border}. It contains information about:
 
@@ -451,7 +428,7 @@ Once this locator discovery has been carried out, border nodes will be aware of 
 
 \FloatBarrier
 \pagebreak
-\part{ILNP Testbed Implementation}
+\section{ILNP Testbed Implementation}
 
 Due to the recency of ILNPv6, there does not currently exist software for emulating wireless ILNP networks as there is for IP, therefore a custom testbed had to be implemented.  
 
@@ -463,8 +440,6 @@ The testing environment was implemented using Python 3.7. The project has three 
 	\caption{Implementation Structure}
 	\label{fig:struc}
 \end{figure}
-
-\section{Wireless Network Emulation}
 
 Emulating wireless communication was achieved by building an overlay network using UDP with multicast. A single UDP socket provided a communication endpoint.
 
@@ -490,15 +465,11 @@ A daemon thread continuously polls the network interface for incoming data. It t
 
 All polling functions included a timeout in order for each thread to check if it has been asked to terminate, if for example the power levels had reached a critical level.
 
-\section{Routing and Network Management}
-
 The router polls the incoming packet queue and decides the next course of action. 
 
 The control plane handles any control packets or any packets that can't be forwarded using the current forwarding table, and is responsible for populating the forwarding table.
 
 \#https://ieeexplore.ieee.org/document/7993954 to fix route reply storm issue: add jitter before responding with route reply and listen for other replies
-
-\section{Sensor Emulation}
 
 The sensor initialises the ILNPSocket, and depending on whether or not it is configured to operate as the sink (where all the data from every node is collected) begins either polling for packets or sending 'readings' at intervals.
 
@@ -507,7 +478,7 @@ To mock realistic application data, a random fluctuation is applied to a series 
 Only the ID of the sink is known by each node, which is all that should be necessary when using ILNP to route a packet. If it was possible to provide a FQDN for the sink node then the addressing scheme would be abstracted also, but emulating a DNS was deemed unecessary for the experiment.
 
 \pagebreak
-\part{Experiment}
+\section{Experiment}
 
 The aims of the experiment were to show that protocol succeeded in meeting the goals from section \ref{ssec:goal}, and to exemplify how ILNP helped in achieving these goals compared to how it would be implemented in IP. This was be achieved by simulating a wireless sensor network for monitoring fields in a farm. 
 
@@ -543,7 +514,7 @@ Both extremes of the spectrum will provide identical flat addressing schemes lik
 	\label{fig:spectrum}
 \end{figure}
 
-\section{Setup}
+\subsection{Setup}
 
 The experiment was run on the lab machines, remaining within the schools network. 
 
@@ -555,7 +526,7 @@ The configuration files that were used to initialize each sensor node were gener
 
 With the list of available computers and the configuration files generated, another script was written that would \emph{ssh} into the lab machines one by one and start the sensor emulation program with each configuration. Logs from each instance of the program were redirected to a file based on the node ID for monitoring the network.
 
-\section{Method}
+\subsection{Method}
 
 In order to monitor the type and number of packets sent and forwarded by each node, an additional \emph{monitor} module was added to the testbed implementation. For each packet sent, the monitor recorded a the ID of the sensor, timestamp, the type of packet (control or data), and whether or not the packet originated from this node or was being forwarded. The monitor would also report the size of the routing table when each packet was sent. 
 
@@ -567,9 +538,7 @@ A \emph{battery} module was also added to the emulation. The battery would be de
 
 Each test was run multiple times in order to ensure that the results were consistent.
 
-\section{Results}
-
-\subsection{Routing Protocol Performance}
+\subsection{Results}
 
 Figures \ref{fig:datasnapone} and \ref{fig:ctrlsnapone} show the concentration of data and control packets throughout the network during the intialisation of the network in the multiple sink scenario. As expected, the overhead is initially quite high, as every node is trying to learn routes to the sink. 
 
@@ -644,8 +613,6 @@ Figure \ref{fig:loss} shows the packet over time, and finally figure \ref{fig:di
 \end{figure}
 
 \FloatBarrier
-\subsection{ILNP and IP Dependent Results}
-
 Figure \ref{fig:internaltablesize} shows the sizes of the internal forwarding tables for IP and ILNP, and \ref{fig:externaltablesize} shows the sizes of the external forwarding tables.
 
 \begin{figure}[!ht]
@@ -675,7 +642,7 @@ Figure \ref{fig:internaltablesize} shows the sizes of the internal forwarding ta
 \end{enumerate}
 
 \pagebreak
-\part{Conclusions}
+\section{Conclusions}
 
 Discuss how global AODV was originally considered, but discarded since it didn't take full advantage of ILNP.
 
@@ -686,7 +653,7 @@ was the goal met, and if so how well?
 future work with ILNP, possible suggestions of better alternatives to the routing protocol used.
 
 \pagebreak
-\part{Appendix}
+\section{Appendix}
 \begin{enumerate}
 \item Instructions on installing, and executing and using the python module
 \end{enumerate}
