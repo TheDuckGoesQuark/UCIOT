@@ -34,7 +34,7 @@ class Hello(Serializable):
 class LocatorHopList(Serializable):
     """List of next hop locators"""
     FORMAT: str = "!Q"
-    SIZE: int = struct.calcsize(FORMAT)
+    HOP_SIZE: int = struct.calcsize(FORMAT)
 
     def __init__(self, locators: List[int]):
         self.locator_hops: List[int,] = locators
@@ -64,16 +64,16 @@ class LocatorHopList(Serializable):
         return self.locator_hops[index]
 
     def __bytes__(self) -> bytes:
-        arr = bytearray(len(self) * self.SIZE)
+        arr = bytearray(len(self) * self.HOP_SIZE)
         offset = 0
         for locator in self.locator_hops:
-            arr[offset:offset + self.SIZE] = struct.pack(self.FORMAT, locator)
-            offset += self.SIZE
+            arr[offset:offset + self.HOP_SIZE] = struct.pack(self.FORMAT, locator)
+            offset += self.HOP_SIZE
 
         return bytes(arr)
 
     def size_bytes(self):
-        return len(self) * self.SIZE
+        return len(self) * self.HOP_SIZE
 
     def append(self, loc: int):
         self.locator_hops.append(loc)

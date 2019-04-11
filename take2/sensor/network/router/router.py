@@ -208,7 +208,10 @@ class Router(threading.Thread):
         if next_hop is not None:
             logger.info("Found next hop, forwarding to {}".format(next_hop))
             packet.decrement_hop_limit()
-            self.net_interface.send(bytes(packet), next_hop)
+            if packet.hop_limit > 0:
+                self.net_interface.send(bytes(packet), next_hop)
+            else:
+                logger.info("No more hops. Discarding packet")
         elif destination_is_local:
             logger.info("No node exists with that ID in this locator.")
             logger.info("Discarding packet")

@@ -237,8 +237,9 @@ class RouterControlPlane(threading.Thread):
 
         if learned_something:
             packet.decrement_hop_limit()
-            self.net_interface.broadcast(bytes(packet))
-            self.update_available = True
+            if packet.hop_limit > 0:
+                self.net_interface.broadcast(bytes(packet))
+                self.update_available = True
 
     def __handle_expired_links(self, expired):
         """Broadcasts information about lost links and removes them from our network graph"""
