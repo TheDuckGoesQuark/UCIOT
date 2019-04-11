@@ -1,7 +1,6 @@
 import collections
 import logging
-from functools import reduce
-from typing import List, Dict, Deque, Tuple, Optional, Set
+from typing import List, Dict, Deque, Tuple, Optional
 
 from sensor.network.router.controlmessages import LocatorRouteRequest, LocatorHopList, ControlHeader, ControlMessage, \
     LocatorRouteReply
@@ -9,6 +8,7 @@ from sensor.network.router.forwardingtable import ForwardingTable
 from sensor.network.router.ilnp import ILNPPacket, ILNPAddress
 from sensor.network.router.netinterface import NetworkInterface
 from sensor.network.router.util import BoundedSequenceGenerator
+from sensor.packetmonitor import Monitor
 
 logger = logging.getLogger(__name__)
 
@@ -177,8 +177,10 @@ def extend_route_request(packet: ILNPPacket):
 
 
 class ExternalRequestHandler:
-    def __init__(self, net_interface: NetworkInterface, my_address: ILNPAddress, forwarding_table: ForwardingTable):
+    def __init__(self, net_interface: NetworkInterface, my_address: ILNPAddress, forwarding_table: ForwardingTable,
+                 monitor: Monitor):
         self.my_address: ILNPAddress = my_address
+        self.monitor: Monitor = monitor
 
         # Bookkeeping
         self.recently_seen_requests: RecentlySeenRequests = RecentlySeenRequests()
@@ -228,6 +230,7 @@ class ExternalRequestHandler:
         for locator, next_hop in self.forwarding_table.next_hop_to_locator.items():
             request: ILNPPacket = self.__build_rreq(request_id, packet.dest.id, locator)
             self.net_interface.send(bytes(request), next_hop)
+            self.monitor.record_sent_packet(True, False)
 
         self.current_requests.add_new_request(packet.dest.id, request_id)
         return request_id
@@ -289,6 +292,7 @@ class ExternalRequestHandler:
         # Next hop is either neighbour, or hop before my locator
         next_hop_locator = path[len(path) - 2] if len(path) > 1 else packet.src.loc
         self.net_interface.send(bytes(reply_packet), self.forwarding_table.find_next_hop_for_locator(next_hop_locator))
+        self.monitor.record_sent_packet(True, False)
 
     def ___reply_with_cached_path(self, path: List[int], dest_address: ILNPAddress):
         """Replies to request with cached path"""
@@ -306,6 +310,8 @@ class ExternalRequestHandler:
             self.net_interface.send(bytes(reply_packet),
                                     self.forwarding_table.find_next_hop_for_locator(next_hop_locator))
 
+        self.monitor.record_sent_packet(True, False)
+
     def __forward_locator_route_request(self, packet: ILNPPacket):
         """Forwards the route request to all neighbours it hasn't already visited"""
 
@@ -322,6 +328,7 @@ class ExternalRequestHandler:
         path: List[int] = request_list.locator_hops
         if path[len(path) - 1] is not self.my_address.loc:
             self.net_interface.send(bytes(packet), self.forwarding_table.find_next_hop_for_locator(path[len(path) - 1]))
+            self.monitor.record_sent_packet(True, True)
         else:
             # Get all neighbour locators not already in path
             unvisited_neighbours = [locator for locator in self.forwarding_table.next_hop_to_locator.keys()
@@ -335,6 +342,7 @@ class ExternalRequestHandler:
                     # Change last hop locator on each iteration
                     request_list.locator_hops[len(request_list.locator_hops) - 1] = locator
                     self.net_interface.send(bytes(packet), self.forwarding_table.find_next_hop_for_locator(locator))
+                    self.monitor.record_sent_packet(True, True)
 
     def handle_locator_route_reply(self, packet: ILNPPacket):
         logger.info("Handling locator route reply ")

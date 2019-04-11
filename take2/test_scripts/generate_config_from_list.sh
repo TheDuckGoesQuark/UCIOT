@@ -36,6 +36,8 @@ my_locator=LOC
 max_packet_sends=20
 sink_id=1
 interval=2
+sink_log=sink.csv
+results_file=results.csv
 EOM
 
 mapfile -t config_names < ${list_file}

@@ -43,9 +43,8 @@ class Configuration:
         self.max_sends = fields.getint('max_packet_sends')
         self.sink_id = fields.getint('sink_id')
         self.interval = fields.getint('interval')
+        self.sink_log_file: str = fields.get('sink_log')
+        self.results_file: str = fields.get('results_file')
 
     def __str__(self) -> str:
         return str(vars(self))
-
-
-

@@ -78,7 +78,6 @@ class NetworkInterface:
         ip_next_hop = self.id_to_ipv6[next_hop_id]
 
         logger.info("Sending to {} ({})".format(next_hop_id, ip_next_hop))
-
         self.sock.sendto(bytes_to_send, (ip_next_hop, self.port))
         self.battery.decrement()
 

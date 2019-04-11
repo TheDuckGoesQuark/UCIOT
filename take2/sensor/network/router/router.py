@@ -4,8 +4,10 @@ from multiprocessing import Queue
 from queue import Empty
 from typing import Tuple, Optional
 
+from sensor import packetmonitor
 from sensor.battery import Battery
 from sensor.config import Configuration
+from sensor.packetmonitor import Monitor
 from sensor.network.router.forwardingtable import ForwardingTable
 from sensor.network.router.ilnp import ILNPPacket, ILNPAddress
 from sensor.network.router.controlmessages import Hello, ControlMessage, build_data_message
@@ -35,15 +37,15 @@ class IncomingMessageParserThread(threading.Thread):
     Also provides ID <-> IPv6 address mapping as HelloGroup messages will only arrive from one hop neighbours
     """
 
-    def __init__(self, net_interface: NetworkInterface, packet_queue: Queue):
+    def __init__(self, net_interface: NetworkInterface, packet_queue: Queue, monitor: Monitor):
         super().__init__(name="IncomingMessageParserThread")
         self.net_interface: NetworkInterface = net_interface
         self.packet_queue: Queue = packet_queue
-        self.stopped: bool = False
+        self.monitor: Monitor = monitor
 
     def join(self, timeout=None) -> None:
         logger.info("Terminating network interface polling thread")
-        self.stopped = True
+        self.monitor.running = False
         super().join(timeout)
         logger.info("Finished terminating network interface polling thread")
 
@@ -56,17 +58,17 @@ class IncomingMessageParserThread(threading.Thread):
             self.net_interface.add_id_ipv6_mapping(packet.src.id, ipv6_addr)
 
     def run(self):
-        while not self.stopped:
+        while self.monitor.running:
             if self.net_interface.is_closed():
                 logger.info("Router detected network interfaced is closed.")
-                self.stopped = True
+                self.monitor.running = False
                 continue
 
             logger.info("Checking for packets from interface")
             try:
                 received = self.net_interface.receive(SECONDS_BETWEEN_SHUTDOWN_CHECKS)
             except Exception:
-                self.stopped = True
+                self.monitor.running = False
                 received = None
 
             if received is None:
@@ -90,10 +92,11 @@ class Router(threading.Thread):
     Router handles data and control packet processing and forwarding
     """
 
-    def __init__(self, config: Configuration, battery: Battery):
+    def __init__(self, config: Configuration, battery: Battery, monitor: Monitor):
         super().__init__(name="Router")
         # Myself
         self.my_address = ILNPAddress(config.my_locator, config.my_id)
+        self.monitor: Monitor = monitor
 
         # Data for this ID, with the ID that sent it
         self.arrived_data_queue: Queue[Tuple[bytes, int]] = Queue()
@@ -106,9 +109,10 @@ class Router(threading.Thread):
 
         # Control packet handler, which manages the forwarding table
         self.forwarding_table = ForwardingTable()
-        self.control_plane = RouterControlPlane(self.net_interface, self.my_address, battery, self.forwarding_table)
+        self.control_plane = RouterControlPlane(self.net_interface, self.my_address, battery, self.forwarding_table,
+                                                self.monitor)
         # Thread for continuous polling of network interface for packets
-        self.incoming_message_thread = IncomingMessageParserThread(self.net_interface, self.packet_queue)
+        self.incoming_message_thread = IncomingMessageParserThread(self.net_interface, self.packet_queue, monitor)
 
         self.incoming_message_thread.daemon = True
         self.incoming_message_thread.start()
@@ -116,19 +120,15 @@ class Router(threading.Thread):
         self.control_plane.daemon = True
         self.control_plane.start()
 
-        self.running = True
-
     def join(self, **kwargs):
         """Terminates this thread, and cleans up any resources or threads it has open"""
         logger.info("Terminating routing thread")
-        self.running = False
+        self.monitor.running = False
         logger.info("Waiting on network interface to close")
         self.net_interface.close()
         logger.info("Waiting on incoming message thread to terminate")
-        self.incoming_message_thread.stopped = True
         self.incoming_message_thread.join()
         logger.info("Waiting on control plane thread terminating")
-        self.control_plane.running = False
         self.control_plane.join()
         logger.info("Finished terminating routing thread")
 
@@ -139,7 +139,7 @@ class Router(threading.Thread):
         :param data: data to be sent
         :param dest_id: id of node to be sent to
         """
-        if not self.running:
+        if not self.monitor.running:
             raise IOError("Router is not running.")
 
         logger.info("Wrapping data to be sent")
@@ -166,9 +166,9 @@ class Router(threading.Thread):
         # Begin processing
         logger.info("Beginning regular processing")
         number_of_quiet_periods = 0
-        while self.running:
+        while self.monitor.running:
             if self.net_interface.is_closed() or number_of_quiet_periods > 5:
-                self.running = False
+                self.monitor.running = False
                 continue
 
             try:
@@ -182,9 +182,9 @@ class Router(threading.Thread):
                 number_of_quiet_periods += 1
             except IOError as e:
                 logger.info("Detected IO error.")
-                self.running = False
+                self.monitor.running = False
 
-        self.running = False
+        self.monitor.running = False
         logger.info("Router thread finished executing.")
 
     def handle_data_packet(self, packet: ILNPPacket):
@@ -210,6 +210,7 @@ class Router(threading.Thread):
             packet.decrement_hop_limit()
             if packet.hop_limit > 0:
                 self.net_interface.send(bytes(packet), next_hop)
+                self.monitor.record_sent_packet(False, not is_from_me)
             else:
                 logger.info("No more hops. Discarding packet")
         elif destination_is_local:

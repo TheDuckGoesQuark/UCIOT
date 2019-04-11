@@ -4,19 +4,20 @@ from typing import Tuple
 from sensor.battery import Battery
 from sensor.config import Configuration
 from sensor.network.router.router import Router
+from sensor.packetmonitor import Monitor
 
 logger = logging.getLogger(__name__)
 
 
 class ILNPSocket:
-    def __init__(self, config: Configuration, battery: Battery):
+    def __init__(self, config: Configuration, battery: Battery, monitor: Monitor):
         """
         Creates an ILNPSocket instance with a routing thread for managing packets
         :param config: configuration to be used for routing
         :param battery: the sensors battery
         """
         self.battery = battery
-        self.router_thread = Router(config, self.battery)
+        self.router_thread = Router(config, self.battery, monitor)
         self.router_thread.daemon = True
         self.router_thread.start()
 
@@ -47,4 +48,4 @@ class ILNPSocket:
             return self.router_thread.receive_from(blocking=True, timeout=timeout)
 
     def is_closed(self) -> bool:
-        return not self.router_thread.running
+        return not self.router_thread.is_alive()

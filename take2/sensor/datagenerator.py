@@ -1,7 +1,16 @@
+import csv
+import errno
+import fcntl
+import logging
+import os
 import random
 import struct
+import time
+from typing import List
 
 from sensor.network.router.serializable import Serializable
+
+logger = logging.getLogger(__name__)
 
 
 class MockDataGenerator:
@@ -80,3 +89,42 @@ class SensorReading(Serializable):
 
     def size_bytes(self):
         return self.SIZE
+
+
+class SinkLog:
+    """Stores the data received by the sink node"""
+
+    def __init__(self, sink_save_file: str):
+        self.readings: List[SensorReading] = []
+        self.sink_save_file = sink_save_file
+
+    def record_reading(self, sensor_reading: SensorReading):
+        self.readings.append(sensor_reading)
+
+    def save(self):
+        with open(self.sink_save_file, "a+") as csv_file:
+            logger.debug("Attempting to gain sink log file lock")
+            while True:
+                # Loop to gain lock
+                try:
+                    fcntl.flock(csv_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    logger.debug("Lock obtained")
+                    break
+                except IOError as e:
+                    if e.errno != errno.EAGAIN:
+                        raise
+                    else:
+                        time.sleep(0.1)
+
+            writer = csv.writer(csv_file, delimiter=',')
+            if os.path.getsize(self.sink_save_file) is 0:
+                writer.writerow(["origin_id", "temperature", "humidity", "pressure", "luminosity"])
+
+            writer = csv.writer(csv_file, delimiter=',')
+            for sensor_reading in self.readings:
+                writer.writerow([sensor_reading.origin_id, sensor_reading.temperature, sensor_reading.humidity,
+                                 sensor_reading.pressure, sensor_reading.luminosity])
+
+            # Unlock
+            logger.debug("Unlocking file")
+            fcntl.flock(csv_file, fcntl.LOCK_UN)

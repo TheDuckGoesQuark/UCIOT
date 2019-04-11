@@ -3,6 +3,7 @@ import threading
 import time
 from typing import Dict, List
 
+from sensor import packetmonitor
 from sensor.battery import Battery
 from sensor.network.router.interzone import ExternalRequestHandler
 from sensor.network.router.ilnp import ILNPAddress, ILNPPacket, ALL_LINK_LOCAL_NODES_ADDRESS
@@ -11,6 +12,7 @@ from sensor.network.router.controlmessages import Hello, ControlMessage, Control
     LocatorRouteRequest, LocatorRouteReply, LocatorLinkError
 from sensor.network.router.netinterface import NetworkInterface
 from sensor.network.router.util import BoundedSequenceGenerator
+from sensor.packetmonitor import Monitor
 
 logger = logging.getLogger(__name__)
 
@@ -61,10 +63,11 @@ class NeighbourLinks:
 
 class RouterControlPlane(threading.Thread):
     def __init__(self, net_interface: NetworkInterface, my_address: ILNPAddress,
-                 battery: Battery, forwarding_table: ForwardingTable):
+                 battery: Battery, forwarding_table: ForwardingTable, monitor: Monitor):
         super().__init__(name="Control")
         self.battery = battery
         self.my_address = my_address
+        self.monitor: Monitor = monitor
 
         # Forwarding table provides quick look-up for forwarding packets to internal and external nodes
         self.forwarding_table = forwarding_table
@@ -75,7 +78,6 @@ class RouterControlPlane(threading.Thread):
         self.net_interface = net_interface
 
         # Status flags
-        self.running = False
         self.update_available = False
 
         # Tracks last LSB sequence value
@@ -83,23 +85,22 @@ class RouterControlPlane(threading.Thread):
 
         # Handler for locator requests
         self.external_request_handler = ExternalRequestHandler(self.net_interface, self.my_address,
-                                                               self.forwarding_table)
+                                                               self.forwarding_table, self.monitor)
 
     def join(self, timeout=None) -> None:
-        self.running = False
+        self.monitor.running = False
         super().join(timeout)
 
     def run(self) -> None:
         """Send keepalives and remove links that haven't sent one"""
         self.initialize()
 
-        self.running = True
-        while self.running:
+        while self.monitor.running:
             time.sleep(KEEP_ALIVE_INTERVAL_SECS)
             try:
                 self.__send_keepalive()
             except Exception:
-                self.running = False
+                self.monitor.running = False
 
             self.neighbours.age_neighbours()
             logger.info("Current neighbours: {}".format(vars(self.neighbours)))
@@ -136,6 +137,7 @@ class RouterControlPlane(threading.Thread):
                             payload_length=control_message.size_bytes(), payload=bytes(control_message))
 
         self.net_interface.broadcast(bytes(packet))
+        self.monitor.record_sent_packet(True, False)
 
     def find_route(self, packet: ILNPPacket):
         """Finds route to an external ID"""
@@ -210,6 +212,7 @@ class RouterControlPlane(threading.Thread):
                             payload_length=control_message.size_bytes(), payload=control_message)
 
         self.net_interface.broadcast(bytes(packet))
+        self.monitor.record_sent_packet(True, False)
 
     def __handle_lsdb_message(self, packet):
         """Handles LSDB messages"""
@@ -239,9 +242,10 @@ class RouterControlPlane(threading.Thread):
             packet.decrement_hop_limit()
             if packet.hop_limit > 0:
                 self.net_interface.broadcast(bytes(packet))
+                self.monitor.record_sent_packet(True, True)
                 self.update_available = True
 
-    def __handle_expired_links(self, expired):
+    def __handle_expired_links(self, expired: List[int]):
         """Broadcasts information about lost links and removes them from our network graph"""
         for expired_node_id in expired:
             self.network_graph.remove_link(self.my_address.id, expired_node_id)
@@ -253,6 +257,7 @@ class RouterControlPlane(threading.Thread):
                             payload_length=control_message.size_bytes(), payload=control_message)
 
         self.net_interface.broadcast(bytes(packet))
+        self.monitor.record_sent_packet(True, False)
 
     def __recalculate_forwarding_table(self):
         """Recalculates next hops for the forwarding table based on the internal network graph"""
