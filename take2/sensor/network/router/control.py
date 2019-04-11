@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 NO_NEXT_HEADER_VALUE = 59
 
 # Internal Configuration
-KEEP_ALIVE_INTERVAL_SECS = 3
+KEEP_ALIVE_INTERVAL_SECS = 10
 MAX_AGE_OF_LINK = KEEP_ALIVE_INTERVAL_SECS * 3
 
 # Max lambda is given by the range of 4 bytes

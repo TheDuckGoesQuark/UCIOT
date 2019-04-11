@@ -6,8 +6,8 @@ rmdir ~/killswitch
 projectDir="/cs/home/jm354/Documents/Uni/Y4/SH/UCIOT/take2"
 
 # Remove results files
-rm "${projectDir}"/test.csv
-rm "${projectDir}"/sink_log.csv
+rm "${projectDir}"/results.csv
+rm "${projectDir}"/sink.csv
 
 # Clear log files
 for file in ${projectDir}/logs/*; do

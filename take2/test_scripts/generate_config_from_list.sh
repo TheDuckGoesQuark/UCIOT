@@ -34,8 +34,8 @@ mcast_groups=MCAST
 my_id=ID
 my_locator=LOC
 max_packet_sends=100
-sink_id=1
-interval=2
+sink_id=SINK_ID
+interval=1
 sink_log=sink.csv
 results_file=results.csv
 EOM
