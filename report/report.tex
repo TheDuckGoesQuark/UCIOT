@@ -109,7 +109,7 @@ explicitly given to others by citation or
 acknowledgement. This work was performed during
 the current academic year except where otherwise
 stated.
-The main text of this project report is 6502 words long, including project specification and plan.
+The main text of this project report is 7326 words long, including project specification and plan.
 In submitting this project report to the University of
 St Andrews, I give permission for it to be made
 available for use in accordance with the regulations of
@@ -132,7 +132,7 @@ copyright in this work.
 
 As technology is becoming smaller and cheaper, more and more everyday objects are being connected to the internet. These devices form the Internet of Things (IoT). Examples of IoT devices range from smart televisions to simple heat sensors. By adopting the standard methods of communication used by the internet, these devices are able to communicate both with computers and servers, and amongst themselves. 
 
-The latter scenario is common for environments where the devices are spread over a greater distance than a wireless router would be able to serve them all directly. When this is the case, the devices will form a wireless ad-hoc network, where each device will attempt to forward any data packets to there destination over multiple hops. The resulting wireless sensor networks (WSN) such as the one shown in figure \ref{fig:wsn}  have very different requirements to typical internet infrastructure, and so are currently a very popular area of research. 
+The latter scenario is common for environments where the devices are spread over a greater distance than a wireless router would be able to serve them all directly. When this is the case, the devices will form a wireless ad-hoc network, where each device will attempt to forward any data packets to their destination over multiple hops. The resulting wireless sensor networks (WSN) such as the one shown in figure \ref{fig:wsn}  have very different requirements to typical internet infrastructure, and so are currently a very popular area of research. 
 
 \begin{figure}[!ht]
 	\centering
@@ -175,7 +175,7 @@ Both multihoming and mobility are far simpler to implement and maintain if the i
 
 The locator value identifies the subnetwork that a host belongs to, and a host can have multiple locator values, providing multihoming as shown in figure \ref{fig:ilnpexample}. The ID part of the address is unique to the host, and provides a fixed address which can be used at the transport layer. Because of this, ILNP is well suited to WSNs. Sensors are able to change locators without any changes to their transport layer address, and routing tables can store paths to locators rather than attempting to aggregate addresses in a dynamic topology.
 
-ILNP requires some additional information to be made available via the domain name servers (DNS) in order to function at scale. Since an ID is provided at the transport layer to identify a host, DNS need to provide a locator for routing the packet to that ID. In figure \ref{fig:ilnpdns}, the steps taken to resolve an ID to a locator are shown. Though an ID is used in the example, ILNP encourages the use of fully qualified domain names (FQDNs) instead to complete the network layer abstraction. An FQDN can be resolved to a identifier and locator also.
+ILNP requires some additional information to be made available via the domain name servers (DNS) in order to function at scale. Since an ID is provided at the transport layer to identify a host, DNS need to provide a locator for routing the packet to that ID. In figure \ref{fig:ilnpdns}, the steps taken to resolve an ID to a locator are shown. Though an ID is used in the example, ILNP encourages the use of fully qualified domain names (FQDNs) instead to complete the network layer abstraction. An FQDN can be resolved to an identifier and locator also.
 
 \begin{enumerate}
 	\item Send to DNS request for the locator of the host with ID = 5
@@ -187,16 +187,16 @@ ILNP requires some additional information to be made available via the domain na
 	\item Packet arrives at destination.
 \end{enumerate}
 
-In a WSN, the extra round trip to the DNS could be wasteful if just resolving ID that are located within the WSN, and so a routing protocol would need to include a way to discover locators without the DNS.
+In a WSN, the extra round trip to the DNS could be wasteful if just resolving IDs that are located within the WSN, and so a routing protocol would need to include a way to discover locators without the DNS.
 
 \begin{figure}[!ht]
 	\centering
 	\includegraphics[width=0.6\linewidth]{images/ilnpdns}
-	\caption{Example usage of ILNP addresses. The host with ID 3 is multihomed but maintains its ID in both locators whereas IP would require two different IP addresses.}
+	\caption{The steps taken by host with ID 1 to find the locator for the host with ID 5.}
 	\label{fig:ilnpdns}
 \end{figure}
 
-Though ILNPv6 is very backwards-compatible, there are still some difficult challenges involved in its deployment. \cite{ipwithoutip} describes how the tight coupling of the C socket API and IP addresses could cause issues in some legacy applications. ILNPv6 also requires some additions to the Domain Name System (DNS) to properly support multihoming. 
+Though ILNPv6 is very backwards-compatible, there are still some difficult challenges involved in its deployment. \cite{ipwithoutip} describes how the tight coupling of the C socket API and IP addresses could cause issues in some legacy applications. 
 
 The main goal of this project is to produce a library for a prototype communication
 protocol for wireless Internet of Things (IoT) devices based on the identifier-locator approach. By providing a libary for future developers and researchers to use, the adoptation of ILNP could be accelerated. With the ability to emulate networks that use ILNP, routing protocols could be designed that optimise for the likely imminent change in addressing scheme. 
@@ -249,11 +249,11 @@ A different addressing scheme is only part of the solution required for successf
 
 \cite{hassan} classifies different routing protocols and provides a survey of protocols for each class. Routing protocols are either proactive, reactive, or hybrid. 
 
-Proactive protocols maintain knowledge of the network topology using regular flooding and beacon messages. This is acceptable for most of the internet infrastructure, but periodic messages can drain precious energy from devices that are power by battery. Since the state of links are always tested, packet delivery is more reliable, and if nodes change position a new path can be built quickly. In the current internet, OSPF is one of the most popular interior gateway protocols, and so naturally researchers tried to adapt it to wireless networks. This produced the Optimized Link State Routing (OLSR) protocol \cite{olsr} and Open Shortest Path First MANET Designated Routers (OSPF-MDR) protocol. However, in low mobility scenarios however, reactive protocols perform far better than either of these options. 
+Proactive protocols maintain knowledge of the network topology using regular flooding and beacon messages. This is acceptable for most of the internet infrastructure, but periodic messages can drain precious energy from devices that are powered by battery. Since the state of links are always tested, packet delivery is more reliable, and if nodes change position a new path can be built quickly. In the current internet, OSPF is one of the most popular interior gateway protocols, and so naturally researchers tried to adapt it to wireless networks. This produced the Optimized Link State Routing (OLSR) protocol \cite{olsr} and Open Shortest Path First MANET Designated Routers (OSPF-MDR) protocol. However, in low mobility scenarios reactive protocols perform far better than either of these options. 
 
 Reactive protocols involve only seeking out routes to destinations when one is required. Examples include AODV \cite{aodv} and DSR \cite{dsr}. These protocols were designed for mobile ad-hoc networks, and so most research involves improving them to be aware of energy availability. For example, \cite{eaodv} produced a solution that considered the mean energy of a path before choosing which route to suggest to the requesting node. This would discourage the use of paths where nodes had low energy reserves. By doing so, less route repairs need to occur, and network partions are postponed. Reactive protocols are also well suited to the wireless medium, as the lack of periodic updates reduces the chance of interference which exists with proactive protocols.
 
-In order to balance reliability and scaling with overhead, a hybrid approach can be applied. For example, \cite{cluster} use a clustering approach in order to manage resources within subsets of nodes. Since not all WSNs are homogenous, this approach can take advantage of some nodes having larger energy reserves than others by electing these nodes as the coordinator of the subnetwork. \cite{vanet} also implement a hybrid routing protocol for vehicle mobile networks which uses beacons to monitor link states between nodes to allow recovery to occur when the routes created by the proactive protocol fail. They also use GPS to help route packets when their target is in a known location. Both these implementations use IP, but grouping nodes by locator and calculating locators on GPS coordinates could be done with ILNP in a more effective way, which is why providing an emulation tool for ILNP ad-hoc networks would be beneficial to research.
+In order to balance reliability with overhead, a hybrid approach can be applied. For example, \cite{cluster} use a clustering approach in order to manage resources within subsets of nodes. Since not all WSNs are homogenous, this approach can take advantage of some nodes having larger energy reserves than others by electing these nodes as the coordinator of the subnetwork. \cite{vanet} also implement a hybrid routing protocol for vehicle mobile networks which uses beacons to monitor link states between nodes to allow recovery to occur when the routes created by the proactive protocol fail. They use GPS to help route packets when their target is in a known location. Both these implementations use IP, but grouping nodes by locator and calculating locators on GPS coordinates could be done with ILNP in a more effective way, which is why providing an emulation tool for ILNP ad-hoc networks would be beneficial to research.
 
 \pagebreak
 \section{Protocol Design} \label{protodesign}
@@ -289,20 +289,20 @@ A proactive protocol was chosen for routing within locators as it would provide 
 
 \subsection{Intra-Zone Routing Protocol}
 
-Initially, each node broadcasts its presence to its neighbours in order to learn what links were available to it using a \emph{Hello} message, containing its lambda value. 
+Initially, each node broadcasts its presence to its neighbours in order to learn what links were available to it using a \emph{Hello}. 
 
 Neighbouring nodes reply with their current link state database (LSDB) in a \emph{LSDBMessage}. This message contains the neighbouring nodes knowledge of the internal (within the locator) topology, as well as the links to external networks (other locators). Whilst still in the intiliziation phases, neighbours will flood their entire LSBs to their neighbours until no more changes are detected. At this point they can be considered initialized. This ensures that every node in the network has the same database and is aware of all other nodes in the network.
 
-The LSDB messages also provide a metric for choosing paths based on their energy levels. Each node calculates a value $\lambda$ using equation \ref{eq:lambda}, which is visualised in Figure \ref{fig:lambda}. 
+The LSDB messages also provide a metric for choosing paths based on their energy levels. Each node calculates a value $\lambda$ using equation \ref{eq:lambda} and include it in initial \emph{Hello} message, which is then included in each link description in the LSDB message so that it is propagated throughout the locator. The equation for $\lambda$ is visualised in Figure \ref{fig:lambda}. 
 
 \begin{equation} \label{eq:lambda}
 	\lambda = 1 -(1 - E)^2
 \end{equation}
 
 where $E$ is the \% battery remaining. It is based on the equation for $\lambda$ in \cite{groups}, adjusted so that $E = 0$ occurs when the battery is empty. 
-The effect of decreasing $E$ was chosen so that the value of $\lambda$ would be similiar during network initialization, and would gradually become important as the $E$ decreased.
+The effect of decreasing $E$ was chosen so that the value of $\lambda$ would be similiar during network initialization, and would gradually become important as the $E$ decreased. If the value was to change quickly, it would increase the possibility of route flapping, which is where a router will repeatedly forward packets along two seperate paths alternately.
 
-\cite{groups} also included a load balancing factor that would account for the number of neighbours a node had, and this was considered for use in the this implementation, but was not implemented.
+\cite{groups} also included a load balancing factor that would account for the number of neighbours a node had, and this was considered but was not implemented.
 
 \begin{figure}[h]
 	\centering
@@ -336,7 +336,7 @@ The effect of decreasing $E$ was chosen so that the value of $\lambda$ would be 
 	\label{fig:lambda}
 \end{figure}
 
-Nodes that exist on the border of locators will discard LSBs they receive from the locators they are not part of. They will however use these messages to learn what other locators can be reached from their neighbours, eventually providing them with next hops for all locators in the WSN.
+Nodes that exist on the border of locators will discard LSBs they receive from the locators they are not part of. They will however use these messages to learn what other locators can be reached from their neighbours, eventually providing them with next hops for all locators adjacent to theirs in the WSN.
 
 Once converged and the entire local topology is available, data packets would be routed using the following logic:
 
@@ -371,7 +371,7 @@ Whenever a link is detected as being lost due to the lack of keepalive messages 
 \begin{figure}[!ht]
 	\centering
 	\includegraphics[width=\linewidth]{images/ldb}
-	\caption{Intra-zone routing protocol process (image credit \cite{ldb}}
+	\caption{Intra-zone routing protocol process (image credit \cite{ldb})}
 	\label{fig:lsbexchange}
 \end{figure}
 
@@ -487,7 +487,7 @@ The network interface abstraction provided the following methods:
 	\item \textbf{receive}: For receiving packets, broadcast or unicast.
 \end{enumerate}
 
-A daemon thread continuously polls the network interface for incoming data. It then parses the contents of the packet and records the source IDs and source IP addresses of any neighbourhood discovery packets for later communication. Each message type has its own class with its own implementation of \emph{\_\_bytes\_\_} and \emph{from\_bytes()} which would allow them to be serialized from the arriving bytes. To reduce copying and speed up array splicing, memoryviews were used often.
+A daemon thread continuously polls the network interface for incoming data. It then parses the contents of the packet and records the source IDs and source IP addresses of any neighbourhood discovery packets for later communication. Each message type has its own class with its own implementation of \emph{\_\_bytes\_\_()} and \emph{from\_bytes()} which would allow them to be serialized from the arriving bytes. To reduce copying and speed up array splicing, \emph{memoryviews} were used often.
 
 All polling functions included a timeout in order for each thread to check if it has been asked to terminate, if for example the power levels had reached a critical level. If so, a monitor object shared between all threads would be used to trigger a clean shutdown.
 
@@ -535,7 +535,7 @@ Two experiments would be run in order to compare performance when using ILNP and
 	\item using the same locator for all nodes, which would require knowledge of the entire subnetwork in order to route correctly.
 \end{enumerate}
 
-Both extremes of the spectrum will provide identical flat addressing schemes like IP, but would behave differently under the implemented protocol. Using a locator per node basically reduce to AODV, and using a single locator would reduce to OLSR. Figure \ref{fig:spectrum} shows the effect of changing the ratio of locators to nodes.
+Both extremes of the spectrum will provide identical flat addressing schemes like IP, but would behave differently under the implemented protocol. Using a locator per node basically reduces to AODV, and using a single locator would reduce to OLSR. Figure \ref{fig:spectrum} shows the effect of changing the ratio of locators to nodes.
 
 \begin{figure}[!ht]
 	\centering
@@ -581,12 +581,6 @@ In figure \ref{fig:datasnapone}, node 19 is able to immediately send packets to 
 \noindent\textbf{Discussion and Evaluation}
 
 \noindent The results do not give much insight into differences between ILNP and IP. They also do not seem to suggest any load balancing or recovery is occuring successfully. However, from the logs it was observed that the sizes of the forwarding tables and network graphs stored by each node are very different. In ILNP, only one locator worth of adresses and a path to the sink is stored, whilst in the IP experiment, both the network graph and forwarding table are large. If the WSN was to be scaled up further, this issue would be exacerbated. The limited memory of IoT devices would place a limit on the size of the network, whilst in this implementation the forwarding table would only be affected by additional nodes within the locator. 
-
-A different approach to the experiment had been considered before using only AODV, and the source code for this will be included in the submission. Whilst that implementation did perform better overall when routing packets in the same network topology than the implementation chosen, it did not make use of the locators in ILNP. The implementation used in this submission was used instead despite being less functional due to the fact that it provided a way to compare IP and ILNP (by changing the ratio of locators to nodes). Given more time to test and debug, the protocol could potential perform very well, but the more interesting design was realised too close to the submission date which left little time for fixes. 
-
-A criticism that can be made of the chosen protocol is that its complexity made development and debugging very difficult. In order to test that it worked correctly, many scenarios had to be recreated. Since arrival times of messages would vary, finding the series of events that led to a problematic state was very time consuming. Verifying the protocol by applying exhaustive model checking would have definitely helped.
-
-It could be argued that this experiment is more a comparison of protocols rather than of the two addressing schemes. WSN protocols have already been proposed that try to organise nodes into clusters and behave very similiarly to this protocol once these clusters are established. With IP however, these protocols require their own addressing schemes which are an abstraction of the underlying IP addresses. ILNP naturally supports grouping in protocols which means this abstraction would not be necessary. By reducing the complexity, protocols become easier to verify, test, and maintain. 
 
 \begin{figure}[!ht]
     \centering
@@ -685,6 +679,25 @@ It could be argued that this experiment is more a comparison of protocols rather
     \end{minipage}
 \end{figure}
 
+A different approach to the experiment had been considered before using only AODV, and the source code for this will be included in the submission. Whilst that implementation did perform better overall when routing packets in the same network topology than the implementation chosen, it did not make use of the locators in ILNP. The implementation used in this submission was used instead despite being less functional due to the fact that it provided a way to compare IP and ILNP (by changing the ratio of locators to nodes). Given more time to test and debug, the protocol could potentially perform very well, but the more interesting design was realised too close to the submission date which left little time for fixes. 
+
+It could be argued that this experiment is more a comparison of protocols rather than of the two addressing schemes. WSN protocols have already been proposed that try to organise nodes into clusters and behave very similiarly to this protocol once these clusters are established. With IP however, these protocols require their own addressing schemes which are an abstraction of the underlying IP addresses. ILNP naturally supports grouping in protocols which means this abstraction would not be necessary. By reducing the complexity, protocols become easier to verify, test, and maintain. 
+
+Compared with a 'hot potato' routing algorithm, where packets are simply forwarded to a random next hop other than the one they arrived on, the algorithm should perform better since packets are at least directed towards the sink without loops. Whilst this is a low bar to set for a routing algorithm, it is a useful heuristic for determining if the complexity of a zoned routing protocol is actually beneficial.
+
+\begin{figure}[!ht]
+	\centering
+	\includegraphics[width=\textwidth]{images/bad} 
+	\caption{Node A wants a path to node B, and would likely consider the path through the upper locator since that link would bring it one locator closer to its destination, whilst the alternative requires another internal hop. Symbols have same meaning as in figure \ref{fig:layout}}
+	\label{fig:bad}
+\end{figure}
+
+A criticism that can be made of the chosen protocol is that its complexity made development and debugging very difficult. In order to test that it worked correctly, many scenarios had to be recreated. Since arrival times of messages would vary, finding the series of events that led to a problematic state was very time consuming. Verifying the protocol by applying exhaustive model checking would have definitely helped.
+
+The protocol also may not perform well when locators do not have similiar structures. Figure \ref{fig:bad} provides an example of how not being aware of the topology within neighbouring locators could result in very ineffecient routing paths.
+
+Security was not considered at all when desigining this protocol, which definitely makes it unsuitable for many situations. It relies heavily on all control messages being legitimate and on the honesty of nodes regarding their ability to forward traffic. For example, if a node with plentiful energy wished to process less network traffic, it could advertise itself as having low energy reserves and be the least likely candidate for forwarding. Any host could also reply to all route requests it sees with a path to a locator it wishes to drain of resources. 
+
 \FloatBarrier
 \pagebreak
 \section{Conclusion}
@@ -693,9 +706,7 @@ Overall, the project was able to meet two of the original four goals. ILNP addre
 
 Future work that could improve the robustness of the protocol would be to handle the situations where a network partition occurs within a locator. One possible solution would be to allow locators to form dynamically. The implementation used originally featured a mechanism for 'joining' a locator instead of having them statically assigned as in the experiment. By identifying the central node within a locator and setting a maximum radius for each locator, partions within locators could be resolved by both sides of the split attempting to merge with the surrounding locators. This was scrapped from the project due to a shortage of time, but attempts can be found in the version control history.
 
-Security was not considered at all when desigining this protocol, which definitely makes it unsuitable for many situations. It relies heavily on all control messages being legitimate and on the honesty of nodes regarding the ability to forward traffic. For example, if a node with plentiful energy wished to process less network traffic, it could advertise itself as having low energy reserves and be the least likely candidate for forwarding.
-
-The project sufferred due to taking too long to settle on a design, but the process of considering and attempting different variations on ad-hoc routing protocols was very educational. Whilst disappointed that I was not able to get a fully working prototype, the opportunity to work on and resesearch the potential future of the internet proved very interesting.
+The project suffered due to taking too long to settle on a design, but the process of considering and attempting different variations on ad-hoc routing protocols was very educational, and has greatly strenghthened my understanding of networks. Whilst disappointed that I was not able to get a fully working prototype, the opportunity to work on and resesearch the potential future of the internet proved very interesting and enjoyable.
 
 \pagebreak
 \section{Appendix}
