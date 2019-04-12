@@ -3,7 +3,6 @@ import threading
 import time
 from typing import Dict, List
 
-from sensor import packetmonitor
 from sensor.battery import Battery
 from sensor.network.router.interzone import ExternalRequestHandler
 from sensor.network.router.ilnp import ILNPAddress, ILNPPacket, ALL_LINK_LOCAL_NODES_ADDRESS
@@ -19,8 +18,8 @@ logger = logging.getLogger(__name__)
 NO_NEXT_HEADER_VALUE = 59
 
 # Internal Configuration
-KEEP_ALIVE_INTERVAL_SECS = 10
-MAX_AGE_OF_LINK = KEEP_ALIVE_INTERVAL_SECS * 3
+KEEP_ALIVE_INTERVAL_SECS = 20
+MAX_AGE_OF_LINK = KEEP_ALIVE_INTERVAL_SECS * 2
 
 # Max lambda is given by the range of 4 bytes
 MAX_LAMBDA = (2 ** (4 * 8)) - 1
@@ -114,6 +113,8 @@ class RouterControlPlane(threading.Thread):
                 self.__handle_expired_links(expired)
                 self.update_available = True
 
+            self.external_request_handler.maintenance()
+
             if self.update_available:
                 self.__recalculate_forwarding_table()
 
@@ -144,6 +145,9 @@ class RouterControlPlane(threading.Thread):
 
     def handle_control_packet(self, packet: ILNPPacket):
         control_type = packet.payload.header.payload_type
+
+        if packet.src.id == self.my_address.id:
+            return
 
         if control_type is Hello.TYPE:
             logger.info("Received hello message!: {}".format(str(packet.payload)))
@@ -224,7 +228,7 @@ class RouterControlPlane(threading.Thread):
             self.__broadcast_lsdb()
             self.update_available = True
         else:
-            logger.info("No new information. Discarding")
+            logger.info("No new information or describes other locator. Discarding")
 
     def __handle_expired_link_list_message(self, packet: ILNPPacket):
         if packet.src.loc != self.my_address.loc:
@@ -262,3 +266,4 @@ class RouterControlPlane(threading.Thread):
         """Recalculates next hops for the forwarding table based on the internal network graph"""
         logger.info("Recalculating forwarding table")
         update_forwarding_table(self.network_graph, self.my_address.id, self.forwarding_table)
+        self.external_request_handler.add_external_paths_to_forwarding_table(self.forwarding_table)

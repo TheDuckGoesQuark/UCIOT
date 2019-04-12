@@ -38,8 +38,6 @@ class Sensor:
         else:
             self.run_as_sensor()
 
-        self.stop()
-
     def run_as_sensor(self):
         logger.info("Giving network a chance to initialize")
         sleep(5)
@@ -52,6 +50,7 @@ class Sensor:
                 logger.warning("Terminating: " + str(e))
                 self.monitor.running = False
 
+        self.stop()
         self.monitor.save()
 
     def run_as_sink(self):
@@ -67,6 +66,19 @@ class Sensor:
             except Exception as e:
                 logger.warning("Terminating: " + str(e))
                 self.monitor.running = False
+
+        self.stop()
+        logger.info("Reading remaining packets")
+        while self.socket.has_data():
+            try:
+                data_bytes, source_id = self.socket.receive_from(self.interval)
+                if data_bytes is not None:
+                    sensor_reading = SensorReading.from_bytes(data_bytes)
+                    sink_log.record_reading(sensor_reading)
+                    logger.info("Received reading {} from {}".format(sensor_reading, source_id))
+            except Exception as e:
+                logger.warning("Terminating: " + str(e))
+                break
 
         sink_log.save()
 

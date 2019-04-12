@@ -13,6 +13,8 @@ from sensor.packetmonitor import Monitor
 logger = logging.getLogger(__name__)
 
 NUM_REQUESTS_TO_REMEMBER = 15
+AGE_UNTIL_RETRY = 3
+MAX_RETRIES = 3
 
 
 class RecentlySeenRequests:
@@ -303,13 +305,16 @@ class ExternalRequestHandler:
         header = ControlHeader(reply.TYPE, reply.size_bytes())
         message = ControlMessage(header, reply)
         reply_packet = ILNPPacket(self.my_address, dest_address, payload_length=message.size_bytes(),
-                                  payload=bytes(message))
+                                  payload=message)
         # Next hop is either in my locator, neighbour locator , or hop before my locator
         if dest_address.loc == self.my_address.loc:
+            logger.info("Next hop is in my locator")
             self.net_interface.send(bytes(reply_packet),
                                     self.forwarding_table.find_next_hop_for_local_node(dest_address.id))
         else:
+            logger.info("Next hop is in other locator")
             next_hop_locator = path[len(path) - 2] if len(path) > 1 else dest_address.loc
+            logger.info("Next hop locator is {}".format(next_hop_locator))
             self.net_interface.send(bytes(reply_packet),
                                     self.forwarding_table.find_next_hop_for_locator(next_hop_locator))
 
@@ -333,10 +338,9 @@ class ExternalRequestHandler:
             self.net_interface.send(bytes(packet), self.forwarding_table.find_next_hop_for_locator(path[len(path) - 1]))
             self.monitor.record_sent_packet(True, True)
         else:
-            # Get all neighbour locators not already in path
+            # Get all neighbour locators not already in path and not the original source
             unvisited_neighbours = [locator for locator in self.forwarding_table.next_hop_to_locator.keys()
-                                    if locator not in path]
-
+                                    if locator not in path and locator != packet.src.loc]
             # Forward packet to each neighbour locator
             if len(unvisited_neighbours) > 0:
                 extend_route_request(packet)
@@ -432,3 +436,46 @@ class ExternalRequestHandler:
     def handle_locator_link_error(self, packet: ILNPPacket):
         logger.info("Handling locator link error")
         pass
+
+    def maintenance(self):
+        """Runs maintenance tasks like retries"""
+        for destination, request in self.current_requests.records.items():
+            request.increment_time_since_last_attempt()
+
+        old_request_destinations = self.current_requests.get_destination_ids_with_requests_older_than(AGE_UNTIL_RETRY)
+        expired = []
+        for destination in old_request_destinations:
+            logger.info("Considering retrying {}".format(destination))
+            request = self.current_requests.get_destination_request(destination)
+            if request.num_attempts == MAX_RETRIES:
+                logger.info("Giving up on {}".format(destination))
+                expired.append(destination)
+            else:
+                if len(self.forwarding_table.next_hop_to_locator) == 0:
+                    logger.info("No neighbour locators to send destination request to.")
+                    logger.info("Discarding.")
+                    return None
+
+                request_id = next(self.request_id_generator)
+                for locator, next_hop in self.forwarding_table.next_hop_to_locator.items():
+                    request_packet: ILNPPacket = self.__build_rreq(request_id, destination, locator)
+                    self.net_interface.send(bytes(request_packet), next_hop)
+                    self.monitor.record_sent_packet(True, False)
+
+                self.current_requests.record_retried_request(destination, request_id)
+
+        for destination in expired:
+            self.current_requests.remove_request_for_destination(destination)
+
+        for destination, request in self.current_requests.records.items():
+            request.increment_time_since_last_attempt()
+
+    def add_external_paths_to_forwarding_table(self, forwarding_table: ForwardingTable):
+        """Adds next hops for all destinations known"""
+        for dest_id, paths in self.path_cache.destination_to_paths.items():
+            main_path = paths[0]
+            dest_locator = main_path[len(main_path)-1]
+            forwarding_table.record_locator_for_id(dest_id, dest_locator)
+            # Find next hop id to locator by finding next hop to first locator in list
+            next_hop_id = self.forwarding_table.find_next_hop_for_locator(main_path[0])
+            self.forwarding_table.add_external_entry(dest_locator, next_hop_id)

@@ -84,6 +84,20 @@ class IncomingMessageParserThread(threading.Thread):
 
         logger.info("Packet parser thread finished executing")
 
+    def read_remaining_packets(self):
+        """Read from network interface until no packets left"""
+        logger.info("Reading remaining packets from interface")
+        packets_remain = True
+        while packets_remain:
+            try:
+                received = self.net_interface.receive(SECONDS_BETWEEN_SHUTDOWN_CHECKS)
+                data = received[0]
+                packet = parse_packet(data)
+                logger.info("Saved a packet")
+                self.packet_queue.put(packet)
+            except Exception:
+                packets_remain = None
+
 
 class Router(threading.Thread):
     """
@@ -150,11 +164,24 @@ class Router(threading.Thread):
 
         self.packet_queue.put(packet)
 
+    def has_packets(self):
+        return not self.arrived_data_queue.empty()
+
     def receive_from(self, blocking=True, timeout=None) -> Tuple[Optional[bytes], Optional[int]]:
         try:
             return self.arrived_data_queue.get(blocking, timeout)
         except Empty as e:
             return None, None
+
+    def read_remaining_data_packets(self):
+        """Reads through packet queue to get all packets for me, discarding everything else"""
+        logger.info("Reading buffered packets")
+        self.incoming_message_thread.read_remaining_packets()
+        if not self.packet_queue.empty():
+            while not self.packet_queue.empty():
+                packet = self.packet_queue.get()
+                if not packet.payload.is_control_message():
+                    self.handle_data_packet(packet, attempt_forward=False)
 
     def run(self) -> None:
         """Initializes locator then begins regular processing"""
@@ -174,6 +201,7 @@ class Router(threading.Thread):
 
                 logger.info("Something has arrived from {}".format(packet.src.id))
                 self.handle_packet(packet)
+                number_of_quiet_periods = 0
             except Empty as e:
                 number_of_quiet_periods += 1
             except IOError as e:
@@ -183,12 +211,15 @@ class Router(threading.Thread):
         self.monitor.running = False
         logger.info("Router thread finished executing.")
 
-    def handle_data_packet(self, packet: ILNPPacket):
+    def handle_data_packet(self, packet: ILNPPacket, attempt_forward=True):
         """Attempt basic routing of packet using available resources"""
         logger.info("Handling data packet")
         if packet.dest.id == self.my_address.id:
             logger.info("Packet for me, adding to received queue <3")
             self.arrived_data_queue.put((packet.payload.body, packet.src.id))
+            return
+
+        if not attempt_forward:
             return
 
         # Locator discovery might be necessary for packets coming from me
@@ -224,3 +255,4 @@ class Router(threading.Thread):
             self.control_plane.handle_control_packet(packet)
         else:
             self.handle_data_packet(packet)
+

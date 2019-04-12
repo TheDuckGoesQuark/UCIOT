@@ -33,9 +33,9 @@ loopback=False
 mcast_groups=MCAST
 my_id=ID
 my_locator=LOC
-max_packet_sends=100
+max_packet_sends=300
 sink_id=SINK_ID
-interval=1
+interval=5
 sink_log=sink.csv
 results_file=results.csv
 EOM

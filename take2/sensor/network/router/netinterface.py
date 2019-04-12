@@ -113,9 +113,6 @@ class NetworkInterface:
         :return: received bytes and origin ipv6 address as two element tuple
         :raises TimeoutError
         """
-        if self.battery.remaining() <= 0:
-            self.handle_battery_failure()
-
         # Select provides timeout to socket polling
         try:
             ready, _, _ = select.select([self.sock], [], [], timeout)
@@ -129,6 +126,7 @@ class NetworkInterface:
 
             return buffer[:n_bytes_read], src_ipv6_addr
         except ValueError:
+            logger.info("Nothing left to read from socket")
             self.close()
 
     def close(self):

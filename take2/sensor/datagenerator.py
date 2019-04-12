@@ -125,6 +125,8 @@ class SinkLog:
                 writer.writerow([sensor_reading.origin_id, sensor_reading.temperature, sensor_reading.humidity,
                                  sensor_reading.pressure, sensor_reading.luminosity])
 
+            writer.writerow([time.time()])
+
             # Unlock
             logger.debug("Unlocking file")
             fcntl.flock(csv_file, fcntl.LOCK_UN)
