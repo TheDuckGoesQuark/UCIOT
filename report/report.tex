@@ -100,7 +100,7 @@
 
 \part*{Abstract}
 
-This project provides an implementation of a wireless ad-hoc sensor network, using ILNP as an addressing scheme. It focuses on an agricultural scenario, where groups of sensors are able to monitor and manage their local environment, whilst also providing data to a sink node for more in depth analysis. A zoning approach was taken to route data through the WSN, where subnetworks were created within the WSN in order to provide energy effecient routing with low memory and communication overhead. Finally, an experiment is carried out to show how effective the protocol is when using ILNP and IP as an addressing scheme, and also evaluates the effectiveness of the protocol along. The results showed that a protocol utilizing the locators in ILNP can reduce the amount of network knowledge required for effective communication.
+This project provides an implementation of a wireless ad-hoc sensor network, using ILNP as an addressing scheme. It focuses on an agricultural scenario, where groups of sensors are able to monitor and manage their local environment, whilst also providing data to a sink node for more in depth analysis. A zoning approach was taken to route data through the WSN, where subnetworks were created within the WSN in order to provide energy effecient routing with low memory and communication overhead. Finally, an experiment is carried out to show how effective the protocol is when using ILNP and IP as an addressing scheme, and the effectiveness of the protocol overall. The results showed that a protocol utilizing the locators-identifier split in ILNP can reduce the amount of network knowledge required for effective communication dramatically.
 
 \part*{Declaration}
 I declare that the material submitted for
@@ -166,7 +166,35 @@ Given the difficulty involved in migrating from IPv4 to IPv6, it is very doubtfu
 
 Both multihoming and mobility are far simpler to implement and maintain if the identity and topological locator of a host are separated, and this is how the Identifier-Locator Network Protocol functions. \cite{5586444} proposes ILNPv6, which implement ILNP with the same address space as IPv6 and the same packet structure as IPv6, but with different semantics for interpreting the addresses. ILNPv6 splits the original 128-bits used for an IPv6 address into two 64-bit fields: the upper bits representing the locator and the lower 64 bits representing the identifier (figure \ref{fig:addresses}). The version field in the IP header is used to differentiate between ILNPv6 and IPv6 packets, and routers that don't support ILNP can interpret the packets as IP without any issue. 
 
-The locator value identifies the subnetwork that a host belongs to, and a host can have multiple locator values, providing multihoming. The ID part of the address is unique to the host, and provides a fixed address which can be used at the transport layer. Because of this, ILNP is well suited to WSNs. Sensors are able to change locators without any changes to their transport layer address, and routing tables can store paths to locators rather than attempting to aggregate addresses in a dynamic topology.
+\begin{figure}[!ht]
+	\centering
+	\includegraphics[width=0.6\linewidth]{images/ilnpexample}
+	\caption{Example usage of ILNP addresses. The host with ID 3 is multihomed but maintains its ID in both locators whereas IP would require two different IP addresses.}
+	\label{fig:ilnpexample}
+\end{figure}
+
+The locator value identifies the subnetwork that a host belongs to, and a host can have multiple locator values, providing multihoming as shown in figure \ref{fig:ilnpexample}. The ID part of the address is unique to the host, and provides a fixed address which can be used at the transport layer. Because of this, ILNP is well suited to WSNs. Sensors are able to change locators without any changes to their transport layer address, and routing tables can store paths to locators rather than attempting to aggregate addresses in a dynamic topology.
+
+ILNP requires some additional information to be made available via the domain name servers (DNS) in order to function at scale. Since an ID is provided at the transport layer to identify a host, DNS need to provide a locator for routing the packet to that ID. In figure \ref{fig:ilnpdns}, the steps taken to resolve an ID to a locator are shown. Though an ID is used in the example, ILNP encourages the use of fully qualified domain names (FQDNs) instead to complete the network layer abstraction. An FQDN can be resolved to a identifier and locator also.
+
+\begin{enumerate}
+	\item Send to DNS request for the locator of the host with ID = 5
+	\item Router forwards request to DNS (or replies from cache)
+	\item DNS responds with the locator for ID 5. If the end host is multihomed it can reply with multiple locators and a preference value.
+	\item Router forwards reply to requesting host.
+	\item Host is now able to construct the ILNP packet and send to the destination.
+	\item Router uses the locator to determine where to forward the packet.
+	\item Packet arrives at destination.
+\end{enumerate}
+
+In a WSN, the extra round trip to the DNS could be wasteful if just resolving ID that are located within the WSN, and so a routing protocol would need to include a way to discover locators without the DNS.
+
+\begin{figure}[!ht]
+	\centering
+	\includegraphics[width=0.6\linewidth]{images/ilnpdns}
+	\caption{Example usage of ILNP addresses. The host with ID 3 is multihomed but maintains its ID in both locators whereas IP would require two different IP addresses.}
+	\label{fig:ilnpdns}
+\end{figure}
 
 Though ILNPv6 is very backwards-compatible, there are still some difficult challenges involved in its deployment. \cite{ipwithoutip} describes how the tight coupling of the C socket API and IP addresses could cause issues in some legacy applications. ILNPv6 also requires some additions to the Domain Name System (DNS) to properly support multihoming. 
 
@@ -550,7 +578,7 @@ In figure \ref{fig:datasnapone}, node 19 is able to immediately send packets to 
 \noindent Figures \ref{fig:ipdatasnapone} to \ref{fig:ipctrlsnapthree} show very different traffic patterns to the ILNP experiment. The control traffic in each snapshot is fairly consistent due to the keepalives, though in the first snapshot the distribution of LSDB messages is not even. Data packets are being sent by each node but mostly for three individual nodes. These abnormal peaks in traffic are likely due to implementation error.
 
 \medskip
-\noindent\textbf{Discussion}
+\noindent\textbf{Discussion and Evaluation}
 
 \noindent The results do not give much insight into differences between ILNP and IP. They also do not seem to suggest any load balancing or recovery is occuring successfully. However, from the logs it was observed that the sizes of the forwarding tables and network graphs stored by each node are very different. In ILNP, only one locator worth of adresses and a path to the sink is stored, whilst in the IP experiment, both the network graph and forwarding table are large. If the WSN was to be scaled up further, this issue would be exacerbated. The limited memory of IoT devices would place a limit on the size of the network, whilst in this implementation the forwarding table would only be affected by additional nodes within the locator. 
 
