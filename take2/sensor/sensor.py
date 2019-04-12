@@ -33,14 +33,14 @@ class Sensor:
 
     def start(self):
         logger.info("Starting")
+        logger.info("Giving network a chance to initialize")
+        sleep(5)
         if self.is_sink:
             self.run_as_sink()
         else:
             self.run_as_sensor()
 
     def run_as_sensor(self):
-        logger.info("Giving network a chance to initialize")
-        sleep(5)
         while self.monitor.running and not self.socket.is_closed() and not killswitch_engaged():
             sleep(self.interval)
             try:

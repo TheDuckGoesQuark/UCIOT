@@ -130,19 +130,40 @@ copyright in this work.
 
 \section{Introduction}
 
-Despite the imminent exhaustion of IPv4 addresses \cite{ripe_labs}, IPv6 is still being adopted slowly \cite{google_ipv6}. Brittle solutions such as NAT are being used to expand the IPv4 address space and to avoid the transition costs involved in upgrading to IPv6. Whilst IPv6 does expand the address space greatly and introduces functionality such as multicast, the internet protocol has more intrinsic issues. The initial design for the infrastructure of the internet did not account for level of mobility that is common with network capable devices nowadays, and the attempts to retrospectively include support for such features have resulted in an incredibly complex system made of incompatible components. 
+As technology is becoming smaller and cheaper, more and more everyday objects are being connected to the internet. These devices form the Internet of Things (IoT). Examples of IoT devices range from smart televisions to simple heat sensors. By adopting the standard methods of communication used by the internet, these devices are able to communicate both with computers and servers, and amongst themselves. 
 
-IP addresses are used both to identify a system and to determine its topological location. \cite{briancarpenter2014} lists several of the downsides to this overloading of IP addresses, and why the protocol was still adopted despite them.
+The latter scenario is common for environments where the devices are spread over a greater distance than a wireless router would be able to serve them all directly. When this is the case, the devices will form a wireless ad-hoc network, where each device will attempt to forward any data packets to there destination over multiple hops. The resulting wireless sensor networks (WSN) such as the one shown in figure \ref{fig:wsn}  have very different requirements to typical internet infrastructure, and so are currently a very popular area of research. 
+
+\begin{figure}[!ht]
+	\centering
+	\includegraphics[width=\linewidth]{images/wsn}
+	\caption{On the left are IoT devices connecting directly with a dedicated router, and on the right the IoT devices form a WSN in order to reach the router.}
+	\label{fig:wsn}
+\end{figure}
+
+IoT devices are often restricted by battery life, memory, and computational capabilities. This makes reducing communication overhead and the amount of bookkeeping the main goals for most routing protocols in WSNs. However, most IP routing protocols focus on finding the shortest route between a source and destination, which often results in a small number of paths being heavily used and so some nodes are especially drained due to processing and forwarding of packets. WSNs also experience more mobility than wired networks, which requires more update messages to be flooded throughout in order for packets to be routed correctly. This can result in a network partion once crucial nodes fail (due to loss of battery), rendering a section of still operational nodes useless. An approach to routing and addressing that reduced the networking overhead and attempted to balance traffic across several paths would allow IoT networks to remain operational for longer. 
+
+IPv4 is currently still the most used addressing scheme, and despite the imminent exhaustion of IPv4 addresses \cite{ripe_labs}, IPv6 is being adopted slowly \cite{google_ipv6}. One of the main issues with IP addresses is the fact that they are used to both identify a system and to determine its topological location. \cite{briancarpenter2014} lists several of the downsides to this overloading of IP addresses, and why the protocol was still adopted despite them. 
+For the variety of topologies and dynamic nature of WSNs, this overloading causes many issues. Usually when using IP, routers are able to perform address aggregation to reduce how many addresses they have to record for forwarding purposes. But in cellular networks like those used by mobile phones for example, the path to the devices that packets need to take is constantly changing, and so mechanisms such as network address translation (NAT) and complex protocols such as Mobile IP need to be implemented.
+
+Because the topological location and identification of devices are intertwined, 
 
 The separation of concerns that should be achieved by a layered model is not possible, since the IP address is used by each layer in some way. IP addresses can be used in the application layer, and are bound to physical network interfaces, which goes against the end-to-end argument where each layer should provide a opaque abstraction to those above it.
 
+
+
 The issues with IP are not just semantic. Due to the overloading of the IP address and the rapid increase in internet connected devices \cite{iot_stat}, the scalability of the system is being challenged. Implementations of multipath routing with the intention of balancing load is improving network performance for the operators that use them, but with IP it places greater stress on the default-free zone (DFZ) routing information base (RIB). Multihoming is also being used to improve reliability, but with IP this requires routing entries to store multiple addresses for one host. An IAB workshop \cite{rfc4984} detailed how the DFZ RIB databases are growing in size exponentially due to the increasing number of devices and an inability to aggregate address prefixes. With IPv6 allowing for an even larger address space, this problem will only get worse. 
 
-As the number of Internet of Things (IoT) devices grows, mobility is also becoming a necessary feature for a networking protocol. Mobile IP currently requires another entity (a home agent) to track and proxy packets to the mobile host as it moves from network to network. This mobility is also problematic for IPSec, which requires that the end system addresses remain fixed.
+As the number of Internet of Things (IoT) devices grow, mobility in particular is becoming an especially necessary feature for a networking protocol. Mobile IP currently requires another entity (a home agent) to track and proxy packets to the mobile host as it moves from network to network. This mobility is also problematic for IPSec, which requires that the end system addresses remain fixed. 
 
-IoT devices are often restricted by limited battery life, memory, and computational capabilities. Most IP routing protocols focus on finding the shortest route between a source and destination, which often results in a small number of paths being heavily used and so some nodes are especially drained due to processing and forwarding of packets. Mobility of nodes also requires more update messages to be flooded throughout networks. This can result in a network partion once crucial nodes fail (due to loss of battery), rendering a section of still operational nodes useless. A different approach to routing and addressing that reduced the networking overhead and attempted to balance traffic across several paths would allow IoT networks to remain operational for longer. 
+Given the difficulty involved in simply migrating from IPv4 to IPv6, it is very doubtful that introducing an entirely different protocol for the internet would be successful. A backwards compatible solution would likely be the only solution that would be adopted within a reasonable time frame. 
 
-Given the difficulty involved in simply migrating from IPv4 to IPv6, it is very doubtful that introducing an entirely different protocol for the internet would be successful. A backwards compatible solution would likely be the only solution that would be adopted within a reasonable time frame.
+\begin{figure}[!ht]
+	\centering
+	\includegraphics[width=\linewidth]{images/addresses}
+	\caption{}
+	\label{fig:addresses}
+\end{figure}
 
 Both multihoming and mobility are far simpler to implement and maintain if the identity and topological locator of a host are separated, and this is how the Identifier-Locator Network Protocol functions. \cite{5586444} proposes ILNPv6, which implement ILNP with the same address space as IPv6 and the same packet structure as IPv6, but with different semantics for interpreting the addresses. ILNPv6 splits the original 128-bits used for an IPv6 address into two 64-bit fields: the upper bits representing the locator and the lower 64 bits representing the identifier. The version field in the IP header is used to differentiate between ILNPv6 and IPv6 packets, and routers that don't support ILNP can interpret the packets as IP without any issue. 
 

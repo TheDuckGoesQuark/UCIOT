@@ -349,7 +349,7 @@ TYPE_TO_CLASS: Dict[int, Serializable] = {
 
 
 class ControlHeader(Serializable):
-    FORMAT = "!BB2x"
+    FORMAT = "!BxH"
     SIZE = struct.calcsize(FORMAT)
 
     def __init__(self, payload_type: int, payload_length: int):

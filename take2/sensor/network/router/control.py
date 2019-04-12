@@ -98,7 +98,8 @@ class RouterControlPlane(threading.Thread):
             time.sleep(KEEP_ALIVE_INTERVAL_SECS)
             try:
                 self.__send_keepalive()
-            except Exception:
+            except Exception as e:
+                logger.info(str(e))
                 self.monitor.running = False
 
             self.neighbours.age_neighbours()

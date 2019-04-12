@@ -66,7 +66,6 @@ class IncomingMessageParserThread(threading.Thread):
             try:
                 received = self.net_interface.receive(SECONDS_BETWEEN_SHUTDOWN_CHECKS)
             except Exception:
-                self.monitor.running = False
                 received = None
 
             if received is None:
@@ -191,7 +190,8 @@ class Router(threading.Thread):
         logger.info("Beginning regular processing")
         number_of_quiet_periods = 0
         while self.monitor.running:
-            if self.net_interface.is_closed() or number_of_quiet_periods > 5:
+            if self.net_interface.is_closed() or number_of_quiet_periods > 20:
+                logger.info("Shutting down: {}, {}".format(self.net_interface.is_closed(), number_of_quiet_periods > 20))
                 self.monitor.running = False
                 continue
 
@@ -200,8 +200,8 @@ class Router(threading.Thread):
                 self.forwarding_table.record_locator_for_id(packet.src.id, packet.src.loc)
 
                 logger.info("Something has arrived from {}".format(packet.src.id))
-                self.handle_packet(packet)
                 number_of_quiet_periods = 0
+                self.handle_packet(packet)
             except Empty as e:
                 number_of_quiet_periods += 1
             except IOError as e:

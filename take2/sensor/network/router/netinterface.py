@@ -75,11 +75,16 @@ class NetworkInterface:
         if self.battery.remaining() <= 0:
             self.handle_battery_failure()
 
-        ip_next_hop = self.id_to_ipv6[next_hop_id]
+        try:
+            ip_next_hop = self.id_to_ipv6[next_hop_id]
 
-        logger.info("Sending to {} ({})".format(next_hop_id, ip_next_hop))
-        self.sock.sendto(bytes_to_send, (ip_next_hop, self.port))
-        self.battery.decrement()
+            logger.info("Sending to {} ({})".format(next_hop_id, ip_next_hop))
+            self.sock.sendto(bytes_to_send, (ip_next_hop, self.port))
+            self.battery.decrement()
+        except Exception as e:
+            logger.info("Something went wrong when trying to send to {}".format(next_hop_id))
+            logger.info(str(e))
+
 
     def broadcast(self, bytes_to_send: bytes):
         """
