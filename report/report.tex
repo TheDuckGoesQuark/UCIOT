@@ -100,7 +100,7 @@
 
 \part*{Abstract}
 
-This project provides an implementation of a wireless ad-hoc sensor network, using ILNP as an addressing scheme. It focuses on an agricultural scenario, where groups of sensors are able to monitor and manage their local environment, whilst also providing data to a sink node for more in depth analysis. A zoning approach was taken to route data through the WSN, where subnetworks were created within the WSN in order to provide energy effecient routing with low memory and communication overhead. Finally, an experiment is carried out to show how effective the protocol is when using ILNP and IP as an addressing scheme, and also evaluates the effectiveness of the protocol along. The results showed that ...
+This project provides an implementation of a wireless ad-hoc sensor network, using ILNP as an addressing scheme. It focuses on an agricultural scenario, where groups of sensors are able to monitor and manage their local environment, whilst also providing data to a sink node for more in depth analysis. A zoning approach was taken to route data through the WSN, where subnetworks were created within the WSN in order to provide energy effecient routing with low memory and communication overhead. Finally, an experiment is carried out to show how effective the protocol is when using ILNP and IP as an addressing scheme, and also evaluates the effectiveness of the protocol along. The results showed that a protocol utilizing the locators in ILNP can reduce the amount of network knowledge required for effective communication.
 
 \part*{Declaration}
 I declare that the material submitted for
@@ -109,8 +109,7 @@ explicitly given to others by citation or
 acknowledgement. This work was performed during
 the current academic year except where otherwise
 stated.
-The main text of this project report is \#TODO NN,NNN
-words long, including project specification and plan.
+The main text of this project report is 6502 words long, including project specification and plan.
 In submitting this project report to the University of
 St Andrews, I give permission for it to be made
 available for use in accordance with the regulations of
@@ -429,7 +428,14 @@ Any packets that were sent between the failure of the link and the receiving of 
 
 Due to the recency of ILNPv6, there does not currently exist software for emulating wireless ILNP networks as there is for IP, therefore a custom testbed had to be implemented.  
 
-The testing environment was implemented using Python 3.7. The project has three main components: The wireless network emulation, routing and network management, and sensor emulation. 
+The testing environment was implemented using Python 3.7. The project has three main components: The wireless network emulation, routing and network management, and sensor emulation. Figure \ref{fig:layers} shows how each of these components correspond to a section in the network model.
+
+\begin{figure}[!ht]
+	\centering
+	\includegraphics[width=0.7\linewidth]{images/layers}
+	\caption{Structure of project with regards to the network model.}
+	\label{fig:layers}
+\end{figure}
 
 \subsection{Wireless Network Emulation}
 
@@ -552,6 +558,8 @@ A different approach to the experiment had been considered before using only AOD
 
 A criticism that can be made of the chosen protocol is that its complexity made development and debugging very difficult. In order to test that it worked correctly, many scenarios had to be recreated. Since arrival times of messages would vary, finding the series of events that led to a problematic state was very time consuming. Verifying the protocol by applying exhaustive model checking would have definitely helped.
 
+It could be argued that this experiment is more a comparison of protocols rather than of the two addressing schemes. WSN protocols have already been proposed that try to organise nodes into clusters and behave very similiarly to this protocol once these clusters are established. With IP however, these protocols require their own addressing schemes which are an abstraction of the underlying IP addresses. ILNP naturally supports grouping in protocols which means this abstraction would not be necessary. By reducing the complexity, protocols become easier to verify, test, and maintain. 
+
 \begin{figure}[!ht]
     \centering
     \begin{minipage}{0.45\textwidth}
@@ -651,15 +659,15 @@ A criticism that can be made of the chosen protocol is that its complexity made 
 
 \FloatBarrier
 \pagebreak
-\section{Conclusions}
+\section{Conclusion}
 
-Discuss how global AODV was originally considered, but discarded since it didn't take full advantage of ILNP.
+Overall, the project was able to meet two of the original four goals. ILNP addressing was adopted successfully, and a protocol optimized for IoT devices was implemented. Due to issues with the end product, the experiments were not particularly useful for comparing ILNP and IP, but did allow for some discussion. ILNP required far less knowledge of the global networks state compared to IP, which could potentially allow WSNs using it to scale further than when using IP. 
 
-Possible mercy message to send from nodes under heavy load to try and request downstream nodes to use different paths, rather than outright route errors.
+Future work that could improve the robustness of the protocol would be to handle the situations where a network partition occurs within a locator. One possible solution would be to allow locators to form dynamically. The implementation used originally featured a mechanism for 'joining' a locator instead of having them statically assigned as in the experiment. By identifying the central node within a locator and setting a maximum radius for each locator, partions within locators could be resolved by both sides of the split attempting to merge with the surrounding locators. This was scrapped from the project due to a shortage of time, but attempts can be found in the version control history.
 
-was the goal met, and if so how well?
+Security was not considered at all when desigining this protocol, which definitely makes it unsuitable for many situations. It relies heavily on all control messages being limited, and on the honesty of nodes. For example, if a node with plentiful energy wished to process less network traffic, it could advertise itself as having low energy reserves and be the least likely candidate for forwarding.
 
-future work with ILNP, possible suggestions of better alternatives to the routing protocol used.
+The project sufferred due to taking too long to settle on a design, but the process of considering and attempting different variations on ad-hoc routing protocols was very educational.
 
 \pagebreak
 \section{Appendix}
