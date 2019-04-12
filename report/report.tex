@@ -26,6 +26,7 @@
 \usepackage{color}
 \usepackage[explicit]{titlesec}
 \usepackage[hyphens,spaces,obeyspaces]{url}
+\usepackage{listings}
 \usepackage{graphicx}
 \usepackage{grffile}
 \usepackage{placeins}
@@ -464,6 +465,8 @@ The control plane handles any control packets or any packets that can't be forwa
 
 The interzone module provides the handler methods for the inter-zone routing protocol. It buffers packets waiting for a route reply for a given destination and handles the forwarding and processing of any inter-zone protocol messages.
 
+The ILNPPacket class when serialized is identical to that from the ILNPv6 RFC. In order to differentiate between control packets and data packets, the payload of the ILNPPacket would be wrapped in a ControlMessage class. Typically control packets and data packets would arrive on seperate ports, but this was not the solution adopted for this implementation.
+
 \subsection{Sensor Emulation}
 
 The sensor initialises the ILNPSocket, and depending on whether or not it is configured to operate as the sink (where all the data from every node is collected) begins either polling for packets or sending 'readings' at intervals.
@@ -529,70 +532,124 @@ Each test was run multiple times in order to ensure that the results were consis
 
 \subsection{Results}
 
-Figures \ref{fig:datasnapone} and \ref{fig:ctrlsnapone} show the concentration of data and control packets throughout the network during the intialisation of the network in the multiple sink scenario. As expected, the overhead is initially quite high, as every node is trying to learn routes to the sink. 
+\textbf{ILNP}
+
+\noindent Figures \ref{fig:datasnapone} to \ref{fig:ctrlsnapthree} show the concentration of data and control packets throughout the network over the period of three equally sized snapshots.
+
+In figure \ref{fig:datasnapone}, node 19 is able to immediately send packets to the sink and so it shows the highest data packet traffic. From the log files it is also evident that it is forwarding packets from the adjacent nodes in its locator. Figure \ref{fig:ctrlsnapone} shows an increase in control packets from nodes in locators further from the sink, as they need to perform locator discovery to find the sink node. In the next snapshot, we can see the effect of route replies as large burst of data packets and route replies are being forwarded by nodes 5 and 9. In the final snapshot, we can see that node 19 has failed. The rest of the network does not appear to recover as node 15 (the only remaining link to the sink) is not forwarding any more traffic than before.
+
+\medskip
+\noindent\textbf{IP}
+
+\noindent Figures \ref{fig:ipdatasnapone} to \ref{fig:ipctrlsnapthree} show very different traffic patterns to the ILNP experiment. The control traffic in each snapshot is fairly consistent due to the keepalives, though in the first snapshot the distribution of LSDB messages is not even. Data packets are being sent by each node but mostly for three individual nodes. These abnormal peaks in traffic are likely due to implementation error.
+
+\medskip
+\noindent\textbf{Discussion}
+
+\noindent The results do not give much insight into differences between ILNP and IP. They also do not seem to suggest any load balancing or recovery is occuring successfully. However, from the logs it was observed that the sizes of the forwarding tables and network graphs stored by each node are very different. In ILNP, only one locator worth of adresses and a path to the sink is stored, whilst in the IP experiment, both the network graph and forwarding table are large. If the WSN was to be scaled up further, this issue would be exacerbated. The limited memory of IoT devices would place a limit on the size of the network, whilst in this implementation the forwarding table would only be affected by additional nodes within the locator. 
+
+A different approach to the experiment had been considered before using only AODV, and the source code for this will be included in the submission. Whilst that implementation did perform better overall when routing packets in the same network topology than the implementation chosen, it did not make use of the locators in ILNP. The implementation used in this submission was used instead despite being less functional due to the fact that it provided a way to compare IP and ILNP (by changing the ratio of locators to nodes). Given more time to test and debug, the protocol could potential perform very well, but the more interesting design was realised too close to the submission date which left little time for fixes. 
+
+A criticism that can be made of the chosen protocol is that its complexity made development and debugging very difficult. In order to test that it worked correctly, many scenarios had to be recreated. Since arrival times of messages would vary, finding the series of events that led to a problematic state was very time consuming. Verifying the protocol by applying exhaustive model checking would have definitely helped.
 
 \begin{figure}[!ht]
     \centering
     \begin{minipage}{0.45\textwidth}
         \centering
-        \includegraphics[width=0.9\textwidth]{example-image-a} % first figure itself
-        \caption{Data packets sent by each node during network initialisation.}
+        \includegraphics[width=\textwidth]{images/ilnp/snapshot0-Data.png} % first figure itself
+        \caption{Data packets sent by each node during network initialisation when using ILNP.}
         \label{fig:datasnapone}
     \end{minipage}\hfill
     \begin{minipage}{0.45\textwidth}
         \centering
-        \includegraphics[width=0.9\textwidth]{example-image-b} % second figure itself
-        \caption{Control packets sent by each node during network initialisation.}
+        \includegraphics[width=\textwidth]{images/ilnp/snapshot0-Control.png} % second figure itself
+        \caption{Control packets sent by each node during network initialisation when using ILNP}
         \label{fig:ctrlsnapone}
     \end{minipage}
 \end{figure}
 
-Figures \ref{fig:datasnaptwo} and \ref{fig:ctrlsnaptwo} show how the overhead decreases once routes are established, and how the paths taken are fairly evenly spread and not just focused around the shortest paths. 
-
 \begin{figure}[!ht]
     \centering
     \begin{minipage}{0.45\textwidth}
         \centering
-        \includegraphics[width=0.9\textwidth]{example-image-a} % first figure itself
-        \caption{Data packets sent by each node once initial routes have been established.}
+        \includegraphics[width=\textwidth]{images/ilnp/snapshot1-Data.png} % first figure itself
+        \caption{Data packets sent by each node once initial routes have been established when using ILNP}
         \label{fig:datasnaptwo}
     \end{minipage}\hfill
     \begin{minipage}{0.45\textwidth}
         \centering
-       \includegraphics[width=0.9\textwidth]{example-image-b} % second figure itself
-        \caption{Control packets sent by each node once intial routes have been established.}
+       \includegraphics[width=\textwidth]{images/ilnp/snapshot1-Control.png} % second figure itself
+        \caption{Control packets sent by each node once intial routes have been established when using ILNP}
         \label{fig:ctrlsnaptwo}
     \end{minipage}
 \end{figure}
-
-Figures \ref{fig:datasnapfour} and \ref{fig:ctrlsnapfour} show how as nodes begin to fail, the limited number of paths force heavier traffic to pass through the remaining nodes. The failing nodes have occurred near the sinks as expected.
 
 \begin{figure}[!ht]
     \centering
     \begin{minipage}{0.45\textwidth}
         \centering
-        \includegraphics[width=0.9\textwidth]{example-image-a} % first figure itself
-        \caption{Data packets sent by each node once failures have started to occur.}
-        \label{fig:datasnapfour}
+        \includegraphics[width=\textwidth]{images/ilnp/snapshot2-Data.png} % first figure itself
+        \caption{Data packets sent by each node once failures have started to occur when using ILNP}
+        \label{fig:datasnapthree}
     \end{minipage}\hfill
     \begin{minipage}{0.45\textwidth}
         \centering
-        \includegraphics[width=0.9\textwidth]{example-image-b} % second figure itself
-        \caption{Control packets sent by each node once failures have started to occur.}
-        \label{fig:ctrlsnapfour}
+        \includegraphics[width=\textwidth]{images/ilnp/snapshot2-Control.png} % second figure itself
+        \caption{Control packets sent by each node once failures have started to occur when using ILNP}
+        \label{fig:ctrlsnapthree}
+    \end{minipage}
+\end{figure}
+
+
+\begin{figure}[!ht]
+    \centering
+    \begin{minipage}{0.45\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/ip/snapshot0-Data.png} % first figure itself
+        \caption{Data packets sent by each node during network initialisation when using IP}
+        \label{fig:ipdatasnapone}
+    \end{minipage}\hfill
+    \begin{minipage}{0.45\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/ip/snapshot0-Control.png} % second figure itself
+        \caption{Control packets sent by each node during network initialisation when using IP}
+        \label{fig:ipctrlsnapone}
+    \end{minipage}
+\end{figure}
+
+\begin{figure}[!ht]
+    \centering
+    \begin{minipage}{0.45\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/ip/snapshot1-Data.png} % first figure itself
+        \caption{Data packets sent by each node once initial routes have been established when using IP}
+        \label{fig:ipdatasnaptwo}
+    \end{minipage}\hfill
+    \begin{minipage}{0.45\textwidth}
+        \centering
+       \includegraphics[width=\textwidth]{images/ip/snapshot1-Control.png} % second figure itself
+        \caption{Control packets sent by each node once intial routes have been established when using IP}
+        \label{fig:ipctrlsnaptwo}
+    \end{minipage}
+\end{figure}
+
+\begin{figure}[!ht]
+    \centering
+    \begin{minipage}{0.45\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/ip/snapshot2-Data.png} % first figure itself
+        \caption{Data packets sent by each node once failures have started to occur when using IP}
+        \label{fig:ipdatasnapthree}
+    \end{minipage}\hfill
+    \begin{minipage}{0.45\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/ip/snapshot2-Control.png} % second figure itself
+        \caption{Control packets sent by each node once failures have started to occur when using IP}
+        \label{fig:ipctrlsnapthree}
     \end{minipage}
 \end{figure}
 
 \FloatBarrier
-
-\section{Discussion}
-
-\begin{enumerate}
-\item Explain features of heat map and snapshots
-\item Discuss how well the routing protocol performed, compared to other implementations. 
-\item Discuss weaknesses with experiment
-\end{enumerate}
-
 \pagebreak
 \section{Conclusions}
 
@@ -606,9 +663,71 @@ future work with ILNP, possible suggestions of better alternatives to the routin
 
 \pagebreak
 \section{Appendix}
+
+\textbf{Running the experiment}
 \begin{enumerate}
-\item Instructions on installing, and executing and using the python module
+	\item Update file paths in 
+	\begin{enumerate}
+		\item \emph{cleanup.sh}
+		\item \emph{run\_configs\_on\_machines.sh}
+		\item \emph{run\_with\_config.sh}
+	\end{enumerate}
+	\item Run \emph{get\_up\_machines.sh} to ping all lab machines.
+	\item Run \emph{generate\_config\_from\_list.sh configs/\_list.txt name} to generate python configuration file (.ini)
+	\item Run \emph{run\_configs\_on\_machines.sh configs/\_list.txt name} to start application on list of machines.
+
 \end{enumerate}
+
+\noindent\textbf{Configuration for ILNP Test}
+
+\begin{lstlisting}
+LOC_1_ID_1_MCAST_2_3_4
+LOC_1_ID_2_MCAST_1_3_5_6
+LOC_1_ID_3_MCAST_1_2_4_5
+LOC_1_ID_4_MCAST_1_3_5_11
+LOC_1_ID_5_MCAST_2_3_4_9_12
+LOC_2_ID_6_MCAST_2_7_8_9
+LOC_2_ID_7_MCAST_6_8_10
+LOC_2_ID_8_MCAST_6_7_9_10
+LOC_2_ID_9_MCAST_5_6_8_10_16
+LOC_2_ID_10_MCAST_7_8_9_17
+LOC_3_ID_11_MCAST_4_12_13_14
+LOC_3_ID_12_MCAST_5_11_13_15_16
+LOC_3_ID_13_MCAST_11_12_14_15
+LOC_3_ID_14_MCAST_11_13_15
+LOC_3_ID_15_MCAST_12_13_14_19_21
+LOC_4_ID_16_MCAST_9_12_17_18_19
+LOC_4_ID_17_MCAST_10_16_18_20
+LOC_4_ID_18_MCAST_16_17_19_20
+LOC_4_ID_19_MCAST_15_16_18_20_21
+LOC_4_ID_20_MCAST_17_18_29
+LOC_4_ID_21_MCAST_15_19
+\end{lstlisting}
+
+\noindent\textbf{Configuration for IP Test}
+\begin{lstlisting}
+LOC_1_ID_1_MCAST_2_3_4
+LOC_1_ID_2_MCAST_1_3_5_6
+LOC_1_ID_3_MCAST_1_2_4_5
+LOC_1_ID_4_MCAST_1_3_5_11
+LOC_1_ID_5_MCAST_2_3_4_9_12
+LOC_1_ID_6_MCAST_2_7_8_9
+LOC_1_ID_7_MCAST_6_8_10
+LOC_1_ID_8_MCAST_6_7_9_10
+LOC_1_ID_9_MCAST_5_6_8_10_16
+LOC_1_ID_10_MCAST_7_8_9_17
+LOC_1_ID_11_MCAST_4_12_13_14
+LOC_1_ID_12_MCAST_5_11_13_15_16
+LOC_1_ID_13_MCAST_11_12_14_15
+LOC_1_ID_14_MCAST_11_13_15
+LOC_1_ID_15_MCAST_12_13_14_19_21
+LOC_1_ID_16_MCAST_9_12_17_18_19
+LOC_1_ID_17_MCAST_10_16_18_20
+LOC_1_ID_18_MCAST_16_17_19_20
+LOC_1_ID_19_MCAST_15_16_18_20_21
+LOC_1_ID_20_MCAST_17_18_29
+LOC_1_ID_21_MCAST_15_19
+\end{lstlisting}
 
 \bibliographystyle{unsrt}
 \bibliography{mybib}
