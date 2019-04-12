@@ -665,9 +665,9 @@ Overall, the project was able to meet two of the original four goals. ILNP addre
 
 Future work that could improve the robustness of the protocol would be to handle the situations where a network partition occurs within a locator. One possible solution would be to allow locators to form dynamically. The implementation used originally featured a mechanism for 'joining' a locator instead of having them statically assigned as in the experiment. By identifying the central node within a locator and setting a maximum radius for each locator, partions within locators could be resolved by both sides of the split attempting to merge with the surrounding locators. This was scrapped from the project due to a shortage of time, but attempts can be found in the version control history.
 
-Security was not considered at all when desigining this protocol, which definitely makes it unsuitable for many situations. It relies heavily on all control messages being limited, and on the honesty of nodes. For example, if a node with plentiful energy wished to process less network traffic, it could advertise itself as having low energy reserves and be the least likely candidate for forwarding.
+Security was not considered at all when desigining this protocol, which definitely makes it unsuitable for many situations. It relies heavily on all control messages being legitimate and on the honesty of nodes regarding the ability to forward traffic. For example, if a node with plentiful energy wished to process less network traffic, it could advertise itself as having low energy reserves and be the least likely candidate for forwarding.
 
-The project sufferred due to taking too long to settle on a design, but the process of considering and attempting different variations on ad-hoc routing protocols was very educational.
+The project sufferred due to taking too long to settle on a design, but the process of considering and attempting different variations on ad-hoc routing protocols was very educational. Whilst disappointed that I was not able to get a fully working prototype, the opportunity to work on and resesearch the potential future of the internet proved very interesting.
 
 \pagebreak
 \section{Appendix}
