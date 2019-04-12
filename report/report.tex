@@ -240,113 +240,41 @@ The protocol used is a reactive zone-based routing protocol (ZBR), and is based 
 	\item Locators cover a similiar physical area, in a lattice structure.
 \end{enumerate}
 
-Agricultural sensor networks often consist of many sensor nodes for monitoring the environment and a few actuators for triggering sprinklers or covering delicate crops. Based on this data, sensors could control the actuators within their locators themselves, whilst reporting their readings to the sink for further analysis. By splitting sensors into geographically relevant zones and assiging locators using tools such as GPS, the arriving data could also be grouped by origin location to help with visualisation and analysis at the sink. 
-
-Our ZBR uses a different routing strategy for routing within and between locators, referred to as the intrazone and interzone routing protocols (IARP, and IERP). The IERP is based on the reactive protocol AODV, and the IARP is based on the link state protocol OLSR with added fields to try and account for energy usage in paths. 
-
-Figure \ref{fig:actuate} provides example communication paths, where data is communicated from the nodes in one zone to the sink in another zone.
-
-The protocol was specifically designed for autonomous subnetworks to operate, while still being able to route globally. For example, sensors could communicate with actuators within their subnetworks, whilst sending monitoring data to a global sink. The only knowledge that would be available upon initialization is the ID and locator for the starting node, and the ID of the sink node. The sink node could then be multihomed without having to reconfigure the entire network of sensors. Sensors could also detect any other hosts within their subnetwork, which could be devices such as sprinkler systems, shelters, or cameras.
+The scenario this protocol was designed for involved agricultural sensor networks. These often consist of many sensor nodes for monitoring the environment and a few actuators for triggering sprinklers or covering delicate crops. Based on the data collected by sensors, they could control the actuators within their locators themselves, whilst reporting their readings to the sink for further analysis. By splitting sensors into geographically relevant zones and assiging locators using tools such as GPS, the arriving data could also be grouped by origin location to help with visualisation and analysis at the sink. 
 
 \begin{figure}[!ht]
 	\centering
-	\includegraphics[width=0.5\linewidth]{images/actuate}
+	\includegraphics[width=0.8\linewidth]{images/actuate}
 	\caption{Communication patterns in agricultural WSN}
 	\label{fig:actuate}
 \end{figure}
 
-A reactive protocol was chosen for communication between zones in order to limit the amount of network knowledge required for routing. It also has the benefit that link breakages do not need to be broadcast to the entire network, and can instead only be sent to nodes relying on that links existence at the time of breakage.
+Figure \ref{fig:actuate} provides an example of communication where a sensor wants to trigger some behaviour at an actuator node, and also sends its readings to the sink node. 
 
-A proactive protocol was chosen for routing within locators as it would provide node discovery, and would hopefully reduce the number of repeated route discoveries after breakages by being able to find alternative routes within zones.
+In this scenario, the only knowledge that would be available upon initialization of a sensor is its ID and locator, and the ID of the sink node. Sensors would detect any other hosts within their subnetwork, which could be devices such as sprinkler systems, shelters, or cameras. If the sink node was not part of their subnetwork, then they would need to locate it.
+
+In order to scale for large farms, this zone based protocol uses a different routing strategy for routing within and between locators, referred to as the intrazone and interzone routing protocols (IARP, and IERP). The IERP is based on the reactive protocol AODV, and the IARP is based on the link state protocol OLSR with added fields to try and account for energy usage in paths. 
+
+A reactive protocol was chosen for communication between locators in order to limit the amount of network knowledge required for routing. It also has the benefit that link breakages do not need to be broadcast to the entire network, and can instead only be sent to nodes relying on that links existence at the time of breakage.
+
+A proactive protocol was chosen for routing within locators as it would provide node discovery, and would hopefully reduce the number of repeated route discoveries after breakages by being able to find alternative routes within locators. Whilst the keepalives may affect battery life, the static nature of such a network would allow for a large delay between them, making their effect neglible.
 
 \subsection{Intra-Zone Routing Protocol}
 
 Initially, each node broadcasts its presence to its neighbours in order to learn what links were available to it using a \emph{Hello} message, containing its lambda value. 
 
-Neighbouring nodes reply with their current link state database (LSB) in a \emph{LSBMessage}. This message contains the neighbouring nodes knowledge of the internal (within the locator) topology, as well as the links to external networks (other locators). Figure \ref{fig:lsbexchange} gives a simple example of this communication. Whilst still in the intiliziation phases, neighbours will flood their entire LSBs to their neighbours, and once the messages they receive contain match their own LSBs, they can be considered initialized. This ensures that every node in the network has the same database and is aware of all other nodes in the network.
+Neighbouring nodes reply with their current link state database (LSDB) in a \emph{LSDBMessage}. This message contains the neighbouring nodes knowledge of the internal (within the locator) topology, as well as the links to external networks (other locators). Whilst still in the intiliziation phases, neighbours will flood their entire LSBs to their neighbours until no more changes are detected. At this point they can be considered initialized. This ensures that every node in the network has the same database and is aware of all other nodes in the network.
 
-\begin{figure}[!ht]
-	\centering
-	\includegraphics[width=\linewidth]{images/ldb}
-	\caption{Exchange of LSB messages when a new node joins.}
-	\label{fig:lsbexchange}
-\end{figure}
-
-Nodes that exist on the border of locators will discard LSBs they receive from the locators they are not part of. They will however use these messages to learn what other locators can be reached from their neighbours, eventually providing them with next hops for all locators in the WSN.
-
-Once converged and the entire local topology is available, data packets would be routed using the following logic:
-
-\begin{enumerate}
-	\item If the packet destination ID matches the current node, then it will add the payload of the packet to the received queue. 
-	\item Otherwise it will attempt to find the next hop for the packet, provided by the forwarding table, and forward it to the node with that ID. 
-	\item If no entries are found in the forwarding table:
-	\begin{enumerate}
-		\item If the packet destination locator matches this nodes locator, then not finding a next hop suggests that the destination ID doesn't exist, and so the packet is discarded. 
-		\item Otherwise, the inter-zone routing protocol will be invoked, but only if the packet originates from the current node. 
-	\end{enumerate}
-\end{enumerate}
-
-This method ensures that packets arriving from external locators will receive best effort routing based on the assumptions that:
-
-\begin{enumerate}
-	\item All nodes within a locator have at least one path between each other. 
-	\item Data packets are only sent to other locators once a route has been established.
-\end{enumerate}
-
-Whenever a link is detected as being lost due to the lack of keepalive messages after a period of time, then this information will be shared within the network. A \emph{ExpiredLink} message will be broadcast, and flooded by nodes within the same locator in order to remove the link from their network, or to inform the other nodes that a neighbouring locator is no longer accessible via a given link.
-
-\subsection{Inter-Zone Routing Protocol}
-
-AODV is a reactive protocol that is used differently for inter-zone and inter-zone routing. Inside locators, the hop list will consist of node IDs, providing exact routes between the source and destination. Between locators, the hop list will consist of locators, and the exact hop-by-hop routing will be provided by each zone internally.
-
-AODV has three phases: discovery, maintenance, and recovery.
-
-To discover routes to a given destination, AODV produces a list of hops that a packet can be sent over to reach a destination by flooding route request packets (RREQs). The route discovery process is summarised in figure \ref{fig:path}, where the leftmost node (1) is requesting a route to the rightmost node (4).
-
-\begin{figure}[!ht]
-	\centering
-	\includegraphics[width=\linewidth]{images/path}
-	\caption{Route Discovery Overview}
-	\label{fig:path}
-\end{figure}
-
-Figure \ref{fig:rreqflow} shows how RREQs are processed at each node. The destination node replies to all route requests for it, as this can provide multiple paths to the requesting node. Intermediate nodes however only forward requests based on whether or not they've seen them already. This can be established based on the request ID, which coupled with the source ID in the ILNP packet header can identify duplicate requests. Otherwise if this node's identifier already appears in the path so far, then it can also be discarded. These checks reduce unecessary duplication of request packets and avoid loops in the resulting paths.
-
-When using ILNP instead of IP with AODV, packets can be routed based on the identifier alone, and this can result in multiple paths to the same node. This provides robust communication if the end destination is multihomed (i.e. has interfaces to multiple locators), with less complexity than in IP. It also makes it easier to identify disjoint paths as the node has a single name in the network, which wouldn't be the case in IP multihoming. 
-
-\begin{figure}[!ht]
-	\centering
-	\includegraphics[width=\linewidth]{images/rreqflow}
-	\caption{Route Request (RREQ) Flow}
-	\label{fig:rreqflow}
-\end{figure}
-
-Once the RREQ reaches its destination, or any intermidiate node that already has a path cached to the that destination, a Route Reply (RRPLY) is generated by copying the full path from the RREQ or route cache and sending it back along the same path it arrived to the requesting node. Figure \ref{fig:rrplyflow} shows the processing that occurs at each node.
-
-By forwarding RRPLYs along the reverse of the path that they contain, we ensure that the route hasn't broken between creation and reception of the route request. Intermediate nodes can filter erraneous route replies by only considering those where they know the next hop neighbour is still available.
-
-This only works if we assume that all links are bidrectional which is not always the case especially in heterogenous WSNs, due to differences in transceiver ranges. 
-\cite{unidirec} shows that accounting for unidirectional links in a protocol does not provide much benefit compared to the increased overhead. Also in our scenario, the nodes are likely to be homogenous and evenly spaced, so transceiver power can be assumed to be equal throughout, with no interference hot spots. 
-
-\begin{figure}[h]
-	\centering
-	\includegraphics[width=\linewidth]{images/rrplyflow}
-	\caption{Route Reply (RRPLY) Flow}
-	\label{fig:rrplyflow}
-\end{figure}
-
-The structure of the route request is the same as in RFC3561 \cite{aodv}, but with an extra $\lambda$ field in the header. This value provides a metric for determining the lifespan of a route, and is calculated for an individual node using equation \ref{eq:lambda}, and visualised in Figure \ref{fig:lambda}. 
+The LSDB messages also provide a metric for choosing paths based on their energy levels. Each node calculates a value $\lambda$ using equation \ref{eq:lambda}, which is visualised in Figure \ref{fig:lambda}. 
 
 \begin{equation} \label{eq:lambda}
 	\lambda = 1 -(1 - E)^2
 \end{equation}
 
-where $L$ is the \% of load the node is willing to give to networking, and $E$ is the \% battery remaining. It is based on the equation for $\lambda$ in \cite{groups}, adjusted so that $E = 0$ occurs when the battery is empty. 
-The effect of decreasing $E$ was chosen so that the value of $\lambda$ would be similiar during network initialization, but to avoid network partions smaller values of $E$ would have a greater effect on $\lambda$.
-Each node calculates this value before adding their ID to the path in the RREQ, and only changes the field in the packet if its calculated value is lower. 
+where $E$ is the \% battery remaining. It is based on the equation for $\lambda$ in \cite{groups}, adjusted so that $E = 0$ occurs when the battery is empty. 
+The effect of decreasing $E$ was chosen so that the value of $\lambda$ would be similiar during network initialization, and would gradually become important as the $E$ decreased.
 
-\cite{groups} also included a load balancing factor that would account for the number of neighbours a node had, and this was considered for use in the AODV implementation. Instead of using the number of neighbours as in their link state protocol, we could use the number of nodes using a route that passed through this node. 
-This value could be ascertained by counting the number of unique source IDs of packets that were forwardded. However, defining a maximum in order to normalise this factor would place restrictions on how large the network could grow. Too large and the factor has no real effect, too small and it would reduce to zero making the metric meaningless for nodes further upstream. If this number could be supplied however, it would help other nodes choose routes that aren't being used as heavily, which would be very beneficial for the lifespan of the network.
+\cite{groups} also included a load balancing factor that would account for the number of neighbours a node had, and this was considered for use in the this implementation, but was not implemented.
 
 \begin{figure}[h]
 	\centering
@@ -380,20 +308,110 @@ This value could be ascertained by counting the number of unique source IDs of p
 	\label{fig:lambda}
 \end{figure}
 
-In order to check if neighbours are still live, \emph{HELLO} messages are exchanged at regular intervals between neighbouring nodes. These messages also provide neighbour discovery as they are limited to one hop, therefore the source ID can be mapped to the arriving IPv6 address in the emulated link layer. 
+Nodes that exist on the border of locators will discard LSBs they receive from the locators they are not part of. They will however use these messages to learn what other locators can be reached from their neighbours, eventually providing them with next hops for all locators in the WSN.
+
+Once converged and the entire local topology is available, data packets would be routed using the following logic:
+
+\begin{enumerate}
+	\item If the packet destination ID matches the current node, then it will add the payload of the packet to the received queue. 
+	\item Otherwise it will attempt to find the next hop for the packet, provided by the forwarding table, and forward it to the node with that ID. 
+	\item If no entries are found in the forwarding table:
+	\begin{enumerate}
+		\item If the packet destination locator matches this nodes locator, then not finding a next hop suggests that the destination ID doesn't exist, and so the packet is discarded. 
+		\item Otherwise, the inter-zone routing protocol will be invoked, but only if the packet originates from the current node. 
+	\end{enumerate}
+\end{enumerate}
+
+This method ensures that packets arriving from external locators will receive best effort routing based on the assumptions that:
+
+\begin{enumerate}
+	\item All nodes within a locator have at least one path between each other. 
+	\item Data packets are only sent to other locators once a route has been established.
+\end{enumerate}
+
+With the link state databases synchronised, nodes then begin periodically sending keepalive messages. Figure \ref{fig:helloflow} shows how these messages are processed. 
 
 \begin{figure}[!ht]
 	\centering
 	\includegraphics[width=0.6\linewidth]{images/helloflow}
-	\caption{Hello Flow}
+	\caption{Keepalive (hello) flow.}
 	\label{fig:helloflow}
 \end{figure}
 
-Figure \ref{fig:helloflow} shows how the \emph{HELLO} messages are processed. If a node fails to deliver a hello messages after a certain interval, then it's neighbours will begin the route recovery process.
+Whenever a link is detected as being lost due to the lack of keepalive messages after a period of time, then this information will be shared within the network. A \emph{ExpiredLink} message will be broadcast, and flooded by nodes within the same locator in order to remove the link from their network, or to inform the other nodes that a neighbouring locator is no longer accessible via a given link.
 
-Cached routes will also expire after some time to trigger another route request if required. This allows nodes to learn if a path is under heavy load, and ensures that a route will be corrected if for some reason the recovery process is not completed. 
+\begin{figure}[!ht]
+	\centering
+	\includegraphics[width=\linewidth]{images/ldb}
+	\caption{Intra-zone routing protocol process (image credit \cite{ldb}}
+	\label{fig:lsbexchange}
+\end{figure}
 
-If the keepalive process fails for a neighbour, then a node will forward a RERR to all previous nodes in any paths it takes part in, shown in figure \ref{fig:rerrflow}.
+The internal forwarding table is constructed from the link state database messages as shown in figure \ref{fig:lsbexchange}. The network graph is converted to a forwarding table by constructing a shortest path tree. In the case where two equal length paths exist between this node and a destination, the one with the best value for $\lambda$ will be chosen for the next hop. The forwarding table also caches the locators for nodes outside of the current locator so that route discovery is not repeated unnecessarily.
+
+\subsection{Inter-Zone Routing Protocol}
+
+The inter-zone routing protocol is based on AODV, which is a reactive protocol. AODV typically has three phases (route discovery, maintenance, and repair), but in this implementation route discovery also provides locator discovery.
+
+Locator discovery is necessary since locators are not known for all nodes in the network. Usually the DNS would provide the locators for a given identifier or fully qualified domain name (FQDN), but since that is not a practical option for a wireless sensor network, the locator will have to be found manually. 
+
+To discover routes to a given ID, a route request is made. A node will create a route request and forward a copy towards each of neighbouring locators. The first node that receives the request in each locator will check if the destination ID is in their subnetwork, and if so they will reply. Otherwise, they will forward it to any neighbours that have not already been added to the hop list. The route discovery process is summarised in figure \ref{fig:path}, where a node from the leftmost locator (1) is requesting a route to a node in the the rightmost locator (4).
+
+\begin{figure}[!ht]
+	\centering
+	\includegraphics[width=\linewidth]{images/path}
+	\caption{Route discovery made by a node in locator one for a node that is found in locator 4.}
+	\label{fig:path}
+\end{figure}
+
+Figure \ref{fig:rreqflow} shows how RREQs are processed at each node. The destination node replies to all route requests for it, as this can provide multiple paths to the requesting node. Intermediate nodes however only forward requests based on whether or not they've seen them already. This can be established based on the request ID in the RREQ message, which coupled with the source ID in the ILNP packet header can identify duplicate requests. Usually in AODV, route requests are flooded to all nodes. In this implementation, route requests are unicasted to border nodes instead in order to reach other locators. 
+
+When using ILNP instead of IP with AODV, packets can be routed based on the identifier alone, and this can result in multiple paths to the same node. This provides robust communication if the end destination is multihomed (i.e. has interfaces to multiple locators), with less complexity than in IP. 
+
+\begin{figure}[!ht]
+	\centering
+	\includegraphics[width=\linewidth]{images/rreqflow}
+	\caption{Route Request (RREQ) Flow}
+	\label{fig:rreqflow}
+\end{figure}
+
+Once the RREQ reaches its destination, or any intermidiate node that already has a path cached to the that destination, a Route Reply (RRPLY) is generated by copying the full path from the RREQ or route cache and sending it back along the same path it arrived to the requesting node. Figure \ref{fig:rrplyflow} shows the processing that occurs at each node.
+
+
+\begin{figure}[h]
+	\centering
+	\includegraphics[width=\linewidth]{images/rrplyflow}
+	\caption{Route Reply (RRPLY) Flow}
+	\label{fig:rrplyflow}
+\end{figure}
+
+By forwarding RRPLYs along the reverse of the path that they contain, we ensure that the route hasn't broken between creation and reception of the route request. Intermediate nodes can filter erraneous route replies by only considering those where they know the next hop neighbour is still available.
+
+This only works if we assume that all links are bidrectional which is not always the case especially in heterogenous WSNs, due to differences in transceiver ranges. 
+\cite{unidirec} shows that accounting for unidirectional links in a protocol does not provide much benefit compared to the increased overhead. Also in our scenario, the nodes are likely to be homogenous and evenly spaced, so transceiver power can be assumed to be equal throughout, with no interference hot spots. 
+
+\begin{figure}[!ht]
+	\centering
+	\includegraphics[width=0.5\linewidth]{images/nb}
+	\caption{Border Nodes (Red)}
+	\label{fig:border}
+\end{figure}
+
+If multiple border nodes (nodes that have links to another locator) provide links to the same neighbour zone, then they will will alterate between them using a weighted round robin method based on the path costs to avoid all traffic travelling through the same border node. For example, in figure \ref{fig:border} there are two links from locator 2 to locator 1, and so either can be used.
+
+When packets arrive to be forwarded to another locator, the interzone forwarding table will be used to find the next hop locator. Then the intrazone forwarding table will be used to provide the next hop ID in order to reach a border node that can get the packet closer to the destination locator;
+
+Figure \ref{fig:external} shows the full locator discovery occuring, which returns the locator of the destination node with the requested ID, and the hop by hop list of locators that have to be crossed to reach it.
+Once this locator discovery has been carried out, border nodes will be aware of how to reach each locator, and so will be able to forward packets to that destination.
+
+\begin{figure}[!ht]
+	\centering
+	\includegraphics[width=\linewidth]{images/external}
+	\caption{Locator Discovery where node 1 needs a route to node 9. The black numbered circles each represent a node with an ID, and the green squares are locators.}
+	\label{fig:external}
+\end{figure}
+
+If the keepalive process fails for a neighbour and two locators in the route are no longer linked, then a node will forward a RERR to all previous nodes in any paths it takes part in, shown in figure \ref{fig:rerrflow}.
 
 \begin{figure}[h]
 	\centering
@@ -404,64 +422,15 @@ If the keepalive process fails for a neighbour, then a node will forward a RERR 
 
 Any packets that were sent between the failure of the link and the receiving of a route error will most likely be dropped, and future packets will be delayed as route discovery will have to take place again unless this node is aware of a disjoint path to the destination.
 
-% TODO Merge this into sections talking about that part of the protocol
-
-The intra-zone routing table is responsible for forwarding packets between the nodes of a locator. To do this, it keeps track of:
-
-\begin{enumerate}
-	\item The destination node ID
-	\item The next hop ID to reach the destination ID
-	\item The cost of this path, based on $\lambda$.
-	\item Whether or not the destination node is a border or normal node.
-	\item The neighbouring locators that the destination node has links to (border nodes only).
-\end{enumerate}
-
-The intra-zone routing table is built by broadcasting RREQs where each hop is an node ID, and only contains routes to actuator nodes and border nodes. 
-
-% TODO Merge this into sections talking about that part of the protocol
-
-The inter-zone routing table is responsible for forwarding packets between nodes in different locators, and is maintained by nodes that exist on the borders of these locators such as those highlighted red in figure \ref{fig:border}. It contains information about:
-
-\begin{enumerate}
-	\item The destination locator 
-	\item The next hop locator to reach this destination (i.e the ID of a border node from a neighbouring locator)
-\end{enumerate}
-
-If multiple border nodes provide links to the same neighbour zone, then nodes will alterate between them using a weighted round robin method based on the path costs to avoid all traffic travelling through the same border node.
-
-When packets arrive to be forwarded to another locator, the interzone forwarding table will be used to find the next hop locator. Then the intrazone forwarding table will be used to provide the next hop ID in order to reach a border node that can get the packet closer to the destination locator;
-
-\begin{figure}[!ht]
-	\centering
-	\includegraphics[width=0.5\linewidth]{images/nb}
-	\caption{Border Nodes}
-	\label{fig:border}
-\end{figure}
-
-Figure \ref{fig:external} shows locator discovery occuring, which returns the locator of the destination node with the requested ID, and the hop by hop list of locators that have to be crossed to reach it.
-Once this locator discovery has been carried out, border nodes will be aware of how to reach each locator, and so will be able to forward packets to that destination.
-
-\begin{figure}[!ht]
-	\centering
-	\includegraphics[width=0.8\linewidth]{images/external}
-	\caption{Locator Discovery}
-	\label{fig:external}
-\end{figure}
-
 \FloatBarrier
 \pagebreak
 \section{ILNP Testbed Implementation}
 
 Due to the recency of ILNPv6, there does not currently exist software for emulating wireless ILNP networks as there is for IP, therefore a custom testbed had to be implemented.  
 
-The testing environment was implemented using Python 3.7. The project has three main components: The wireless network emulation, routing and network management, and sensor emulation. Figure \ref{fig:struc} shows the components with the flow of messages.
+The testing environment was implemented using Python 3.7. The project has three main components: The wireless network emulation, routing and network management, and sensor emulation. 
 
-\begin{figure}[!ht]
-	\centering
-	\includegraphics[width=\linewidth]{images/struc}
-	\caption{Implementation Structure}
-	\label{fig:struc}
-\end{figure}
+\subsection{Wireless Network Emulation}
 
 Emulating wireless communication was achieved by building an overlay network using UDP with multicast. A single UDP socket provided a communication endpoint.
 
@@ -483,21 +452,25 @@ The network interface abstraction provided the following methods:
 	\item \textbf{receive}: For receiving packets, broadcast or unicast.
 \end{enumerate}
 
-A daemon thread continuously polls the network interface for incoming data. It then parses the contents of the packet and records the source IDs and source IP addresses of any neighbourhood discovery packets for later communication. 
+A daemon thread continuously polls the network interface for incoming data. It then parses the contents of the packet and records the source IDs and source IP addresses of any neighbourhood discovery packets for later communication. Each message type has its own class with its own implementation of \emph{\_\_bytes\_\_} and \emph{from\_bytes()} which would allow them to be serialized from the arriving bytes. To reduce copying and speed up array splicing, memoryviews were used often.
 
-All polling functions included a timeout in order for each thread to check if it has been asked to terminate, if for example the power levels had reached a critical level.
+All polling functions included a timeout in order for each thread to check if it has been asked to terminate, if for example the power levels had reached a critical level. If so, a monitor object shared between all threads would be used to trigger a clean shutdown.
 
-The router polls the incoming packet queue and decides the next course of action. 
+\subsection{Routing and Network Management}
 
-The control plane handles any control packets or any packets that can't be forwarded using the current forwarding table, and is responsible for populating the forwarding table.
+The router polls the queue of parsed packets and decides the next course of action. It attempts to route data packets using the current forwarding tables, and hands off control packets to the control plane. 
 
-\#https://ieeexplore.ieee.org/document/7993954 to fix route reply storm issue: add jitter before responding with route reply and listen for other replies
+The control plane handles any control packets or any packets that can't be forwarded using the current forwarding table, and is responsible for populating the forwarding table. It also has a daemon thread which performs maintenance tasks such as aging and retrying route requests, sending keepalives, and monitoring links with neighbours.
+
+The interzone module provides the handler methods for the inter-zone routing protocol. It buffers packets waiting for a route reply for a given destination and handles the forwarding and processing of any inter-zone protocol messages.
+
+\subsection{Sensor Emulation}
 
 The sensor initialises the ILNPSocket, and depending on whether or not it is configured to operate as the sink (where all the data from every node is collected) begins either polling for packets or sending 'readings' at intervals.
 
 To mock realistic application data, a random fluctuation is applied to a series of values that would be relevant in our scenario: temperature, humidity, pressure, and luminosity \cite{agrisensor}.
 
-Only the ID of the sink is known by each node, which is all that should be necessary when using ILNP to route a packet. If it was possible to provide a FQDN for the sink node then the addressing scheme would be abstracted also, but emulating a DNS was deemed unecessary for the experiment.
+The monitor object shared throughout the project tracks any packets that are sent, and the sink also tracks any readings that it receives. These are then written to a file once the socket is closed for analysis.
 
 \pagebreak
 \section{Experiment}
